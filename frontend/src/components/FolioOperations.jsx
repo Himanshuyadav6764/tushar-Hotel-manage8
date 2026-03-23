@@ -554,7 +554,8 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
 
         const taxCfg = {
             foodGstPercent: (toNum(settings?.cgst) + toNum(settings?.sgst)) || toNum(settings?.foodGst) || 0,
-            servicePercent: toNum(settings?.roomServiceCharge ?? settings?.serviceCharge) || 0,
+            foodServicePercent: toNum(settings?.serviceCharge) || toNum(settings?.roomServiceCharge) || 0,
+            roomServicePercent: toNum(settings?.roomServiceCharge) || toNum(settings?.serviceCharge) || 0,
         };
 
         const extractOrderCode = (text) => {
@@ -588,16 +589,34 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
 
         const buildSectionBreakdown = (rows, sectionType) => {
             const sectionTotal = sumAmount(rows);
+            const details = [];
             const tagged = rows.reduce((acc, row) => {
                 const code = extractOrderCode(row.textRaw);
                 const linkedOrder = code ? orderByCode.get(code) : null;
 
                 if (sectionType === 'food' && linkedOrder) {
-                    const gst = toNum(linkedOrder.tax);
-                    const service = toNum(linkedOrder.serviceChargeAmount);
-                    const discount = toNum(linkedOrder.discountAmount);
-                    // Make base align with folio line amount so printed equation resolves exactly to posted folio total.
-                    const base = Math.max(0, row.amountAbs - gst - service + discount);
+                    const grossTag = parseTaggedAmount(row.textRaw, ['Gross', 'Amount']);
+                    const discount = toNum(linkedOrder.discountAmount) || parseTaggedAmount(row.textRaw, ['Discount']) || 0;
+                    let gst = toNum(linkedOrder.tax);
+                    let service = toNum(linkedOrder.serviceChargeAmount);
+                    let base = Math.max(0, row.amountAbs - gst - service + discount);
+
+                    if (grossTag !== null && (service <= 0.001) && (taxCfg.foodServicePercent > 0 || taxCfg.foodGstPercent > 0)) {
+                        const denom = 1 + (taxCfg.foodGstPercent / 100) + (taxCfg.foodServicePercent / 100);
+                        const inferredBase = denom > 0 ? grossTag / denom : grossTag;
+                        base = inferredBase;
+                        gst = inferredBase * (taxCfg.foodGstPercent / 100);
+                        service = inferredBase * (taxCfg.foodServicePercent / 100);
+                    }
+
+                    details.push({
+                        label: row.particulars || 'Food',
+                        base,
+                        gst,
+                        service,
+                        discount,
+                        total: row.amountAbs,
+                    });
                     acc.gross += base;
                     acc.gst += gst;
                     acc.service += service;
@@ -615,12 +634,19 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                 let service = serviceTag || 0;
 
                 // If cashier percentages are available and bill contains gross/final info, infer split without altering folio total.
-                if (sectionType === 'food' && (gross !== null || finalTag !== null) && gst === 0 && service === 0 && (taxCfg.foodGstPercent > 0 || taxCfg.servicePercent > 0)) {
+                if (sectionType === 'food' && (gross !== null || finalTag !== null) && gst === 0 && service === 0 && (taxCfg.foodGstPercent > 0 || taxCfg.foodServicePercent > 0)) {
                     const targetBeforeDiscount = Math.max(0, row.amountAbs + discount);
-                    const denom = 1 + (taxCfg.foodGstPercent / 100) + (taxCfg.servicePercent / 100);
+                    const denom = 1 + (taxCfg.foodGstPercent / 100) + (taxCfg.foodServicePercent / 100);
                     const inferredBase = denom > 0 ? targetBeforeDiscount / denom : targetBeforeDiscount;
                     gst = inferredBase * (taxCfg.foodGstPercent / 100);
-                    service = inferredBase * (taxCfg.servicePercent / 100);
+                    service = inferredBase * (taxCfg.foodServicePercent / 100);
+                }
+
+                if (sectionType === 'room' && (gross !== null || finalTag !== null) && service === 0 && taxCfg.roomServicePercent > 0) {
+                    const targetBeforeDiscount = Math.max(0, row.amountAbs + discount);
+                    const grossWithTax = gross !== null ? gross : targetBeforeDiscount;
+                    const serviceFromGross = grossWithTax * (taxCfg.roomServicePercent / (100 + taxCfg.roomServicePercent));
+                    service = Math.max(0, serviceFromGross);
                 }
 
                 if (sectionType === 'add' && gross !== null && finalTag !== null && gst === 0) {
@@ -630,6 +656,15 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
 
                 const baseFromEquation = Math.max(0, row.amountAbs - gst - service + discount);
                 const base = gross !== null ? Math.max(gross, baseFromEquation) : baseFromEquation;
+
+                details.push({
+                    label: row.particulars || (sectionType === 'food' ? 'Food' : sectionType === 'room' ? 'Room charge' : 'Add Charge'),
+                    base,
+                    gst,
+                    service,
+                    discount,
+                    total: row.amountAbs,
+                });
 
                 acc.gross += base;
                 acc.gst += gst;
@@ -644,12 +679,29 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                 service: tagged.service,
                 discount: tagged.discount,
                 total: sectionTotal,
+                details,
             };
         };
 
-        const roomCalc = buildSectionBreakdown(roomTx, 'room');
+        let roomCalc = buildSectionBreakdown(roomTx, 'room');
         const foodCalc = buildSectionBreakdown(foodTx, 'food');
         const addCalc = buildSectionBreakdown(addTx, 'add');
+
+        if (roomTx.length > 0 && roomCalc.service <= 0.001) {
+            const reservationRoomService = toNum(
+                reservation?.serviceChargeAmount
+                ?? reservation?.serviceCharge
+                ?? reservation?.billing?.serviceCharge
+            );
+
+            if (reservationRoomService > 0) {
+                roomCalc = {
+                    ...roomCalc,
+                    service: reservationRoomService,
+                    base: Math.max(0, roomCalc.total + roomCalc.discount - roomCalc.gst - reservationRoomService),
+                };
+            }
+        }
 
         const subtotal = roomCalc.base + foodCalc.base + addCalc.base;
         const gstTotal = roomCalc.gst + foodCalc.gst + addCalc.gst;
@@ -671,12 +723,26 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
         const lineRow = (label, value, strong = false) =>
             `<div class="row ${strong ? 'strong' : ''}"><span>${label}</span><span>${value}</span></div>`;
 
-        const foodNameLines = foodTx.length
-            ? foodTx.map((i) => lineRow(i.particulars || 'Food', money(i.amountAbs))).join('')
+        const foodNameLines = foodCalc.details.length
+            ? foodCalc.details.map((d, idx) => `
+                <div class="row strong"><span>${d.label || `Food ${idx + 1}`}</span><span>${money(d.total)}</span></div>
+                ${lineRow('  Food Price', money(d.base))}
+                ${lineRow('  Food GST', money(d.gst))}
+                ${lineRow('  Service Charge', money(d.service))}
+                ${lineRow('  Discount', `-${money(d.discount)}`)}
+                ${lineRow('  Line Total', money(d.total), true)}
+            `).join('')
             : lineRow('No food items', '0.00');
 
-        const addNameLines = addTx.length
-            ? addTx.map((i) => lineRow(i.particulars || 'Add Charge', money(i.amountAbs))).join('')
+        const addNameLines = addCalc.details.length
+            ? addCalc.details.map((d, idx) => `
+                <div class="row strong"><span>${d.label || `Add ${idx + 1}`}</span><span>${money(d.total)}</span></div>
+                ${lineRow('  Base Price', money(d.base))}
+                ${lineRow('  GST', money(d.gst))}
+                ${lineRow('  Service Charge', money(d.service))}
+                ${lineRow('  Discount', `-${money(d.discount)}`)}
+                ${lineRow('  Line Total', money(d.total), true)}
+            `).join('')
             : lineRow('No add charges', '0.00');
 
         const content = `<!DOCTYPE html><html><head><title>Tax Invoice - ${roomNo}</title>
@@ -692,8 +758,18 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                 .muted { color: #333; }
                 .formula { font-size: 11px; color: #333; margin: 1px 0 3px 0; }
                 .section { margin-top: 2px; }
+                .toolbar { display: flex; gap: 8px; justify-content: center; margin: 8px 0 10px 0; }
+                .toolbar button { border: 1px solid #222; background: #fff; color: #111; padding: 5px 10px; cursor: pointer; font-family: inherit; font-size: 12px; }
+                .toolbar button:hover { background: #f3f4f6; }
+                .note { text-align: center; font-size: 11px; color: #444; margin-bottom: 6px; }
+                @media print { .toolbar, .note { display: none; } }
             </style>
         </head><body>
+            <div class="toolbar">
+                <button onclick="triggerPrint()">Save / Print</button>
+                <button onclick="window.close()">Close</button>
+            </div>
+            <div class="note">Preview ready. Click Save / Print after checking full bill.</div>
             <div class="center title">TAX INVOICE</div>
             <div class="row"><span>${new Date().toLocaleString('en-IN')}</span><span>Folio: ${roomNo}</span></div>
             <div class="sep"></div>
@@ -755,7 +831,9 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
             ${lineRow('GST total', money(gstTotal))}
             ${lineRow('Discount total', `-${money(discountTotal)}`)}
             ${lineRow('Grand Total', money(grandTotal), true)}
-            <script>window.onload=function(){window.print();setTimeout(function(){window.close();},500)}<\/script>
+            <script>
+                function triggerPrint(){ window.print(); }
+            <\/script>
         </body></html>`;
 
         const w = window.open('', '_blank', 'height=820,width=420');
@@ -772,7 +850,13 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
             <style>body{font-family:Arial,sans-serif;padding:20mm;font-size:12px;}
             h3{margin:0 0 10px}table{width:100%;border-collapse:collapse;margin-top:12px}
             td{padding:6px 0;border-bottom:1px solid #eee}.label{color:#666}.val{font-weight:700;text-align:right}
+            .toolbar{position:sticky;top:0;display:flex;gap:8px;justify-content:center;background:#fff;padding:8px 0}
+            .toolbar button{border:1px solid #222;background:#fff;padding:5px 10px;cursor:pointer}
+            .note{text-align:center;font-size:11px;color:#555;margin-bottom:8px}
+            @media print{.toolbar,.note{display:none}}
             </style></head><body>
+            <div class="toolbar"><button onclick="triggerPrint()">Save / Print</button><button onclick="window.close()">Close</button></div>
+            <div class="note">Preview ready. Click Save / Print after checking receipt.</div>
             <h3>Transaction Receipt</h3>
             <table><tr><td class=label>Date</td><td class=val>${item.day}</td></tr>
             <tr><td class=label>Type</td><td class=val>${item.particulars}</td></tr>
@@ -780,7 +864,9 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
             <tr><td class=label>Amount</td><td class=val>${cs} ${Math.abs(item.amount).toFixed(2)}</td></tr>
             <tr><td class=label>User</td><td class=val>${item.user}</td></tr></table>
             <p style="margin-top:20px;text-align:center;color:#999;font-size:11px">Thank you!</p>
-            <script>window.onload=function(){window.print();setTimeout(()=>window.close(),500)}<\/script>
+            <script>
+                function triggerPrint(){ window.print(); }
+            <\/script>
             </body></html>`);
         w.document.close();
         setActiveMenu(null);
