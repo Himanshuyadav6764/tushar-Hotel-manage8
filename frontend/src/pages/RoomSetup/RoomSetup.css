@@ -1299,6 +1299,128 @@
     appearance: none;
 }
 
+.room-view-wrapper {
+    position: relative;
+}
+
+.room-view-trigger {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 12px 12px 12px 4px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #000000;
+    outline: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+}
+
+.room-view-arrow {
+    font-size: 12px;
+    color: #64748b;
+    transition: transform 0.2s ease;
+}
+
+.room-view-arrow.open {
+    transform: rotate(180deg);
+}
+
+.room-view-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.14);
+    z-index: 1200;
+    overflow: hidden;
+}
+
+.room-view-add-row {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    border-top: 1px solid #eef2f7;
+}
+
+.room-view-add-input {
+    flex: 1;
+    border: 1px solid #dbe3ed !important;
+    border-radius: 8px !important;
+    padding: 8px 10px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+}
+
+.room-view-add-input:focus {
+    border-color: #e11d48 !important;
+    box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.12);
+}
+
+.room-view-add-btn {
+    border: none;
+    border-radius: 8px;
+    background: #e11d48;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 0 12px;
+    cursor: pointer;
+}
+
+.room-view-options-list {
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.room-view-option-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 10px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.room-view-option-row:hover {
+    background: #fff1f2;
+}
+
+.room-view-option-row.selected {
+    background: #fee2e2;
+}
+
+.room-view-option-text {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.room-view-option-delete {
+    border: none;
+    background: #fee2e2;
+    color: #b91c1c;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    font-size: 16px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.room-view-option-delete:hover {
+    background: #fecaca;
+}
+
 .amount-input-container {
     position: relative;
     display: flex;

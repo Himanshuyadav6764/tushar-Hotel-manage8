@@ -7,6 +7,52 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
     const [activeSection, setActiveSection] = useState('basic'); // basic, address, kyc, optional
     const [errors, setErrors] = useState({});
     const [successMessage, setSuccessMessage] = useState('');
+    const [fieldToFocus, setFieldToFocus] = useState('');
+
+    const requiredFieldOrder = ['mobile', 'email'];
+    const fieldSectionMap = {
+        fullName: 'basic',
+        mobile: 'basic',
+        email: 'basic',
+        address: 'address',
+        city: 'address'
+    };
+
+    const getCreateGuestEndpoints = () => {
+        const baseCandidates = API_URL
+            ? [API_URL]
+            : (import.meta.env.DEV ? ['', 'http://localhost:5001', 'http://localhost:5000'] : ['']);
+
+        return [...new Set(baseCandidates)]
+            .map((base) => `${base}/api/guests/add`)
+            .map((url) => url.replace(/([^:]\/)\/+/g, '$1'));
+    };
+
+    const getRequestHeaders = () => {
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+
+        try {
+            const savedUser = localStorage.getItem('authUser');
+            if (!savedUser) return headers;
+
+            const parsed = JSON.parse(savedUser);
+            if (parsed?.token) {
+                headers.Authorization = `Bearer ${parsed.token}`;
+            }
+            if (parsed?.hotelId) {
+                headers['x-hotel-id'] = parsed.hotelId;
+            }
+            if (parsed?.dbName) {
+                headers['x-tenant-db'] = parsed.dbName;
+            }
+        } catch (error) {
+            console.warn('Failed to parse authUser for headers:', error);
+        }
+
+        return headers;
+    };
 
     // ID Validation Helper Function
     const validateIDNumber = (idType, idNumber) => {
@@ -170,13 +216,11 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
                 break;
 
             case 'address':
-                if (!value.trim()) error = 'Address Line is required';
-                else if (value.trim().length < 5) error = 'Please enter a complete address (minimum 5 characters)';
+                if (value.trim() && value.trim().length < 5) error = 'Please enter a complete address (minimum 5 characters)';
                 break;
 
             case 'city':
-                if (!value.trim()) error = 'City is required';
-                else if (!/^[a-zA-Z\s'-]+$/.test(value)) error = 'City name should only contain letters';
+                if (value.trim() && !/^[a-zA-Z\s'-]+$/.test(value)) error = 'City name should only contain letters';
                 break;
 
             case 'state':
@@ -254,73 +298,82 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
         }
     };
 
-    const validateForm = () => {
+    useEffect(() => {
+        if (!fieldToFocus) return;
+
+        const timer = setTimeout(() => {
+            const targetField = document.querySelector(`[name="${fieldToFocus}"]`);
+            if (targetField) {
+                targetField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                targetField.focus();
+            }
+            setFieldToFocus('');
+        }, 80);
+
+        return () => clearTimeout(timer);
+    }, [fieldToFocus, activeSection]);
+
+    const validateForm = (sourceData = formData) => {
         const newErrors = {};
 
         // Basic Information Validation
-        if (!formData.fullName.trim()) {
-            newErrors.fullName = 'Full Name is required';
-        } else if (formData.fullName.trim().length < 3) {
+        if (sourceData.fullName.trim() && sourceData.fullName.trim().length < 3) {
             newErrors.fullName = 'Full Name must be at least 3 characters';
-        } else if (formData.fullName.trim().length > 50) {
+        } else if (sourceData.fullName.trim() && sourceData.fullName.trim().length > 50) {
             newErrors.fullName = 'Full Name should not exceed 50 characters';
-        } else if (!/^[a-zA-Z\s.'-]+$/.test(formData.fullName)) {
+        } else if (sourceData.fullName.trim() && !/^[a-zA-Z\s.'-]+$/.test(sourceData.fullName)) {
             newErrors.fullName = 'Full Name can only contain letters, spaces, hyphens, and apostrophes';
         }
 
-        if (!formData.mobile.trim()) {
+        if (!sourceData.mobile.trim()) {
             newErrors.mobile = 'Mobile Number is required';
-        } else if (!/^[0-9]{10}$/.test(formData.mobile.replace(/\s+/g, ''))) {
+        } else if (!/^[0-9]{10}$/.test(sourceData.mobile.replace(/\s+/g, ''))) {
             newErrors.mobile = 'Mobile must be exactly 10 digits';
-        } else if (existingGuests.some(g => g.mobile === formData.mobile)) {
+        } else if (existingGuests.some(g => g.mobile === sourceData.mobile)) {
             newErrors.mobile = 'This mobile number is already registered';
         }
 
-        if (!formData.email.trim()) {
+        if (!sourceData.email.trim()) {
             newErrors.email = 'Email Address is required';
-        } else if (!/^[a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email)) {
+        } else if (!/^[a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(sourceData.email)) {
             newErrors.email = 'Please enter a valid email address';
         }
 
-        // Address Validation
-        const addressVal = typeof formData.address === 'object' ? (formData.address?.line || '') : String(formData.address || '');
-        if (!addressVal.trim()) {
-            newErrors.address = 'Address Line is required';
-        } else if (addressVal.trim().length < 5) {
+        // Address Validation (optional)
+        const addressVal = typeof sourceData.address === 'object' ? (sourceData.address?.line || '') : String(sourceData.address || '');
+        if (addressVal.trim() && addressVal.trim().length < 5) {
             newErrors.address = 'Please enter a complete address (minimum 5 characters)';
         }
 
-        if (!formData.city.trim()) {
-            newErrors.city = 'City is required';
-        } else if (!/^[a-zA-Z\s'-]+$/.test(formData.city)) {
+        if (sourceData.city.trim() && !/^[a-zA-Z\s'-]+$/.test(sourceData.city)) {
             newErrors.city = 'City name should only contain letters';
         }
 
-        if (formData.state && !/^[a-zA-Z\s'-]+$/.test(formData.state)) {
+        if (sourceData.state && !/^[a-zA-Z\s'-]+$/.test(sourceData.state)) {
             newErrors.state = 'State name should only contain letters';
         }
 
 
-        if (formData.pinCode && !/^[0-9]{6}$/.test(formData.pinCode)) {
+        if (sourceData.pinCode && !/^[0-9]{6}$/.test(sourceData.pinCode)) {
             newErrors.pinCode = 'PIN Code must be exactly 6 digits';
         }
 
         // KYC Validation
-        if (formData.idType && !formData.idNumber.trim()) {
+        if (sourceData.idType && !sourceData.idNumber.trim()) {
             newErrors.idNumber = 'ID Number is required when ID Type is selected';
-        } else if (formData.idType && formData.idNumber.trim()) {
-            const idError = validateIDNumber(formData.idType, formData.idNumber);
+        } else if (sourceData.idType && sourceData.idNumber.trim()) {
+            const idError = validateIDNumber(sourceData.idType, sourceData.idNumber);
             if (idError) {
                 newErrors.idNumber = idError;
             }
         }
 
         // Optional Fields Validation
-        if (formData.dob) {
-            if (new Date(formData.dob) > new Date()) {
+        if (sourceData.dob) {
+            if (new Date(sourceData.dob) > new Date()) {
                 newErrors.dob = 'Date of Birth cannot be in the future';
             } else {
-                const age = new Date().getFullYear() - new Date(formData.dob).getFullYear();
+                const age = new Date().getFullYear() - new Date(sourceData.dob).getFullYear();
                 if (age < 10) {
                     newErrors.dob = 'Guest must be at least 10 years old';
                 }
@@ -330,50 +383,88 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
             }
         }
 
-        if (formData.anniversary && new Date(formData.anniversary) > new Date()) {
+        if (sourceData.anniversary && new Date(sourceData.anniversary) > new Date()) {
             newErrors.anniversary = 'Anniversary date cannot be in the future';
         }
 
-        if (formData.gstNumber && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(formData.gstNumber)) {
+        if (sourceData.gstNumber && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(sourceData.gstNumber)) {
             newErrors.gstNumber = 'Please enter a valid GST Number (e.g., 27AABBS5055K2ZU)';
         }
 
         setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+        return newErrors;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!validateForm()) {
+        const autoGeneratedFullName = formData.fullName.trim() || `Guest ${String(formData.mobile || '').slice(-4) || '0000'}`;
+        const preparedData = {
+            ...formData,
+            fullName: autoGeneratedFullName
+        };
+
+        if (!formData.fullName.trim()) {
+            setFormData(prev => ({ ...prev, fullName: autoGeneratedFullName }));
+        }
+
+        const validationErrors = validateForm(preparedData);
+
+        if (Object.keys(validationErrors).length > 0) {
             setSuccessMessage('');
+
+            const missingRequiredFields = requiredFieldOrder.filter((key) => !String(formData[key] || '').trim());
+            const firstMissingField = missingRequiredFields[0];
+
+            if (firstMissingField) {
+                const targetSection = fieldSectionMap[firstMissingField] || 'basic';
+                if (activeSection !== targetSection) {
+                    setActiveSection(targetSection);
+                }
+                setFieldToFocus(firstMissingField);
+            }
+
+            if (missingRequiredFields.length > 0) {
+                window.alert('Please fill all mandatory fields before creating guest profile.');
+            } else {
+                window.alert('Please fix highlighted field errors before submitting.');
+
+                const firstInvalidField = Object.keys(validationErrors).find((key) => Boolean(validationErrors[key]));
+                if (firstInvalidField) {
+                    const targetSection = fieldSectionMap[firstInvalidField] || 'basic';
+                    if (activeSection !== targetSection) {
+                        setActiveSection(targetSection);
+                    }
+                    setFieldToFocus(firstInvalidField);
+                }
+            }
             return;
         }
 
         const newGuest = {
-            fullName: formData.fullName,
-            mobile: formData.mobile,
-            email: formData.email,
-            gender: formData.gender,
-            nationality: formData.nationality,
+            fullName: preparedData.fullName,
+            mobile: preparedData.mobile,
+            email: preparedData.email,
+            gender: preparedData.gender,
+            nationality: preparedData.nationality,
             address: {
-                line: formData.address,
-                city: formData.city,
-                state: formData.state,
-                country: formData.country,
-                pinCode: formData.pinCode
+                line: preparedData.address,
+                city: preparedData.city,
+                state: preparedData.state,
+                country: preparedData.country,
+                pinCode: preparedData.pinCode
             },
             idProof: {
-                type: formData.idType,
-                number: formData.idNumber,
-                frontFile: formData.idFrontFile,
-                backFile: formData.idBackFile
+                type: preparedData.idType,
+                number: preparedData.idNumber,
+                frontFile: preparedData.idFrontFile,
+                backFile: preparedData.idBackFile
             },
-            dob: formData.dob,
-            anniversary: formData.anniversary,
-            photoFile: formData.photoFile,
-            companyName: formData.companyName,
-            gstNumber: formData.gstNumber
+            dob: preparedData.dob,
+            anniversary: preparedData.anniversary,
+            photoFile: preparedData.photoFile,
+            companyName: preparedData.companyName,
+            gstNumber: preparedData.gstNumber
         };
 
         try {
@@ -403,9 +494,7 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
 
                 response = await fetch(updateUrl, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: getRequestHeaders(),
                     body: JSON.stringify(newGuest)
                 });
 
@@ -415,22 +504,48 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
                 console.log('➕ CREATE MODE TRIGGERED');
                 console.log('Form Data:', newGuest);
 
-                const createUrl = `${API_URL}/api/guests/add`;
-                console.log('➕ POST Request URL:', createUrl);
+                const createUrls = getCreateGuestEndpoints();
+                let lastCreateError = null;
 
-                response = await fetch(createUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(newGuest)
-                });
+                for (const createUrl of createUrls) {
+                    try {
+                        console.log('➕ POST Request URL:', createUrl);
+                        const candidateResponse = await fetch(createUrl, {
+                            method: 'POST',
+                            headers: getRequestHeaders(),
+                            body: JSON.stringify(newGuest)
+                        });
+
+                        // In dev fallback mode, keep trying next endpoint on server-side errors.
+                        const canRetryOnStatus = import.meta.env.DEV && (candidateResponse.status >= 500 || candidateResponse.status === 404);
+
+                        if (canRetryOnStatus) {
+                            lastCreateError = new Error(`Endpoint ${createUrl} returned status ${candidateResponse.status}`);
+                            continue;
+                        }
+
+                        response = candidateResponse;
+                        break;
+                    } catch (endpointError) {
+                        lastCreateError = endpointError;
+                        console.warn(`Create guest failed on ${createUrl}:`, endpointError?.message || endpointError);
+                    }
+                }
+
+                if (!response) {
+                    throw lastCreateError || new Error('Unable to reach create guest API endpoint');
+                }
 
                 console.log('➕ POST Request sent successfully');
             }
 
             console.log('📡 Response status:', response.status);
-            const data = await response.json();
+            let data = null;
+            try {
+                data = await response.json();
+            } catch (parseError) {
+                data = { success: false, message: `Invalid server response (${response.status})` };
+            }
             console.log('📦 Full Response data:', data);
             console.log('📦 Response data.success:', data.success);
             console.log('📦 Response data.data:', data.data);
@@ -449,14 +564,21 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
                     onSave(data.data); // Pass the saved/updated guest with _id from backend
                 }, 300); // Fast response for better UX
             } else {
-                const errorMsg = data.message || (editingGuest ? 'Failed to update guest' : 'Failed to create guest');
+                const backendErrorDetail = typeof data.error === 'string' ? data.error : '';
+                const errorMsg =
+                    data.message
+                    || backendErrorDetail
+                    || (editingGuest ? 'Failed to update guest' : 'Failed to create guest');
                 console.error('❌ Error:', errorMsg);
                 setErrors({ submit: errorMsg });
+                window.alert(errorMsg);
             }
         } catch (error) {
             const errorMsg = editingGuest ? 'Error updating guest:' : 'Error creating guest:';
             console.error('❌', errorMsg, error);
-            setErrors({ submit: (editingGuest ? 'Failed to update guest.' : 'Failed to create guest.') + ' Please try again.' });
+            const submitError = (editingGuest ? 'Failed to update guest.' : 'Failed to create guest.') + ' Please try again.';
+            setErrors({ submit: submitError });
+            window.alert(submitError);
         }
     };
 
@@ -529,7 +651,7 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
 
                         <div className="form-group">
                             <div className="label-wrapper">
-                                <label>Full Name <span className="required-mark">*</span></label>
+                                <label>Full Name</label>
                                 <span className="char-count">{formData.fullName.length}/50</span>
                             </div>
                             <input
@@ -608,7 +730,7 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
                         <p className="section-subtitle">Recommended for KYC completion</p>
 
                         <div className="form-group">
-                            <label>Address Line <span className="required-mark">*</span></label>
+                            <label>Address Line</label>
                             <input
                                 type="text"
                                 name="address"
@@ -623,7 +745,7 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
                         <div className="form-row-3">
                             <div className="form-group">
                                 <div className="label-wrapper">
-                                    <label>City <span className="required-mark">*</span></label>
+                                    <label>City</label>
                                 </div>
                                 <input
                                     type="text"
@@ -851,6 +973,8 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
 
                     </div>
                 )}
+
+                {errors.submit && <div className="form-error-text">{errors.submit}</div>}
 
                 {/* Form Actions */}
                 <div className="form-actions-guest">

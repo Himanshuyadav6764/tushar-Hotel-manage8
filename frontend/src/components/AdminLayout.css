@@ -26,6 +26,10 @@
     margin-left: 0 !important;
 }
 
+.sidebar-backdrop {
+    display: none;
+}
+
 @media (max-width: 1200px) {
     .main-content {
         top: var(--admin-topbar-height, 52px);
@@ -78,5 +82,19 @@
     .main-content.full-width {
         left: 0;
         margin-left: 0 !important;
+    }
+}
+
+@media (max-width: 1200px) {
+    .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        border: 0;
+        background: transparent;
+        padding: 0;
+        margin: 0;
+        z-index: 90;
+        cursor: default;
     }
 }

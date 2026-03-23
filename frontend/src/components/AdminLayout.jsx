@@ -43,6 +43,15 @@ const AdminLayout = ({ children, activeMenu, onMenuClick, onLogout, noPadding = 
                 onLogout={onLogout}
             />
 
+            {sidebarOpen && (
+                <button
+                    type="button"
+                    className="sidebar-backdrop"
+                    onClick={() => setSidebarOpen(false)}
+                    aria-label="Close sidebar"
+                />
+            )}
+
             <div className={`main-content ${sidebarOpen ? '' : 'full-width'} ${noPadding ? 'no-padding' : ''} ${activeMenu}-page-layout`}>
                 <div className={`layout-content ${noPadding ? 'no-padding' : ''}`}>
                     {noPadding ? children : <div className="layout-main-card">{children}</div>}
