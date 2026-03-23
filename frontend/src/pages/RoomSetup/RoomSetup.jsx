@@ -8,6 +8,8 @@ import './RoomSetup.css';
 import API_URL from '../../config/api';
 import RoomDetailsPanel from '../../components/rooms/RoomDetailsPanel';
 
+const DEFAULT_ROOM_VIEW_TYPES = ['City View', 'Pool View', 'Garden View', 'Sea View'];
+
 const RoomSetup = () => {
     const navigate = useNavigate();
     const { getCurrencySymbol } = useSettings();
@@ -21,6 +23,20 @@ const RoomSetup = () => {
     const [maintenanceBlocks, setMaintenanceBlocks] = useState([]); // Maintenance blocks
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [roomViewTypes, setRoomViewTypes] = useState(() => {
+        try {
+            const saved = localStorage.getItem('roomViewTypes');
+            const parsed = JSON.parse(saved || '[]');
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed;
+            }
+        } catch (e) {
+            console.warn('Unable to read room view types from localStorage:', e);
+        }
+        return DEFAULT_ROOM_VIEW_TYPES;
+    });
+    const [showRoomViewDropdown, setShowRoomViewDropdown] = useState(false);
+    const [newRoomViewType, setNewRoomViewType] = useState('');
 
     const { user } = useAuth();
     const canManageRooms = hasPermission(user, MODULES.PROPERTY_CONFIG, PERMISSIONS.EDIT);
@@ -120,6 +136,22 @@ const RoomSetup = () => {
     const [deletingRoomId, setDeletingRoomId] = useState(null);
 
     const datePickerRef = useRef(null);
+    const roomViewDropdownRef = useRef(null);
+
+    useEffect(() => {
+        localStorage.setItem('roomViewTypes', JSON.stringify(roomViewTypes));
+    }, [roomViewTypes]);
+
+    useEffect(() => {
+        const handleClickOutsideRoomView = (event) => {
+            if (roomViewDropdownRef.current && !roomViewDropdownRef.current.contains(event.target)) {
+                setShowRoomViewDropdown(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutsideRoomView);
+        return () => document.removeEventListener('mousedown', handleClickOutsideRoomView);
+    }, []);
 
     // Close date picker when clicking outside
     useEffect(() => {
@@ -360,7 +392,42 @@ const RoomSetup = () => {
     // Handle Form Input Change
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+
         setFormData({ ...formData, [name]: value });
+    };
+
+    const handleAddRoomViewTypeInline = () => {
+        const newType = String(newRoomViewType || '').trim();
+        if (!newType) return;
+
+        const exists = roomViewTypes.some(type => type.toLowerCase() === newType.toLowerCase());
+        if (exists) {
+            alert('This view type already exists.');
+            return;
+        }
+
+        const updatedTypes = [...roomViewTypes, newType];
+        setRoomViewTypes(updatedTypes);
+        setFormData(prev => ({ ...prev, roomViewType: newType }));
+        setNewRoomViewType('');
+    };
+
+    const handleDeleteRoomViewTypeInline = (typeToDelete) => {
+        if (roomViewTypes.length <= 1) {
+            alert('At least one room view type is required.');
+            return;
+        }
+
+        const confirmed = window.confirm(`Delete "${typeToDelete}" view type?`);
+        if (!confirmed) return;
+
+        const updatedTypes = roomViewTypes.filter(type => type !== typeToDelete);
+        setRoomViewTypes(updatedTypes);
+
+        setFormData(prev => ({
+            ...prev,
+            roomViewType: prev.roomViewType === typeToDelete ? (updatedTypes[0] || 'City View') : prev.roomViewType
+        }));
     };
 
     // Open Modal
@@ -383,6 +450,12 @@ const RoomSetup = () => {
                 isSmartRoom: room.isSmartRoom || false,
                 dynamicRateEnabled: room.dynamicRateEnabled || false
             });
+
+            if (room.roomViewType && !roomViewTypes.includes(room.roomViewType)) {
+                setRoomViewTypes(prev => [...prev, room.roomViewType]);
+            }
+            setShowRoomViewDropdown(false);
+            setNewRoomViewType('');
         } else {
             // Find first available floor
             let defaultFloor = '';
@@ -403,12 +476,14 @@ const RoomSetup = () => {
                 basePrice: '',
                 status: 'Available',
                 // PHASE 2 UPGRADE: Default values for enterprise fields
-                roomViewType: 'City View',
+                roomViewType: roomViewTypes[0] || 'City View',
                 smokingPolicy: 'Non-Smoking',
                 roomSize: 0,
                 isSmartRoom: false,
                 dynamicRateEnabled: false
             });
+            setShowRoomViewDropdown(false);
+            setNewRoomViewType('');
         }
         setIsModalOpen(true);
     };
@@ -923,9 +998,12 @@ const RoomSetup = () => {
                                             type="text"
                                             name="roomNumber"
                                             value={formData.roomNumber}
-                                            onChange={(e) => setFormData({ ...formData, roomNumber: e.target.value.replace(/\D/g, '') })}
+                                            onChange={(e) => {
+                                                const cleanedValue = e.target.value.replace(/[^a-zA-Z0-9\s\-\/]/g, '');
+                                                setFormData({ ...formData, roomNumber: cleanedValue });
+                                            }}
                                             required
-                                            placeholder="e.g., 101, 102"
+                                            placeholder="e.g., 101, A101, Deluxe-1"
                                         />
                                     </div>
                                 </div>
@@ -999,18 +1077,69 @@ const RoomSetup = () => {
 
                                 <div className="payment-field-group">
                                     <label className="field-label-premium">ROOM VIEW TYPE</label>
-                                    <div className="premium-input-wrapper">
+                                    <div className="premium-input-wrapper room-view-wrapper" ref={roomViewDropdownRef}>
                                         <div className="input-icon-prefix">🌅</div>
-                                        <select
-                                            name="roomViewType"
-                                            value={formData.roomViewType}
-                                            onChange={handleInputChange}
+                                        <button
+                                            type="button"
+                                            className="room-view-trigger"
+                                            onClick={() => setShowRoomViewDropdown(prev => !prev)}
                                         >
-                                            <option value="City View">City View</option>
-                                            <option value="Pool View">Pool View</option>
-                                            <option value="Garden View">Garden View</option>
-                                            <option value="Sea View">Sea View</option>
-                                        </select>
+                                            <span>{formData.roomViewType || 'Select view type'}</span>
+                                            <span className={`room-view-arrow ${showRoomViewDropdown ? 'open' : ''}`}>▾</span>
+                                        </button>
+
+                                        {showRoomViewDropdown && (
+                                            <div className="room-view-dropdown">
+                                                <div className="room-view-options-list">
+                                                    {roomViewTypes.map((viewType) => (
+                                                        <div
+                                                            key={viewType}
+                                                            className={`room-view-option-row ${formData.roomViewType === viewType ? 'selected' : ''}`}
+                                                            onClick={() => {
+                                                                setFormData(prev => ({ ...prev, roomViewType: viewType }));
+                                                                setShowRoomViewDropdown(false);
+                                                            }}
+                                                        >
+                                                            <span className="room-view-option-text">{viewType}</span>
+                                                            <button
+                                                                type="button"
+                                                                className="room-view-option-delete"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteRoomViewTypeInline(viewType);
+                                                                }}
+                                                                title="Delete this view type"
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <div className="room-view-add-row">
+                                                    <input
+                                                        type="text"
+                                                        value={newRoomViewType}
+                                                        onChange={(e) => setNewRoomViewType(e.target.value)}
+                                                        placeholder="Add new view type"
+                                                        className="room-view-add-input"
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                handleAddRoomViewTypeInline();
+                                                            }
+                                                        }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        className="room-view-add-btn"
+                                                        onClick={handleAddRoomViewTypeInline}
+                                                    >
+                                                        Add
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

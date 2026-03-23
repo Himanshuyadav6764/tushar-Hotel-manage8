@@ -150,7 +150,12 @@ const HousekeepingView = () => {
                         onChange={(e) => setSearchQuery(e.target.value.replace(/\D/g, ''))}
                         className="search-input"
                     />
-                    <span className="search-icon">🔍</span>
+                    <span className="search-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="7"></circle>
+                            <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
+                        </svg>
+                    </span>
                 </div>
                 <div className="view-controls">
                     <div className="view-toggle">

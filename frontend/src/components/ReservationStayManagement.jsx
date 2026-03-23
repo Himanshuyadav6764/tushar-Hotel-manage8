@@ -1675,7 +1675,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                                     <div className="no-guest-selected">
                                         <p>No guest selected</p>
                                         <div className="guest-selection-footer">
-                                            <button type="button" className="btn btn-primary" onClick={() => setShowGuestModal(true)}>
+                                            <button type="button" className="btn btn-primary select-create-guest-btn" onClick={() => setShowGuestModal(true)}>
                                                 + Select or Create Guest
                                             </button>
                                         </div>

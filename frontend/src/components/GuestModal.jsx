@@ -145,14 +145,14 @@ const GuestModal = ({ isOpen, onClose, onSelectGuest, guests = [], onRefreshGues
                     {view === 'selection' ? (
                         <>
                             {/* Search Box - Direct Child, Full Width */}
-                            <div className="search-box">
-                                <span className="search-icon"></span>
+                            <div className="guest-search-box">
+                                <span className="guest-search-icon"></span>
                                 <input
                                     type="text"
                                     placeholder="Search by name or phone..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value.replace(/[^a-zA-Z0-9\\s]/g, ''))}
-                                    className="search-input"
+                                    className="guest-search-input"
                                 />
                             </div>
 
@@ -194,7 +194,7 @@ const GuestModal = ({ isOpen, onClose, onSelectGuest, guests = [], onRefreshGues
 
                                                 <div className="guest-item-actions">
                                                     <button
-                                                        className="action-btn edit-btn"
+                                                        className="guest-action-btn guest-edit-btn"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             handleEditGuest(guest);
@@ -204,7 +204,7 @@ const GuestModal = ({ isOpen, onClose, onSelectGuest, guests = [], onRefreshGues
                                                         Edit
                                                     </button>
                                                     <button
-                                                        className="action-btn delete-btn"
+                                                        className="guest-action-btn guest-delete-btn"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             handleDeleteGuest(guest);

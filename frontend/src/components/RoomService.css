@@ -102,34 +102,48 @@
     position: relative;
     flex: 1;
     max-width: 420px;
+    display: flex;
+    align-items: center;
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 14px;
+    padding-left: 14px;
+    transition: all 0.2s;
 }
 
 .rs-search-icon {
-    position: absolute;
-    left: 16px;
-    top: 50%;
-    transform: translateY(-50%);
+    position: static;
     color: #94a3b8;
+    pointer-events: none;
+    flex-shrink: 0;
 }
 
 .rs-search-field {
     width: 100%;
-    padding: 12px 42px 12px 48px;
-    background: #f8fafc;
-    border: 2px solid #e2e8f0;
-    border-radius: 14px;
+    padding: 12px 42px 12px 10px;
+    background: transparent;
+    border: none;
     font-size: 15px;
     outline: none;
-    transition: all 0.2s;
+    transition: color 0.2s;
     box-sizing: border-box;
     color: #1e293b;
 }
 
 .rs-search-field::placeholder {
     color: #94a3b8;
+    opacity: 1;
 }
 
-.rs-search-field:focus {
+.rs-search-field:placeholder-shown {
+    caret-color: transparent;
+}
+
+.rs-search-field:not(:placeholder-shown) {
+    caret-color: #334155;
+}
+
+.rs-search-container:focus-within {
     border-color: #E31E24;
     background: #fff;
     box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.08);
@@ -615,7 +629,7 @@
 
     .rs-search-field {
         font-size: 14px;
-        padding: 11px 40px 11px 42px;
+        padding: 11px 40px 11px 10px;
     }
 
     .rs-pill-btn {

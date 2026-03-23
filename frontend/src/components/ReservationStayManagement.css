@@ -1827,6 +1827,25 @@
     margin: 0;
 }
 
+.select-create-guest-btn {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    text-transform: none !important;
+    font-size: 0.74rem !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.15px !important;
+    padding: 0.72rem 0.75rem !important;
+    text-align: center !important;
+    box-sizing: border-box;
+}
+
 .no-guest-selected {
     text-align: center;
     padding: 1rem 0;

@@ -14,6 +14,8 @@ const CashierSection = () => {
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [activeTab, setActiveTab] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
+    const [showOrdersMobile, setShowOrdersMobile] = useState(false);
+    const [showPaymentMobile, setShowPaymentMobile] = useState(false);
     const [showNewOrderModal, setShowNewOrderModal] = useState(false);
     const [newOrderDetails, setNewOrderDetails] = useState({ name: '', phone: '' });
     const [newOrderWarning, setNewOrderWarning] = useState('');
@@ -182,6 +184,9 @@ const CashierSection = () => {
 
     const handleOrderClick = (order) => {
         setSelectedOrder(order);
+        if (typeof window !== 'undefined' && window.innerWidth < 640) {
+            setShowOrdersMobile(false);
+        }
     };
 
     const handlePaymentComplete = async (orderId, amount, mode, type, roomNumber = null, folioId = 0, billingMeta = null, paymentSplits = null) => {
@@ -420,7 +425,7 @@ const CashierSection = () => {
                 </div>
 
                 {/* MAIN CONTENT AREA: 3 COLUMN GRID */}
-                <div className="dashboard-content">
+                <div className={`dashboard-content ${showOrdersMobile ? 'show-orders-mobile' : ''} ${showPaymentMobile ? 'show-payment-mobile' : ''}`}>
 
                     {/* LEFT PANEL: ORDERS */}
                     <div className="pos-card orders-sidebar">
@@ -484,7 +489,44 @@ const CashierSection = () => {
                         checkedInRooms={checkedInRooms}
                     />
 
+                    <div className="mobile-panel-overlay" onClick={() => { setShowOrdersMobile(false); setShowPaymentMobile(false); }} />
+
                 </div>
+
+                <div className="mobile-bottom-nav" role="navigation" aria-label="Cashier Mobile Navigation">
+                    <button
+                        type="button"
+                        className={`mobile-nav-btn ${showOrdersMobile ? 'active' : ''}`}
+                        onClick={() => {
+                            setShowOrdersMobile(prev => !prev);
+                            setShowPaymentMobile(false);
+                        }}
+                    >
+                        Orders
+                    </button>
+                    <button
+                        type="button"
+                        className={`mobile-nav-btn ${showPaymentMobile ? 'active' : ''}`}
+                        onClick={() => {
+                            setShowPaymentMobile(prev => !prev);
+                            setShowOrdersMobile(false);
+                        }}
+                    >
+                        Payment
+                    </button>
+                </div>
+
+                <button
+                    type="button"
+                    className="mobile-fab-pay"
+                    onClick={() => {
+                        setShowPaymentMobile(true);
+                        setShowOrdersMobile(false);
+                    }}
+                    aria-label="Open payment panel"
+                >
+                    🛒
+                </button>
             </div>
         </div>
 

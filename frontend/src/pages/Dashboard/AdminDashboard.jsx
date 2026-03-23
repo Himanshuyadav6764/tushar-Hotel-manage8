@@ -818,7 +818,15 @@ const AdminDashboard = () => {
             activeMenu={activeMenu}
             onMenuClick={handleMenuClick}
             onLogout={handleLogout}
-            noPadding={activeMenu === 'stay-overview' || activeMenu === 'view-order' || activeMenu === 'food-order' || activeMenu === 'reservation-card' || activeMenu === 'company' || activeMenu?.startsWith('reports-')}
+            noPadding={
+                activeMenu === 'stay-overview' ||
+                activeMenu === 'view-order' ||
+                activeMenu === 'food-order' ||
+                activeMenu === 'reservation-card' ||
+                activeMenu === 'company' ||
+                activeMenu === 'cashier-section' ||
+                activeMenu?.startsWith('reports-')
+            }
         >
 
 
