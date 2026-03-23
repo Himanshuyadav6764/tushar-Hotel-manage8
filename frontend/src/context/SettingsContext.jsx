@@ -178,7 +178,27 @@ export const SettingsProvider = ({ children }) => {
 
     const fetchSettings = useCallback(async () => {
         try {
-            const res = await fetch(`${API_URL}/api/hotel/settings`);
+            const savedUser = localStorage.getItem('authUser');
+            let token = '';
+            let hotelId = '';
+
+            if (savedUser) {
+                try {
+                    const parsed = JSON.parse(savedUser);
+                    token = parsed?.token || '';
+                    hotelId = parsed?.hotelId || '';
+                } catch (error) {
+                    // Ignore storage parsing errors and use public fallback fetch.
+                }
+            }
+
+            const settingsUrl = hotelId
+                ? `${API_URL}/api/hotel/settings?hotelId=${encodeURIComponent(hotelId)}`
+                : `${API_URL}/api/hotel/settings`;
+
+            const res = await fetch(settingsUrl, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
             const data = await res.json();
             if (data.success && data.data) {
                 setSettings(prev => {

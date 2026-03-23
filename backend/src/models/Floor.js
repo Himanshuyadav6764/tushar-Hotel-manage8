@@ -4,7 +4,6 @@ const floorSchema = new mongoose.Schema({
     name: {
         type: String,
         required: [true, 'Floor name is required'],
-        unique: true,
         trim: true
     },
     roomCount: {
@@ -18,5 +17,7 @@ const floorSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+floorSchema.index({ hotelId: 1, name: 1 }, { unique: true });
 
 module.exports = mongoose.model('Floor', floorSchema);

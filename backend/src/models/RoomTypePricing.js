@@ -4,7 +4,6 @@ const roomTypePricingSchema = new mongoose.Schema({
     roomType: {
         type: String,
         required: [true, 'Room type is required'],
-        unique: true,
         trim: true
     },
     minPrice: {
@@ -42,6 +41,8 @@ const roomTypePricingSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+roomTypePricingSchema.index({ hotelId: 1, roomType: 1 }, { unique: true });
 
 const RoomTypePricing = mongoose.model('RoomTypePricing', roomTypePricingSchema);
 

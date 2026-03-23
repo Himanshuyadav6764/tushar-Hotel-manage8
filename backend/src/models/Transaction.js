@@ -41,8 +41,7 @@ const transactionSchema = new mongoose.Schema({
 
     // Meta
     referenceId: {
-        type: String, // Transaction ID
-        unique: true
+        type: String // Transaction ID
     },
     description: String,
     performedBy: {
@@ -62,5 +61,13 @@ const transactionSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+transactionSchema.index(
+    { hotelId: 1, referenceId: 1 },
+    {
+        unique: true,
+        partialFilterExpression: { referenceId: { $type: 'string' } }
+    }
+);
 
 module.exports = mongoose.model('Transaction', transactionSchema);

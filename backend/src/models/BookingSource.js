@@ -4,7 +4,6 @@ const bookingSourceSchema = new mongoose.Schema({
     name: {
         type: String,
         required: [true, 'Booking Source is required'],
-        unique: true,
         trim: true
     },
     type: {
@@ -19,5 +18,7 @@ const bookingSourceSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+bookingSourceSchema.index({ hotelId: 1, name: 1 }, { unique: true });
 
 module.exports = mongoose.model('BookingSource', bookingSourceSchema);

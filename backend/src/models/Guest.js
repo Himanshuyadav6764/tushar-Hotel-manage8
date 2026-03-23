@@ -17,7 +17,6 @@ const guestSchema = new mongoose.Schema({
     mobile: {
         type: String,
         required: [true, 'Mobile number is required'],
-        unique: true,
         trim: true,
         index: true
     },
@@ -89,5 +88,6 @@ const guestSchema = new mongoose.Schema({
 
 // Index for search
 guestSchema.index({ fullName: 'text', mobile: 'text', email: 'text' });
+guestSchema.index({ hotelId: 1, mobile: 1 }, { unique: true });
 
 module.exports = mongoose.model('Guest', guestSchema);

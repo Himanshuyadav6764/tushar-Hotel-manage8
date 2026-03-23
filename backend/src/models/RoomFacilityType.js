@@ -4,7 +4,6 @@ const roomFacilityTypeSchema = new mongoose.Schema({
     name: {
         type: String,
         required: [true, 'Facility Type name is required'],
-        unique: true,
         trim: true
     },
     description: {
@@ -18,5 +17,7 @@ const roomFacilityTypeSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+roomFacilityTypeSchema.index({ hotelId: 1, name: 1 }, { unique: true });
 
 module.exports = mongoose.model('RoomFacilityType', roomFacilityTypeSchema);

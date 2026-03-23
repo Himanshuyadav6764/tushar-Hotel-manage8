@@ -19,7 +19,6 @@ const bookingSchema = new mongoose.Schema({
     bookingId: {
         type: String, // e.g. BK-2024001
         required: true,
-        unique: true,
         uppercase: true,
         trim: true
     },
@@ -216,5 +215,7 @@ bookingSchema.pre('save', function (next) {
     this.billing.balanceAmount = (this.billing.totalAmount || 0) - (this.billing.paidAmount || 0);
     next();
 });
+
+bookingSchema.index({ hotelId: 1, bookingId: 1 }, { unique: true });
 
 module.exports = mongoose.model('Booking', bookingSchema);

@@ -8,6 +8,10 @@
         "dev": "nodemon src/server.js",
         "import": "node src/scripts/importData.js",
         "fix-indexes": "node scripts/fixTableIndexes.js",
+        "backfill-hotel-dbnames": "node src/scripts/backfillHotelDbNames.js",
+        "backfill-tenant-data": "node src/scripts/backfillTenantData.js",
+        "migrate-tenant-dbs": "node src/scripts/migrateSharedDataToTenantDbs.js",
+        "verify-tenant-separation": "node src/scripts/verifyTenantSeparation.js",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [

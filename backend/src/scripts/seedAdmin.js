@@ -1,6 +1,9 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 
+const DEFAULT_TENANT_DB = 'tenant_default_hotel';
+const normalizeEmail = (value = '') => String(value).trim().toLowerCase();
+
 /**
  * Seeds a user (admin or staff) into the database
  * - If user does not exist: creates from ENV credentials
@@ -11,8 +14,13 @@ const seedUser = async (email, password, role, name, hotelId = null) => {
         return;
     }
 
+    const normalizedEmail = normalizeEmail(email);
+
     try {
-        const existingUser = await User.findOne({ username: email });
+        let existingUser = await User.findOne({ username: normalizedEmail });
+        if (!existingUser) {
+            existingUser = await User.findOne({ username: { $regex: `^\\s*${normalizedEmail.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\s*$`, $options: 'i' } });
+        }
 
         // Default permissions for Staff to ensure they see something
         let defaultPermissions = [];
@@ -23,7 +31,7 @@ const seedUser = async (email, password, role, name, hotelId = null) => {
         if (!existingUser) {
             // User does not exist — create from ENV
             const userData = {
-                username: email,
+                username: normalizedEmail,
                 password: password, // Pre-save hook will hash it
                 name: name,
                 role: role,
@@ -37,13 +45,14 @@ const seedUser = async (email, password, role, name, hotelId = null) => {
             }
 
             await User.create(userData);
-            console.log(`[${role.toUpperCase()} Seed] User created: ${email}`);
+            console.log(`[${role.toUpperCase()} Seed] User created: ${normalizedEmail}`);
         } else {
             // User exists — verify password match, update role/permissions/hotel
             const passwordMatches = await bcrypt.compare(password, existingUser.password);
             const updateData = {
                 isActive: true,
-                role: role // FORCE update role to match strict seed type
+                role: role, // FORCE update role to match strict seed type
+                username: normalizedEmail
             };
 
             if (!passwordMatches) {
@@ -61,10 +70,10 @@ const seedUser = async (email, password, role, name, hotelId = null) => {
             }
 
             await User.updateOne(
-                { username: email },
+                { _id: existingUser._id },
                 { $set: updateData }
             );
-            console.log(`[${role.toUpperCase()} Seed] User verified/updated: ${email}`);
+            console.log(`[${role.toUpperCase()} Seed] User verified/updated: ${normalizedEmail}`);
         }
     } catch (error) {
         console.error(`[${role.toUpperCase()} Seed] Error seeding user:`, error.message);
@@ -108,6 +117,7 @@ const seedAdmin = async () => {
                     name: 'Default Hotel',
                     address: '123 Default Street, City',
                     phone: '9876543210',
+                    dbName: DEFAULT_TENANT_DB,
                     subscription: {
                         plan: 'premium',
                         startDate: now,
@@ -118,7 +128,11 @@ const seedAdmin = async () => {
                 });
                 console.log('[Hotel Seed] Default Hotel created successfully');
             } else {
-                // console.log('[Hotel Seed] Default Hotel already exists');
+                if (!hotel.dbName) {
+                    hotel.dbName = DEFAULT_TENANT_DB;
+                    await hotel.save();
+                    console.log('[Hotel Seed] Default Hotel dbName initialized');
+                }
             }
             hotelId = hotel._id;
         } catch (err) {

@@ -2,12 +2,20 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const Hotel = require('../models/Hotel');
+const { getTenantContext } = require('../middleware/tenantContext');
 
 const DEFAULT_ROOM_GST_SLABS = [
     { min: 0, max: 1000, rate: 0 },
     { min: 1001, max: 7500, rate: 12 },
     { min: 7501, max: 99999, rate: 18 }
 ];
+
+const resolveHotelIdForRequest = (req) => {
+    if (req.user?.role === 'super_admin') {
+        return req.query.hotelId || req.body.hotelId || null;
+    }
+    return req.user?.hotelId || null;
+};
 
 const normalizeRoomGstSlabs = (slabs) => {
     if (!Array.isArray(slabs) || slabs.length === 0) return DEFAULT_ROOM_GST_SLABS;
@@ -30,24 +38,17 @@ const normalizeRoomGstSlabs = (slabs) => {
 // @access  Public
 router.get('/settings', async (req, res) => {
     try {
-        let hotel = await Hotel.findOne().sort({ createdAt: 1 }).lean();
+        const tenantContext = getTenantContext();
+        const targetHotelId = req.query.hotelId || tenantContext?.hotelId || null;
+
+        let hotel = targetHotelId
+            ? await Hotel.findById(targetHotelId).lean()
+            : await Hotel.findOne({ isActive: true }).sort({ createdAt: 1 }).lean();
         if (!hotel) {
-            // Create a default hotel entry
-            hotel = await Hotel.create({
-                name: 'Bireena Atithi',
-                address: '123, MG Road',
-                city: 'Mumbai',
-                state: 'Maharashtra',
-                pin: '400050',
-                gstNumber: '22AAAAA0000A125',
-                subscription: {
-                    plan: 'premium',
-                    startDate: new Date(),
-                    expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-                    isActive: true
-                }
+            return res.status(404).json({
+                success: false,
+                message: 'Hotel not found'
             });
-            hotel = hotel.toObject();
         }
         const normalizedServiceCharge = hotel.roomServiceCharge ?? hotel.serviceCharge ?? 0;
         const normalizedRoomPosting = hotel.enableRoomPosting ?? hotel.billingRules?.autoPost ?? true;
@@ -75,6 +76,14 @@ router.get('/settings', async (req, res) => {
 router.put('/settings', protect, async (req, res) => {
     try {
         const updates = { ...req.body };
+        const targetHotelId = resolveHotelIdForRequest(req);
+
+        if (!targetHotelId) {
+            return res.status(400).json({
+                success: false,
+                message: 'hotelId is required'
+            });
+        }
 
         const hasRoomServiceCharge = updates.roomServiceCharge !== undefined;
         const hasServiceCharge = updates.serviceCharge !== undefined;
@@ -109,17 +118,11 @@ router.put('/settings', protect, async (req, res) => {
             updates.roomGstSlabs = normalizeRoomGstSlabs(updates.roomGstSlabs);
         }
 
-        let hotel = await Hotel.findOne().sort({ createdAt: 1 });
+        let hotel = await Hotel.findById(targetHotelId);
         if (!hotel) {
-            hotel = new Hotel({
-                name: 'Hotel',
-                address: 'Address',
-                subscription: {
-                    plan: 'premium',
-                    startDate: new Date(),
-                    expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-                    isActive: true
-                }
+            return res.status(404).json({
+                success: false,
+                message: 'Hotel not found'
             });
         }
 

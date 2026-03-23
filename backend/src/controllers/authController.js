@@ -2,28 +2,138 @@ const User = require('../models/User');
 const Hotel = require('../models/Hotel');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const seedAdmin = require('../scripts/seedAdmin');
 
-const generateToken = (id) => {
-    return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const normalizeUsername = (value = '') => String(value).trim().toLowerCase();
+
+const resolveSeedCredential = (normalizedUsername, password) => {
+    const credentialRows = [
+        {
+            email: normalizeUsername(process.env.BIREENA_SUPER_ADMIN_EMAIL || process.env.SUPER_ADMIN_EMAIL),
+            password: process.env.BIREENA_SUPER_ADMIN_PASSWORD || process.env.SUPER_ADMIN_PASSWORD,
+            role: 'super_admin',
+            name: 'Super Admin'
+        },
+        {
+            email: normalizeUsername(process.env.BIREENA_ADMIN_EMAIL || process.env.ADMIN_EMAIL),
+            password: process.env.BIREENA_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD,
+            role: 'admin',
+            name: 'Admin User'
+        },
+        {
+            email: normalizeUsername(process.env.BIREENA_STAFF_EMAIL),
+            password: process.env.BIREENA_STAFF_PASSWORD,
+            role: 'staff',
+            name: 'Staff User'
+        }
+    ].filter((item) => item.email && item.password);
+
+    return credentialRows.find((item) => item.email === normalizedUsername && item.password === password) || null;
+};
+
+const ensureDefaultHotel = async () => {
+    let hotel = await Hotel.findOne({ name: 'Default Hotel' });
+    if (hotel) return hotel;
+
+    const now = new Date();
+    const nextYear = new Date();
+    nextYear.setFullYear(now.getFullYear() + 1);
+
+    hotel = await Hotel.create({
+        name: 'Default Hotel',
+        address: '123 Default Street, City',
+        phone: '9876543210',
+        dbName: 'tenant_default_hotel',
+        subscription: {
+            plan: 'premium',
+            startDate: now,
+            expiryDate: nextYear,
+            isActive: true
+        },
+        isActive: true
+    });
+
+    return hotel;
+};
+
+const resolveSeededEmails = () => {
+    return [
+        process.env.BIREENA_SUPER_ADMIN_EMAIL,
+        process.env.SUPER_ADMIN_EMAIL,
+        process.env.BIREENA_ADMIN_EMAIL,
+        process.env.ADMIN_EMAIL,
+        process.env.BIREENA_STAFF_EMAIL
+    ]
+        .filter(Boolean)
+        .map((email) => normalizeUsername(email));
+};
+
+const findUserForLogin = async (normalizedUsername) => {
+    let user = await User.findOne({ username: normalizedUsername }).populate('hotelId');
+    if (!user) {
+        user = await User.findOne({ username: { $regex: `^${escapeRegex(normalizedUsername)}$`, $options: 'i' } }).populate('hotelId');
+    }
+    if (!user) {
+        user = await User.findOne({ username: { $regex: `^\\s*${escapeRegex(normalizedUsername)}\\s*$`, $options: 'i' } }).populate('hotelId');
+    }
+    return user;
+};
+
+const verifyPassword = async (candidatePassword, storedPassword) => {
+    if (!storedPassword) {
+        return { matched: false, needsRehash: false };
+    }
+
+    try {
+        const bcryptMatch = await bcrypt.compare(candidatePassword, storedPassword);
+        if (bcryptMatch) {
+            return { matched: true, needsRehash: false };
+        }
+    } catch (error) {
+        // Ignore bcrypt parsing errors and fallback to legacy plain-text comparison.
+    }
+
+    // Legacy support: some old records may have plain-text passwords.
+    if (candidatePassword === storedPassword) {
+        return { matched: true, needsRehash: true };
+    }
+
+    return { matched: false, needsRehash: false };
+};
+
+const generateToken = (user) => {
+    return jwt.sign(
+        {
+            id: user._id,
+            role: user.role,
+            hotelId: user.hotelId || null,
+            dbName: user.dbName || null
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '30d' }
+    );
 };
 
 const registerUser = async (req, res) => {
     try {
         const { username, password, role, name } = req.body;
+        const normalizedUsername = normalizeUsername(username);
 
-        const userExists = await User.findOne({ username });
+        const userExists = await User.findOne({ username: normalizedUsername });
         if (userExists) {
             return res.status(400).json({ message: 'User already exists' });
         }
 
-        const user = await User.create({ username, password, role, name });
+        const user = await User.create({ username: normalizedUsername, password, role, name });
 
         res.status(201).json({
             _id: user._id,
             username: user.username,
             role: user.role,
             name: user.name,
-            token: generateToken(user._id),
+            token: generateToken(user),
         });
     } catch (error) {
         console.error('[Auth] Register error:', error.message);
@@ -34,18 +144,52 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
     try {
         const { username, password, role: intendedRole } = req.body;
+        const normalizedUsername = normalizeUsername(username);
 
-        if (!username || !password) {
+        if (!normalizedUsername || !password) {
             return res.status(400).json({ message: 'Email and password are required' });
         }
 
-        console.log(`[Auth] Login attempt: ${username} as ${intendedRole}`);
+        console.log(`[Auth] Login attempt: ${normalizedUsername} as ${intendedRole}`);
 
         // Find user in database and include hotel information
-        const user = await User.findOne({ username }).populate('hotelId');
+        let user = await findUserForLogin(normalizedUsername);
+
+        if (!user && resolveSeededEmails().includes(normalizedUsername)) {
+            // Self-heal: ensure seed users exist, then retry lookup once.
+            await seedAdmin();
+            user = await findUserForLogin(normalizedUsername);
+        }
 
         if (!user) {
-            console.log(`[Auth] User not found: ${username}`);
+            const seedCredential = resolveSeedCredential(normalizedUsername, password);
+            if (seedCredential) {
+                let hotel = null;
+                if (seedCredential.role !== 'super_admin') {
+                    hotel = await ensureDefaultHotel();
+                }
+
+                const upsert = {
+                    username: normalizedUsername,
+                    name: seedCredential.name,
+                    role: seedCredential.role,
+                    isActive: true,
+                    password: await bcrypt.hash(password, 10),
+                    ...(hotel ? { hotelId: hotel._id, hotelName: hotel.name } : {})
+                };
+
+                await User.findOneAndUpdate(
+                    { username: normalizedUsername },
+                    { $set: upsert },
+                    { upsert: true, new: true, setDefaultsOnInsert: true }
+                );
+
+                user = await findUserForLogin(normalizedUsername);
+            }
+        }
+
+        if (!user) {
+            console.log(`[Auth] User not found: ${normalizedUsername}`);
             return res.status(401).json({ message: 'Invalid email or password' });
         }
 
@@ -70,11 +214,27 @@ const loginUser = async (req, res) => {
         // ------------------------------
 
         // Compare password using bcrypt
-        const isMatch = await bcrypt.compare(password, user.password);
+        let { matched: isMatch, needsRehash } = await verifyPassword(password, user.password);
+
+        // Self-heal for seeded credentials where DB password drifted.
+        if (!isMatch && resolveSeededEmails().includes(normalizedUsername)) {
+            await seedAdmin();
+            const refreshedUser = await findUserForLogin(normalizedUsername);
+            if (refreshedUser) {
+                user = refreshedUser;
+                ({ matched: isMatch, needsRehash } = await verifyPassword(password, user.password));
+            }
+        }
 
         if (!isMatch) {
             console.log(`[Auth] Password mismatch for: ${username}`);
             return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        if (needsRehash) {
+            user.password = await bcrypt.hash(password, 10);
+            await user.save();
+            console.log(`[Auth] Password migrated to bcrypt for: ${normalizedUsername}`);
         }
 
         // Check subscription for admin and staff (not for super_admin)
@@ -119,8 +279,9 @@ const loginUser = async (req, res) => {
                 name: user.name,
                 hotelId: hotel._id,
                 hotelName: hotel.name,
+                dbName: hotel.dbName,
                 permissions: user.permissions || [],
-                token: generateToken(user._id),
+                token: generateToken({ ...user.toObject(), hotelId: hotel._id, dbName: hotel.dbName }),
             });
         }
 
@@ -134,8 +295,9 @@ const loginUser = async (req, res) => {
             name: user.name,
             hotelId: user.hotelId?._id,
             hotelName: user.hotelId?.name,
+            dbName: user.hotelId?.dbName || null,
             permissions: user.permissions || [],
-            token: generateToken(user._id),
+            token: generateToken({ ...user.toObject(), hotelId: user.hotelId?._id || null, dbName: user.hotelId?.dbName || null }),
         });
     } catch (error) {
         console.error('[Auth] Login error:', error.message);

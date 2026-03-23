@@ -4,7 +4,6 @@ const customerIdentitySchema = new mongoose.Schema({
     name: {
         type: String,
         required: [true, 'Identity Type is required'],
-        unique: true,
         trim: true
     },
     requiredByLaw: {
@@ -22,5 +21,7 @@ const customerIdentitySchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+customerIdentitySchema.index({ hotelId: 1, name: 1 }, { unique: true });
 
 module.exports = mongoose.model('CustomerIdentity', customerIdentitySchema);

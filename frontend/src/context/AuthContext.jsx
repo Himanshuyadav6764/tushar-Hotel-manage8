@@ -62,7 +62,8 @@ export const AuthProvider = ({ children }) => {
     // Login function
     const login = async (email, password, role) => {
         try {
-            const response = await axios.post('/api/auth/login', { username: email, password, role });
+            const normalizedEmail = String(email || '').trim().toLowerCase();
+            const response = await axios.post('/api/auth/login', { username: normalizedEmail, password, role });
 
             if (response.data) {
                 const userWithToken = response.data;

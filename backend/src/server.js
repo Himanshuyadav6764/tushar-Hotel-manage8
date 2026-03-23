@@ -6,6 +6,14 @@ const path = require('path');
 // Load environment variables from the current backend folder
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
+const { installTenantIsolationPlugin } = require('./plugins/tenantIsolationPlugin');
+const { runTenantContext } = require('./middleware/tenantContext');
+const { installTenantModelRouter } = require('./utils/tenantModelRouter');
+
+// Install plugin before loading route/controller files (which import models).
+installTenantIsolationPlugin();
+installTenantModelRouter();
+
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
@@ -27,6 +35,9 @@ const pricingRoutes = require('./routes/pricingRoutes');
 
 // Initialize express app
 const app = express();
+
+// Per-request tenant context needed for automatic query scoping.
+app.use(runTenantContext);
 
 // CORS configuration - Allow production and development origins
 app.use(cors()); // Simplified CORS for development per user request

@@ -4,7 +4,6 @@ const mealTypeSchema = new mongoose.Schema({
     name: {
         type: String,
         required: [true, 'Meal Type name is required'],
-        unique: true,
         trim: true
     },
     shortCode: {
@@ -32,5 +31,7 @@ const mealTypeSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+mealTypeSchema.index({ hotelId: 1, name: 1 }, { unique: true });
 
 module.exports = mongoose.model('MealType', mealTypeSchema);

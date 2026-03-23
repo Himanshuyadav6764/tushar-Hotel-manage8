@@ -4,7 +4,6 @@ const roomSchema = new mongoose.Schema({
     roomNumber: {
         type: String,
         required: [true, 'Room number is required'],
-        unique: true,
         trim: true,
         index: true
     },
@@ -79,5 +78,7 @@ const roomSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+roomSchema.index({ hotelId: 1, roomNumber: 1 }, { unique: true });
 
 module.exports = mongoose.model('Room', roomSchema);

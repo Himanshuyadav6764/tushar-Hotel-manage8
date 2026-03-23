@@ -4,7 +4,6 @@ const bedTypeSchema = new mongoose.Schema({
     name: {
         type: String,
         required: [true, 'Bed type name is required'],
-        unique: true,
         trim: true
     },
     description: {
@@ -18,5 +17,7 @@ const bedTypeSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+bedTypeSchema.index({ hotelId: 1, name: 1 }, { unique: true });
 
 module.exports = mongoose.model('BedType', bedTypeSchema);

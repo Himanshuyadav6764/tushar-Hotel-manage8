@@ -9,7 +9,6 @@ const menuSchema = new mongoose.Schema({
     foodCode: { // Required by controller
         type: String,
         required: true,
-        unique: true,
         trim: true
     },
     category: {
@@ -58,5 +57,7 @@ const menuSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+menuSchema.index({ hotelId: 1, foodCode: 1 }, { unique: true });
 
 module.exports = mongoose.model('Menu', menuSchema);

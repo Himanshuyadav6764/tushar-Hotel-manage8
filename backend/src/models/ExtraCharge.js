@@ -4,7 +4,6 @@ const extraChargeSchema = new mongoose.Schema({
     name: {
         type: String,
         required: [true, 'Charge Name is required'],
-        unique: true,
         trim: true
     },
     chargeType: {
@@ -28,5 +27,7 @@ const extraChargeSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+extraChargeSchema.index({ hotelId: 1, name: 1 }, { unique: true });
 
 module.exports = mongoose.model('ExtraCharge', extraChargeSchema);

@@ -2,6 +2,28 @@ const Hotel = require('../models/Hotel');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const bcrypt = require('bcryptjs');
+const { getTenantConnection, normalizeDbName } = require('../utils/tenantConnectionManager');
+
+const slugifyForDb = (value) => {
+    return String(value || 'hotel')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 24) || 'hotel';
+};
+
+const generateTenantDbName = async (hotelName) => {
+    const base = normalizeDbName(`tenant_${slugifyForDb(hotelName)}`) || 'tenant_hotel';
+    let candidate = base;
+    let counter = 1;
+
+    while (await Hotel.exists({ dbName: candidate })) {
+        counter += 1;
+        candidate = `${base}_${counter}`;
+    }
+
+    return candidate;
+};
 
 // @desc    Get dashboard statistics
 // @route   GET /api/super-admin/dashboard
@@ -160,11 +182,13 @@ const createHotel = async (req, res) => {
         }
 
         // Create hotel
+        const dbName = await generateTenantDbName(hotelName);
         const hotel = await Hotel.create({
             name: hotelName,
             address,
             gstNumber,
             phone,
+            dbName,
             isActive: true,
             subscription: {
                 plan: subscriptionPlan,
@@ -189,11 +213,15 @@ const createHotel = async (req, res) => {
         hotel.adminId = admin._id;
         await hotel.save();
 
+        // Ensure tenant database exists and is warm in connection cache.
+        getTenantConnection(dbName);
+
         res.status(201).json({
             message: 'Hotel and admin created successfully',
             hotel: {
                 id: hotel._id,
                 name: hotel.name,
+                dbName: hotel.dbName,
                 subscription: hotel.subscription
             },
             admin: {

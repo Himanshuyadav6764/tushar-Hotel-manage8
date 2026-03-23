@@ -106,6 +106,6 @@ tableSchema.methods.getFormattedDuration = function () {
 };
 
 // Compound unique index: same tableName allowed in different types, but not in same type
-tableSchema.index({ tableName: 1, type: 1 }, { unique: true });
+tableSchema.index({ hotelId: 1, tableName: 1, type: 1 }, { unique: true });
 
 module.exports = mongoose.model('Table', tableSchema);

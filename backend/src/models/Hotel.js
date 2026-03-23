@@ -1,5 +1,13 @@
 const mongoose = require('mongoose');
 
+const slugifyDbToken = (value) => {
+    return String(value || 'hotel')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 20) || 'hotel';
+};
+
 const hotelSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -20,6 +28,13 @@ const hotelSchema = new mongoose.Schema({
     },
     phone: {
         type: String
+    },
+    dbName: {
+        type: String,
+        required: [true, 'Tenant database name is required'],
+        unique: true,
+        trim: true,
+        lowercase: true
     },
     logoUrl: { type: String, default: null },
 
@@ -137,5 +152,13 @@ hotelSchema.methods.isExpiringSoon = function() {
     sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
     return this.subscription.expiryDate <= sevenDaysFromNow && this.subscription.expiryDate > new Date();
 };
+
+hotelSchema.pre('validate', function (next) {
+    if (!this.dbName) {
+        const suffix = this._id ? String(this._id).slice(-6) : Date.now().toString().slice(-6);
+        this.dbName = `tenant_${slugifyDbToken(this.name)}_${suffix}`;
+    }
+    next();
+});
 
 module.exports = mongoose.model('Hotel', hotelSchema);
