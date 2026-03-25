@@ -580,7 +580,8 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
 
         const taxCfg = {
             foodGstPercent: (toNum(settings?.cgst) + toNum(settings?.sgst)) || toNum(settings?.foodGst) || 0,
-            servicePercent: toNum(settings?.roomServiceCharge ?? settings?.serviceCharge) || 0,
+            foodServicePercent: toNum(settings?.serviceCharge) || toNum(settings?.roomServiceCharge) || 0,
+            roomServicePercent: toNum(settings?.roomServiceCharge) || toNum(settings?.serviceCharge) || 0,
         };
 
         const extractOrderCode = (text) => {
@@ -611,6 +612,9 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
         const findCashierOrderForFoodRow = (row, code) => {
             if (code && orderByCode.has(code)) return orderByCode.get(code);
 
+        const findCashierOrderForFoodRow = (row, code) => {
+            if (code && orderByCode.has(code)) return orderByCode.get(code);
+
             const roomNo = String(selectedFolioData?.roomNumber || reservation?.roomNumber || '').trim();
             const rowDateText = String(row.day || '').trim();
             const candidates = allFoodOrders.filter((order) => {
@@ -631,6 +635,48 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
             return candidates.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime())[0];
         };
 
+        const buildSectionBreakdown = (rows, sectionType) => {
+            const sumAmount = (arr) => arr.reduce((sum, r) => sum + r.amountAbs, 0);
+            const sectionTotal = sumAmount(rows);
+            const details = [];
+            const breakdown = rows.reduce((acc, row) => {
+                const code = extractOrderCode(row.textRaw);
+                const linkedOrder = code ? orderByCode.get(code) : null;
+
+                if (sectionType === 'food' && linkedOrder) {
+                    const grossTag = parseTaggedAmount(row.textRaw, ['Gross', 'Amount']);
+                    const discount = toNum(linkedOrder.discountAmount) || parseTaggedAmount(row.textRaw, ['Discount']) || 0;
+                    let gst = toNum(linkedOrder.tax);
+                    let service = toNum(linkedOrder.serviceChargeAmount);
+                    let base = Math.max(0, row.amountAbs - gst - service + discount);
+
+                    if (grossTag !== null && (service <= 0.001) && (taxCfg.foodServicePercent > 0 || taxCfg.foodGstPercent > 0)) {
+                        const denom = 1 + (taxCfg.foodGstPercent / 100) + (taxCfg.foodServicePercent / 100);
+                        const inferredBase = denom > 0 ? grossTag / denom : grossTag;
+                        base = inferredBase;
+                        gst = inferredBase * (taxCfg.foodGstPercent / 100);
+                        service = inferredBase * (taxCfg.foodServicePercent / 100);
+                    }
+
+                    details.push({
+                        label: row.particulars || 'Food',
+                        base,
+                        gst,
+                        service,
+                        discount,
+                        total: row.amountAbs,
+                    });
+                    acc.gross += base;
+                    acc.gst += gst;
+                    acc.service += service;
+                    acc.discount += discount;
+                    return acc;
+                }
+                return acc;
+            }, { gross: 0, gst: 0, service: 0, discount: 0, total: sectionTotal });
+            return breakdown;
+        };
+
         const normalizeEntry = (row, sectionType) => {
             const code = extractOrderCode(row.textRaw);
             const linkedOrder = sectionType === 'food' ? findCashierOrderForFoodRow(row, code) : null;
@@ -642,6 +688,23 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
             let gst = parseTaggedAmount(text, ['Food GST', 'Room GST', 'GST', 'Tax']) || 0;
             let service = parseTaggedAmount(text, ['Restaurant Service', 'Room Service', 'Service Charge', 'Service']) || 0;
             let discount = discountMeta.amount || parseTaggedAmount(text, ['Discount']) || 0;
+            const finalTag = parseTaggedAmount(text, ['Final Amount', 'Net Payable', 'Total Bill']);
+
+            // If cashier percentages are available and bill contains gross/final info, infer split without altering folio total.
+            if (sectionType === 'food' && (gross !== null || finalTag !== null) && gst === 0 && service === 0 && (taxCfg.foodGstPercent > 0 || taxCfg.foodServicePercent > 0)) {
+                const targetBeforeDiscount = Math.max(0, row.amountAbs + discount);
+                const denom = 1 + (taxCfg.foodGstPercent / 100) + (taxCfg.foodServicePercent / 100);
+                const inferredBase = denom > 0 ? targetBeforeDiscount / denom : targetBeforeDiscount;
+                gst = inferredBase * (taxCfg.foodGstPercent / 100);
+                service = inferredBase * (taxCfg.foodServicePercent / 100);
+            }
+
+            if (sectionType === 'room' && (gross !== null || finalTag !== null) && service === 0 && taxCfg.roomServicePercent > 0) {
+                const targetBeforeDiscount = Math.max(0, row.amountAbs + discount);
+                const grossWithTax = gross !== null ? gross : targetBeforeDiscount;
+                const serviceFromGross = grossWithTax * (taxCfg.roomServicePercent / (100 + taxCfg.roomServicePercent));
+                service = Math.max(0, serviceFromGross);
+            }
 
             if (sectionType === 'food' && linkedOrder) {
                 const orderGst = toNum(linkedOrder.tax ?? linkedOrder.gstAmount ?? linkedOrder.foodGstAmount);
