@@ -29,6 +29,7 @@ class InvoiceGenerator {
 
             // Charges (frozen)
             roomCharges: billingData.roomCharges || 0,
+            serviceCharge: billingData.serviceChargeAmount || billingData.serviceCharge || 0,
             discounts: billingData.totalDiscount || 0,
             subtotal: billingData.subtotal || 0,
             taxes: billingData.taxAmount || 0,
@@ -76,6 +77,7 @@ class InvoiceGenerator {
             formattedCheckInDate: new Date(invoice.checkInDate).toLocaleDateString('en-IN'),
             formattedCheckOutDate: new Date(invoice.checkOutDate).toLocaleDateString('en-IN'),
             roomChargesFormatted: invoice.roomCharges.toLocaleString('en-IN'),
+            serviceChargeFormatted: (invoice.serviceCharge || 0).toLocaleString('en-IN'),
             discountsFormatted: invoice.discounts.toLocaleString('en-IN'),
             subtotalFormatted: invoice.subtotal.toLocaleString('en-IN'),
             taxesFormatted: invoice.taxes.toLocaleString('en-IN'),

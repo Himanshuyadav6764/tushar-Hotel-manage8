@@ -3,17 +3,43 @@ import CreateGuestForm from './CreateGuestForm';
 import './GuestModal.css';
 import API_URL from '../config/api';
 
+const ITEMS_PER_PAGE = 4;
+
+const getGuestId = (guest) => guest?._id || guest?.id || guest?.guestId;
+
+const upsertGuest = (list, guest) => {
+    const incomingId = getGuestId(guest);
+    if (!incomingId) return [...list, guest];
+
+    const index = list.findIndex((item) => getGuestId(item) === incomingId);
+    if (index === -1) return [...list, guest];
+
+    const updated = [...list];
+    updated[index] = { ...updated[index], ...guest };
+    return updated;
+};
+
 const GuestModal = ({ isOpen, onClose, onSelectGuest, guests = [], onRefreshGuests, autoOpenCreate = false, multiSelect = false, preSelectedGuests = [] }) => {
     const [view, setView] = useState(autoOpenCreate ? 'create' : 'selection'); // 'selection' or 'create'
     const [searchTerm, setSearchTerm] = useState('');
     const [editingGuest, setEditingGuest] = useState(null);
     const [guestsList, setGuestsList] = useState(guests); // Local state for real-time updates
     const [tempSelected, setTempSelected] = useState(preSelectedGuests); // multi-select pending selections
+    const [currentPage, setCurrentPage] = useState(1);
 
     // Sync local state with props
     useEffect(() => {
         setGuestsList(guests);
     }, [guests]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, view, isOpen]);
+
+    useEffect(() => {
+        if (!isOpen || !onRefreshGuests) return;
+        onRefreshGuests();
+    }, [isOpen, onRefreshGuests]);
 
     // Update view when autoOpenCreate changes
     useEffect(() => {
@@ -23,8 +49,6 @@ const GuestModal = ({ isOpen, onClose, onSelectGuest, guests = [], onRefreshGues
             setView('selection');
         }
     }, [autoOpenCreate, isOpen]);
-
-    if (!isOpen) return null;
 
     const handleSelectGuest = (guest) => {
         if (multiSelect) {
@@ -47,24 +71,23 @@ const GuestModal = ({ isOpen, onClose, onSelectGuest, guests = [], onRefreshGues
 
     const handleCreateGuest = async (updatedGuest) => {
         console.log('💾 handleCreateGuest called with:', updatedGuest);
+        if (!updatedGuest) return;
 
         if (editingGuest) {
             // ✅ EDIT MODE - Update state directly
             console.log('✏️ EDIT MODE: Updating guest in state...');
 
-            setGuestsList(prevGuests =>
-                prevGuests.map(g =>
-                    (g._id === updatedGuest._id || g.id === updatedGuest._id || g.guestId === updatedGuest._id)
-                        ? updatedGuest
-                        : g
-                )
-            );
+            setGuestsList(prevGuests => upsertGuest(prevGuests, updatedGuest));
 
             // Reset editing state
             setEditingGuest(null);
 
             // Switch back to selection view (AUTO-BACK)
             setView('selection');
+
+            if (onRefreshGuests) {
+                await onRefreshGuests();
+            }
 
             console.log('✅ Guest updated in state, switched to selection view');
 
@@ -74,11 +97,15 @@ const GuestModal = ({ isOpen, onClose, onSelectGuest, guests = [], onRefreshGues
             // ✅ CREATE MODE - Add to state
             console.log('➕ CREATE MODE: Adding new guest to state...');
 
-            setGuestsList(prevGuests => [...prevGuests, updatedGuest]);
+            setGuestsList(prevGuests => upsertGuest(prevGuests, updatedGuest));
+
+            if (onRefreshGuests) {
+                await onRefreshGuests();
+            }
 
             if (multiSelect) {
                 // In multiSelect mode: add to tempSelected and return to selection view
-                setTempSelected(prev => [...prev, updatedGuest]);
+                setTempSelected(prev => upsertGuest(prev, updatedGuest));
                 setView('selection');
             } else {
                 // Select the newly created guest and close
@@ -124,6 +151,19 @@ const GuestModal = ({ isOpen, onClose, onSelectGuest, guests = [], onRefreshGues
         (guest.mobile || '').includes(searchTerm)
     );
 
+    const totalPages = Math.max(1, Math.ceil(filteredGuests.length / ITEMS_PER_PAGE));
+    const safePage = Math.min(currentPage, totalPages);
+    const startIndex = (safePage - 1) * ITEMS_PER_PAGE;
+    const pagedGuests = filteredGuests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
+    if (!isOpen) return null;
+
     return (
         <div className="guest-modal-overlay" onClick={onClose}>
             <div className="guest-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -160,12 +200,12 @@ const GuestModal = ({ isOpen, onClose, onSelectGuest, guests = [], onRefreshGues
                                 {/* Guests List */}
                                 <div className="guests-list">
                                     {filteredGuests.length > 0 ? (
-                                        filteredGuests.map((guest, idx) => {
+                                        pagedGuests.map((guest, idx) => {
                                             const gid = guest._id || guest.id || guest.guestId;
                                             const isChecked = tempSelected.some(g => (g._id || g.id || g.guestId) === gid);
                                             return (
                                             <div
-                                                key={gid || `guest-${idx}`}
+                                                key={gid || `guest-${startIndex + idx}`}
                                                 className={`guest-item${multiSelect && isChecked ? ' guest-item-selected' : ''}`}
                                             >
                                                 <div
@@ -235,6 +275,30 @@ const GuestModal = ({ isOpen, onClose, onSelectGuest, guests = [], onRefreshGues
                                         </div>
                                     )}
                                 </div>
+
+                                {filteredGuests.length > 0 && totalPages > 1 && (
+                                    <div className="guest-pagination" role="navigation" aria-label="Guest pagination">
+                                        <button
+                                            type="button"
+                                            className="guest-page-btn"
+                                            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                                            disabled={safePage === 1}
+                                        >
+                                            Previous
+                                        </button>
+                                        <span className="guest-page-info">
+                                            Page {safePage} of {totalPages}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            className="guest-page-btn"
+                                            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                                            disabled={safePage === totalPages}
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+                                )}
 
                                 {/* Action Buttons */}
                                 <div className="modal-actions">

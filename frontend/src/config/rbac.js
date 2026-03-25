@@ -447,22 +447,49 @@ const MODULE_LABEL_MAP = {
     'new-reservation': ['Reservations', 'Rooms (New Reservation)'],
     [MODULES.RESERVATION_CARD]: ['Reservation Card', 'Registration Card'],
     [MODULES.FOOD_ORDER]: ['Food Order'],
-    [MODULES.PROPERTY_SETUP]: ['Property Setup'],
-    [MODULES.PROPERTY_CONFIG]: ['Property Configuration'],
-    [MODULES.REPORTS]: ['Reports'],
+    [MODULES.PROPERTY_SETUP]: ['Property Setup', 'Property Setup (All)', 'Property Setup - Discount', 'Property Setup - Generate Room QR'],
+    [MODULES.PROPERTY_CONFIG]: [
+        'Property Configuration',
+        'Property Configuration (All)',
+        'Property Configuration - Floor Setup',
+        'Property Configuration - Room Facilities Type',
+        'Property Configuration - Meal Type',
+        'Property Configuration - Reservation Type',
+        'Property Configuration - Extra Charges',
+        'Property Configuration - Complimentary Services',
+        'Property Configuration - Customer Identity',
+        'Property Configuration - Booking Source',
+        'Property Configuration - Business Source',
+        'Property Configuration - Maintenance Block',
+        'Property Configuration - Table Management',
+        'Property Configuration - Company Settings'
+    ],
+    [MODULES.REPORTS]: [
+        'Reports',
+        'Reports (All)',
+        'Reports - Sales',
+        'Reports - Payments',
+        'Reports - Rooms',
+        'Reports - Kitchen',
+        'Reports - GST',
+        'Reports - Staff',
+        'Reports - Billing',
+        'Reports - Reservations',
+        'Reports - Analytics'
+    ],
     [MODULES.CRM_MODEL]: ['CRM Model'],
     [MODULES.VIEW_ORDER]: ['KOT Order', 'View order'],
     [MODULES.STAFF_MANAGEMENT]: ['Settings', 'Staff Management'],
-    [MODULES.REPORTS_SALES]: ['Reports'],
-    [MODULES.REPORTS_PAYMENTS]: ['Reports'],
-    [MODULES.REPORTS_ROOMS]: ['Reports'],
-    [MODULES.REPORTS_KITCHEN]: ['Reports'],
-    [MODULES.REPORTS_INVENTORY]: ['Reports'],
-    [MODULES.REPORTS_GST]: ['Reports'],
-    [MODULES.REPORTS_STAFF]: ['Reports'],
-    [MODULES.REPORTS_BILLING]: ['Reports'],
-    [MODULES.REPORTS_RESERVATIONS]: ['Reports'],
-    [MODULES.REPORTS_ANALYTICS]: ['Reports']
+    [MODULES.REPORTS_SALES]: ['Reports', 'Reports (All)', 'Reports - Sales'],
+    [MODULES.REPORTS_PAYMENTS]: ['Reports', 'Reports (All)', 'Reports - Payments'],
+    [MODULES.REPORTS_ROOMS]: ['Reports', 'Reports (All)', 'Reports - Rooms'],
+    [MODULES.REPORTS_KITCHEN]: ['Reports', 'Reports (All)', 'Reports - Kitchen'],
+    [MODULES.REPORTS_INVENTORY]: ['Reports', 'Reports (All)'],
+    [MODULES.REPORTS_GST]: ['Reports', 'Reports (All)', 'Reports - GST'],
+    [MODULES.REPORTS_STAFF]: ['Reports', 'Reports (All)', 'Reports - Staff'],
+    [MODULES.REPORTS_BILLING]: ['Reports', 'Reports (All)', 'Reports - Billing'],
+    [MODULES.REPORTS_RESERVATIONS]: ['Reports', 'Reports (All)', 'Reports - Reservations'],
+    [MODULES.REPORTS_ANALYTICS]: ['Reports', 'Reports (All)', 'Reports - Analytics']
 };
 
 /**
@@ -490,6 +517,10 @@ const _isRestrictedAdmin = (user) => {
 export const hasPermission = (user, module, permission) => {
     if (!user) return false;
     const userRole = user.role;
+
+    if (userRole === ROLES.SUPER_ADMIN || userRole === ROLES.SUPERADMIN) {
+        return true;
+    }
 
     // Everyone has permission for their own profile
     if (module === MODULES.PROFILE) return true;
@@ -525,6 +556,10 @@ export const hasPermission = (user, module, permission) => {
 export const hasModuleAccess = (user, module) => {
     if (!user) return false;
     const userRole = user.role;
+
+    if (userRole === ROLES.SUPER_ADMIN || userRole === ROLES.SUPERADMIN) {
+        return true;
+    }
 
     // Everyone can access their own profile
     if (module === MODULES.PROFILE) return true;

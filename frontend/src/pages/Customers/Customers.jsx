@@ -1,17 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import API_URL from '../../config/api';
+import BookingActionsManager from '../../components/BookingActionsManager';
 import './Customers.css';
+
+const PRINT_MENU_WIDTH = 230;
+const PRINT_MENU_HEIGHT = 232;
+
+const toNumber = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const pickNumber = (...values) => {
+    for (const value of values) {
+        if (value === null || value === undefined || value === '') continue;
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
+    }
+    return undefined;
+};
 
 const Customers = () => {
     const [activeTab, setActiveTab] = useState('current');
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [sortBy, setSortBy] = useState('name');
+    const [sortBy, setSortBy] = useState('latest');
     const [customersData, setCustomersData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedCustomerId, setSelectedCustomerId] = useState(null);
     const [pendingDeleteId, setPendingDeleteId] = useState(null);
+    const [openPrintMenu, setOpenPrintMenu] = useState(null);
+    const [activePrintAction, setActivePrintAction] = useState(null);
+    const [activePrintBooking, setActivePrintBooking] = useState(null);
 
     // Fetch bookings from API
     const fetchBookingsData = async () => {
@@ -81,7 +102,22 @@ const Customers = () => {
                     room: roomNum,
                     checkIn: booking.checkInDate,
                     checkOut: booking.checkOutDate,
+                    createdAt: booking.createdAt,
+                    updatedAt: booking.updatedAt,
                     status: status,
+                    bookingNumber: booking.bookingNumber || booking.bookingId || booking.reservationNumber || booking.confirmationNo || booking._id || booking.id,
+                    adults: toNumber(booking.adults ?? booking.noOfAdults ?? booking.totalAdults ?? 1, 1),
+                    children: toNumber(booking.children ?? booking.noOfChildren ?? booking.totalChildren ?? 0, 0),
+                    roomCharges: toNumber(booking.roomCharge ?? booking.roomCharges ?? booking.roomTotal ?? booking.tariff ?? booking.billing?.roomCharges, 0),
+                    extraCharges: toNumber(booking.extraCharges ?? booking.additionalCharges ?? booking.serviceCharges, 0),
+                    discount: toNumber(booking.discountAmount ?? booking.discount, 0),
+                    paidAmount: toNumber(booking.paidAmount ?? booking.totalPaid ?? booking.advanceAmount, 0),
+                    balanceAmount: toNumber(booking.remainingAmount ?? booking.dueAmount ?? booking.balanceAmount, 0),
+                    idType: booking.idType || booking.identityType || 'N/A',
+                    idNumber: booking.idNumber || booking.identityNumber || booking.aadharNumber || 'N/A',
+                    address: booking.address || booking.city || 'N/A',
+                    nationality: booking.nationality || 'N/A',
+                    rawBooking: booking,
                     // Use normalized status for boolean flags. 
                     // Current Guest = IN_HOUSE
                     isCurrent: status === 'IN_HOUSE',
@@ -108,7 +144,7 @@ const Customers = () => {
         setSearchTerm('');
         setStartDate('');
         setEndDate('');
-        setSortBy('name');
+        setSortBy('latest');
         fetchBookingsData(); // Refresh data
     };
 
@@ -185,6 +221,16 @@ const Customers = () => {
 
     // Sort customers
     const sortedCustomers = [...filteredCustomers].sort((a, b) => {
+        if (sortBy === 'latest') {
+            const getSortTime = (customer) => {
+                const source = customer.updatedAt || customer.createdAt || customer.checkIn || customer.checkOut;
+                const parsed = new Date(source).getTime();
+                return Number.isFinite(parsed) ? parsed : 0;
+            };
+
+            return getSortTime(b) - getSortTime(a);
+        }
+
         if (sortBy === 'name') {
             return a.name.localeCompare(b.name);
         } else if (sortBy === 'checkIn') {
@@ -216,6 +262,211 @@ const Customers = () => {
 
     const handleViewDetails = (customerId) => {
         setSelectedCustomerId((currentId) => (currentId === customerId ? null : customerId));
+    };
+
+    const buildPrintBooking = (customer) => {
+        const source = customer?.rawBooking || {};
+        const checkInDate = source.checkInDate || customer?.checkIn;
+        const checkOutDate = source.checkOutDate || customer?.checkOut;
+
+        const start = new Date(checkInDate);
+        const end = new Date(checkOutDate);
+        const computedNights = (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()))
+            ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)))
+            : 1;
+
+        const roomType = source.roomType || source.rooms?.[0]?.roomType || source.rooms?.[0]?.categoryId || 'STANDARD';
+        const billing = source.billing || {};
+        const transactions = Array.isArray(source.transactions) ? source.transactions : [];
+
+        const txSum = (matcher) => transactions
+            .filter((tx) => matcher((`${tx.particulars || ''} ${tx.description || ''} ${tx.notes || ''}`).toLowerCase(), tx))
+            .reduce((sum, tx) => sum + (Math.abs(Number(tx.amount)) || 0), 0);
+
+        const txRoomCharges = txSum((text, tx) => {
+            const type = String(tx.type || '').toLowerCase();
+            return type === 'charge' && (text.includes('room charge') || text.includes('room tariff') || text.includes('room rent') || text.includes('accommodation'));
+        });
+
+        const txServiceCharges = txSum((text, tx) => {
+            const type = String(tx.type || '').toLowerCase();
+            return type === 'charge' && text.includes('service charge');
+        });
+
+        const txDiscount = txSum((text, tx) => {
+            const type = String(tx.type || '').toLowerCase();
+            return type === 'discount' || text.includes('discount');
+        });
+
+        const txPayments = txSum((_, tx) => String(tx.type || '').toLowerCase() === 'payment');
+
+        const roomRate = pickNumber(
+            source.ratePerNight,
+            source.roomRate,
+            source.pricePerNight,
+            billing.roomRate,
+            billing.pricePerNight,
+            source.rooms?.[0]?.ratePerNight,
+            source.rooms?.[0]?.roomRate
+        ) ?? 0;
+
+        const discountAmount = pickNumber(
+            source.discount,
+            source.discountAmount,
+            source.totalDiscount,
+            billing.discount,
+            billing.discountAmount,
+            txDiscount,
+            customer?.discount
+        ) ?? 0;
+
+        const serviceCharge = pickNumber(
+            source.serviceCharge,
+            source.serviceChargeAmount,
+            source.serviceCharges,
+            billing.serviceCharge,
+            billing.serviceChargeAmount,
+            txServiceCharges,
+            customer?.extraCharges
+        ) ?? 0;
+
+        const taxAmount = pickNumber(
+            source.tax,
+            source.taxAmount,
+            billing.tax,
+            billing.taxAmount,
+            customer?.taxAmount
+        ) ?? 0;
+
+        const storedTotalAmount = pickNumber(
+            billing.totalAmount,
+            source.totalAmount,
+            source.grandTotal,
+            source.amount,
+            customer?.totalAmount
+        );
+
+        const sourceRoomCharges = pickNumber(
+            source.roomCharges,
+            source.baseRoomCharges,
+            billing.roomCharges,
+            billing.roomChargesAmount,
+            txRoomCharges
+        );
+
+        const derivedRoomChargesFromRate = roomRate > 0 ? (roomRate * computedNights) : 0;
+        const inferredRoomCharges = storedTotalAmount !== undefined
+            ? Math.max(Number(storedTotalAmount) - serviceCharge - taxAmount + discountAmount, 0)
+            : 0;
+
+        const roomCharges = (sourceRoomCharges !== undefined && sourceRoomCharges > 0)
+            ? sourceRoomCharges
+            : (derivedRoomChargesFromRate > 0 ? derivedRoomChargesFromRate : inferredRoomCharges);
+
+        const totalAmount = storedTotalAmount ?? Math.max(roomCharges + serviceCharge + taxAmount - discountAmount, 0);
+
+        const paidAmount = pickNumber(
+            billing.paidAmount,
+            source.paidAmount,
+            source.totalPaid,
+            source.advanceAmount,
+            txPayments,
+            customer?.paidAmount
+        ) ?? 0;
+
+        const balanceAmount = pickNumber(
+            billing.balanceAmount,
+            source.balanceAmount,
+            source.remainingAmount,
+            source.dueAmount,
+            customer?.balanceAmount
+        ) ?? Math.max(totalAmount - paidAmount, 0);
+
+        return {
+            ...source,
+            id: source.id || source._id || customer?.id,
+            _id: source._id || source.id || customer?.id,
+            bookingId: source.bookingId || source.bookingNumber || source.reservationNumber || customer?.bookingNumber || customer?.id,
+            guestName: source.guestName || customer?.name,
+            email: source.email || source.guestEmail || customer?.email,
+            mobileNumber: source.mobileNumber || source.guestPhone || customer?.phone,
+            roomNumber: source.roomNumber || source.rooms?.[0]?.roomNumber || customer?.room,
+            roomType,
+            checkInDate,
+            checkOutDate,
+            nights: source.nights || source.numberOfNights || computedNights,
+            numberOfNights: source.numberOfNights || source.nights || computedNights,
+            numberOfGuests: source.numberOfGuests || source.adults || customer?.adults || 1,
+            adults: source.adults ?? customer?.adults ?? 1,
+            children: source.children ?? customer?.children ?? 0,
+            roomCharges,
+            discount: discountAmount,
+            discountAmount,
+            serviceCharge,
+            serviceChargeAmount: serviceCharge,
+            tax: taxAmount,
+            taxAmount,
+            totalAmount,
+            grandTotal: totalAmount,
+            paidAmount,
+            balanceAmount,
+            billing: {
+                ...billing,
+                roomRate,
+                roomCharges,
+                roomChargesAmount: roomCharges,
+                discount: discountAmount,
+                discountAmount,
+                serviceCharge,
+                serviceChargeAmount: serviceCharge,
+                tax: taxAmount,
+                taxAmount,
+                totalAmount,
+                paidAmount,
+                balanceAmount
+            },
+            additionalGuests: Array.isArray(source.additionalGuests) ? source.additionalGuests : [],
+            visitors: Array.isArray(source.visitors) ? source.visitors : [],
+            rooms: Array.isArray(source.rooms) && source.rooms.length > 0
+                ? source.rooms
+                : [{
+                    roomNumber: source.roomNumber || customer?.room,
+                    roomType,
+                    categoryId: roomType,
+                    ratePerNight: roomRate || (toNumber(customer?.roomCharges, 0) / Math.max(1, computedNights))
+                }]
+        };
+    };
+
+    const handlePrintAction = (action, customer) => {
+        if (!customer) return;
+
+        const bookingForPrint = buildPrintBooking(customer);
+        setActivePrintAction(action);
+        setActivePrintBooking(bookingForPrint);
+        setOpenPrintMenu(null);
+    };
+
+    const closePrintDrawer = () => {
+        setActivePrintAction(null);
+        setActivePrintBooking(null);
+    };
+
+    const handlePrintMenuToggle = (event, customerId) => {
+        event.stopPropagation();
+
+        const rect = event.currentTarget.getBoundingClientRect();
+        const leftBoundary = 12;
+        const rightBoundary = window.innerWidth - PRINT_MENU_WIDTH - 12;
+
+        const left = Math.min(Math.max(rect.right - PRINT_MENU_WIDTH, leftBoundary), rightBoundary);
+        const openUpward = rect.bottom + PRINT_MENU_HEIGHT > window.innerHeight - 12;
+        const top = openUpward ? rect.top - PRINT_MENU_HEIGHT - 8 : rect.bottom + 8;
+
+        setOpenPrintMenu((current) => {
+            if (current?.customerId === customerId) return null;
+            return { customerId, left, top };
+        });
     };
 
     const handleCheckOut = async (id) => {
@@ -251,6 +502,19 @@ const Customers = () => {
             setPendingDeleteId(null);
         }
     };
+
+    useEffect(() => {
+        if (!openPrintMenu) return undefined;
+
+        const closeMenu = () => setOpenPrintMenu(null);
+        window.addEventListener('resize', closeMenu);
+        window.addEventListener('scroll', closeMenu, true);
+
+        return () => {
+            window.removeEventListener('resize', closeMenu);
+            window.removeEventListener('scroll', closeMenu, true);
+        };
+    }, [openPrintMenu]);
 
     return (
         <div className="customers-page">
@@ -322,6 +586,7 @@ const Customers = () => {
                         onChange={(e) => setSortBy(e.target.value)}
                         className="sort-select"
                     >
+                        <option value="latest">Sort by Latest</option>
                         <option value="name">Sort by Name</option>
                         <option value="checkIn">Sort by Check-in</option>
                         <option value="checkOut">Sort by Check-out</option>
@@ -411,6 +676,13 @@ const Customers = () => {
                                                 >
                                                     🗑️
                                                 </button>
+                                                <button
+                                                    className="action-btn customer-print-btn"
+                                                    onClick={(event) => handlePrintMenuToggle(event, customer.id)}
+                                                    title="Print"
+                                                >
+                                                    🖨️
+                                                </button>
                                                 {pendingDeleteId === customer.id && (
                                                     <div className="delete-inline-warning">
                                                         <span>Are you sure want to delete?</span>
@@ -485,6 +757,49 @@ const Customers = () => {
                         </tbody>
                     </table>
                 </div>
+            )}
+
+            {openPrintMenu && (() => {
+                const selectedCustomer = sortedCustomers.find((customer) => customer.id === openPrintMenu.customerId);
+                if (!selectedCustomer) return null;
+
+                return (
+                    <>
+                        <div className="customer-print-menu-backdrop" onClick={() => setOpenPrintMenu(null)}></div>
+                        <div
+                            className="customer-print-menu"
+                            style={{ left: `${openPrintMenu.left}px`, top: `${openPrintMenu.top}px` }}
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            <button className="customer-print-menu-item" onClick={() => handlePrintAction('print-summary', selectedCustomer)}>
+                                <span className="customer-print-menu-icon">📄</span>
+                                <span>Print Summary</span>
+                            </button>
+                            <button className="customer-print-menu-item" onClick={() => handlePrintAction('print-invoice', selectedCustomer)}>
+                                <span className="customer-print-menu-icon">🧾</span>
+                                <span>Print Invoice</span>
+                            </button>
+                            <button className="customer-print-menu-item" onClick={() => handlePrintAction('print-grc', selectedCustomer)}>
+                                <span className="customer-print-menu-icon">📋</span>
+                                <span>Print GRC</span>
+                            </button>
+                            <button className="customer-print-menu-item" onClick={() => handlePrintAction('print-grc-all', selectedCustomer)}>
+                                <span className="customer-print-menu-icon">🗂️</span>
+                                <span>Print GRC All</span>
+                            </button>
+                        </div>
+                    </>
+                );
+            })()}
+
+            {activePrintAction && activePrintBooking && (
+                <BookingActionsManager
+                    isOpen={Boolean(activePrintAction && activePrintBooking)}
+                    onClose={closePrintDrawer}
+                    actionType={activePrintAction}
+                    booking={activePrintBooking}
+                    onSuccess={() => {}}
+                />
             )}
         </div>
     );

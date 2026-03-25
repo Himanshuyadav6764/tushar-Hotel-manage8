@@ -3,10 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
-    FaBell,
-    FaCog,
     FaHotel,
-    FaSearch,
     FaFilter,
     FaTimes,
     FaExclamationTriangle,
@@ -196,6 +193,14 @@ const ActivityLogs = () => {
                 <div className="sa-sidebar-header">
                     <span style={{ fontSize: '24px', color: '#e11d48' }}>⚡</span>
                     <h2>SUPER ADMIN</h2>
+                    <button
+                        type="button"
+                        className="sa-sidebar-close"
+                        onClick={() => setSidebarOpen(false)}
+                        aria-label="Close sidebar"
+                    >
+                        ×
+                    </button>
                 </div>
 
                 <nav className="sa-nav">
@@ -237,27 +242,27 @@ const ActivityLogs = () => {
                 </nav>
             </aside>
 
+            {sidebarOpen && (
+                <div className="sa-sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+            )}
+
             {/* Main Content */}
             <main className="sa-main">
                 {/* Header */}
-                <header className="sa-header">
+                <header className="sa-header sa-header-unified">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <button className="sa-icon-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
-                            <FaBars />
-                        </button>
+                        {!sidebarOpen && (
+                            <button className="sa-icon-btn sa-menu-toggle" onClick={() => setSidebarOpen(true)}>
+                                <FaBars />
+                            </button>
+                        )}
                         <div className="sa-header-logo">
-                            <FaHistory style={{ color: '#e11d48' }} />
-                            <span>ACTIVITY LOGS</span>
+                            <FaHotel style={{ color: '#e11d48' }} />
+                            <span>BIREENA ATITHI</span>
                         </div>
                     </div>
 
                     <div className="sa-header-actions">
-                        <button className="sa-icon-btn">
-                            <FaCog />
-                        </button>
-                        <button className="sa-icon-btn">
-                            <FaBell />
-                        </button>
                         <div className="sa-profile">
                             {getInitials(user?.name)}
                         </div>
@@ -316,9 +321,8 @@ const ActivityLogs = () => {
                     )}
 
                     {/* Action Bar */}
-                    <div className="action-bar">
+                    <div className="action-bar activity-action-bar">
                         <div className="search-bar">
-                            <FaSearch className="search-icon" />
                             <input
                                 type="text"
                                 placeholder="Search logs..."

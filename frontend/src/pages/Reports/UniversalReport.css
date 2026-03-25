@@ -684,7 +684,7 @@
     background: #fff;
     border-radius: 16px;
     border: 1px solid #e9edf3;
-    overflow-x: auto;
+    overflow: visible;
     margin-top: 15px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
@@ -716,6 +716,99 @@
 
 .report-table tbody tr:hover {
     background: #fafafa;
+}
+
+.row-action-cell {
+    position: relative;
+    width: 90px;
+}
+
+.row-action-wrap {
+    position: relative;
+    display: inline-flex;
+    justify-content: flex-end;
+    width: 100%;
+}
+
+.row-print-btn {
+    border: 1px solid #fecdd3;
+    background: #fff1f2;
+    color: #be123c;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.row-print-btn:hover {
+    background: #ffe4e6;
+    border-color: #fb7185;
+}
+
+.row-print-menu {
+    position: fixed;
+    width: 210px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
+    padding: 8px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 270px;
+    overflow-y: auto;
+    animation: rowPrintRise 0.18s ease;
+}
+
+.row-print-menu.open-up {
+    transform-origin: bottom right;
+}
+
+.row-print-menu.open-down {
+    transform-origin: top right;
+}
+
+.row-print-option {
+    width: 100%;
+    border: 1px solid transparent;
+    background: #fff;
+    color: #1f2937;
+    border-radius: 8px;
+    padding: 7px 9px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: left;
+}
+
+.row-print-option small {
+    color: #6b7280;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.row-print-option:hover {
+    border-color: #fecdd3;
+    background: #fff1f2;
+    color: #9f1239;
+}
+
+@keyframes rowPrintRise {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .report-actions {
@@ -931,11 +1024,14 @@
 
 .table-responsive {
     overflow-x: auto;
+    overflow-y: visible;
     width: 100%;
+    position: relative;
 }
 
 .report-data-card .table-responsive {
     overflow-x: auto;
+    overflow-y: visible;
 }
 
 /* Additional summary grids used by inline-rendered sections */

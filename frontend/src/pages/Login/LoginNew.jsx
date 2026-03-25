@@ -138,19 +138,11 @@ const LoginNew = ({ handleLogin, loading, error }) => {
 
                         {error && <div className="error-msg">{error}</div>}
 
-                        <div className="forgot-pass-wrapper">
-                            <a href="#" className="forgot-pass-link">Forgot Password?</a>
-                        </div>
-
                         {/* 🔒 SAME LOGIN LOGIC BUTTON */}
                         <button type="submit" className="login-btn" disabled={loading}>
                             {loading ? "LOGGING IN..." : "LOGIN"}
                         </button>
                     </form>
-
-                    <p className="support-text">
-                        Don’t have an account? <span>Contact Support</span>
-                    </p>
                 </div>
             </div>
         </div>

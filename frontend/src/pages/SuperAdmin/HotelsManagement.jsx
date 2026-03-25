@@ -3,10 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
-    FaBell,
-    FaCog,
     FaHotel,
-    FaSearch,
     FaFilter,
     FaTimes,
     FaCheck,
@@ -92,6 +89,7 @@ const HotelsManagement = () => {
     const [permissionModal, setPermissionModal] = useState({ open: false, hotel: null });
     const [editingPermissions, setEditingPermissions] = useState([]);
     const [permissionSaving, setPermissionSaving] = useState(false);
+    const [statusNote, setStatusNote] = useState({ type: '', message: '' });
 
     const ADMIN_SCREEN_OPTIONS = [
         'Dashboard',
@@ -112,8 +110,33 @@ const HotelsManagement = () => {
         'Cashier Logs',
         'Payment Logs',
         'Reports',
-        'Property Setup',
+        'Reports (All)',
+        'Reports - Sales',
+        'Reports - Payments',
+        'Reports - Rooms',
+        'Reports - Kitchen',
+        'Reports - GST',
+        'Reports - Staff',
+        'Reports - Billing',
+        'Reports - Reservations',
+        'Reports - Analytics',
+        'Property Setup (All)',
+        'Property Setup - Discount',
+        'Property Setup - Generate Room QR',
         'Property Configuration',
+        'Property Configuration (All)',
+        'Property Configuration - Floor Setup',
+        'Property Configuration - Room Facilities Type',
+        'Property Configuration - Meal Type',
+        'Property Configuration - Reservation Type',
+        'Property Configuration - Extra Charges',
+        'Property Configuration - Complimentary Services',
+        'Property Configuration - Customer Identity',
+        'Property Configuration - Booking Source',
+        'Property Configuration - Business Source',
+        'Property Configuration - Maintenance Block',
+        'Property Configuration - Table Management',
+        'Property Configuration - Company Settings',
         'CRM Model',
         'Settings'
     ];
@@ -303,8 +326,6 @@ const HotelsManagement = () => {
     };
 
     const handleExtendSubscription = async (hotelId, days = 30) => {
-        if (!window.confirm(`Extend subscription by ${days} days?`)) return;
-
         setActionLoading(hotelId);
         try {
             const token = user?.token;
@@ -315,9 +336,9 @@ const HotelsManagement = () => {
             );
 
             await fetchHotels();
-            alert('Subscription extended successfully!');
+            setStatusNote({ type: 'success', message: `Subscription extended by ${days} days.` });
         } catch (err) {
-            alert('Failed to extend subscription: ' + (err.response?.data?.message || err.message));
+            setStatusNote({ type: 'error', message: 'Failed to extend subscription: ' + (err.response?.data?.message || err.message) });
         } finally {
             setActionLoading(null);
         }
@@ -334,9 +355,9 @@ const HotelsManagement = () => {
             );
 
             await fetchHotels();
-            alert('Hotel status updated successfully!');
+            setStatusNote({ type: 'success', message: 'Hotel status updated successfully.' });
         } catch (err) {
-            alert('Failed to update status: ' + (err.response?.data?.message || err.message));
+            setStatusNote({ type: 'error', message: 'Failed to update status: ' + (err.response?.data?.message || err.message) });
         } finally {
             setActionLoading(null);
         }
@@ -344,12 +365,11 @@ const HotelsManagement = () => {
 
     const handleBulkExtend = async () => {
         if (selectedHotels.length === 0) {
-            alert('Please select hotels first');
+            setStatusNote({ type: 'error', message: 'Please select hotels first.' });
             return;
         }
-        
-        const days = prompt('Enter number of days to extend:', '30');
-        if (!days) return;
+
+        const days = 30;
 
         setActionLoading('bulk');
         try {
@@ -364,9 +384,9 @@ const HotelsManagement = () => {
 
             await fetchHotels();
             setSelectedHotels([]);
-            alert(`${selectedHotels.length} hotels extended successfully!`);
+            setStatusNote({ type: 'success', message: `${selectedHotels.length} hotels extended successfully by ${days} days.` });
         } catch (err) {
-            alert('Some operations failed: ' + (err.response?.data?.message || err.message));
+            setStatusNote({ type: 'error', message: 'Some operations failed: ' + (err.response?.data?.message || err.message) });
         } finally {
             setActionLoading(null);
         }
@@ -374,11 +394,9 @@ const HotelsManagement = () => {
 
     const handleBulkSuspend = async () => {
         if (selectedHotels.length === 0) {
-            alert('Please select hotels first');
+            setStatusNote({ type: 'error', message: 'Please select hotels first.' });
             return;
         }
-        
-        if (!confirm(`Suspend ${selectedHotels.length} hotels?`)) return;
 
         setActionLoading('bulk');
         try {
@@ -393,39 +411,89 @@ const HotelsManagement = () => {
 
             await fetchHotels();
             setSelectedHotels([]);
-            alert(`${selectedHotels.length} hotels suspended successfully!`);
+            setStatusNote({ type: 'success', message: `${selectedHotels.length} hotels suspended successfully.` });
         } catch (err) {
-            alert('Some operations failed: ' + (err.response?.data?.message || err.message));
+            setStatusNote({ type: 'error', message: 'Some operations failed: ' + (err.response?.data?.message || err.message) });
         } finally {
             setActionLoading(null);
         }
     };
 
     const handleExportCSV = () => {
-        const csvData = filteredAndSortedHotels.map(hotel => ({
-            Name: hotel.name,
-            Admin: hotel.adminId?.name || '-',
-            Email: hotel.adminId?.email || '-',
-            Phone: hotel.phone || '-',
-            Plan: hotel.subscription?.plan,
-            'Expiry Date': formatDate(hotel.subscription?.expiryDate),
-            'Days Left': getDaysLeft(hotel.subscription?.expiryDate),
-            Status: hotel.isActive && hotel.subscription?.isActive ? 'Active' : 'Suspended',
-            'Created At': formatDate(hotel.createdAt)
-        }));
+        if (!filteredAndSortedHotels.length) {
+            setStatusNote({ type: 'error', message: 'No hotel data available to export.' });
+            return;
+        }
 
-        const headers = Object.keys(csvData[0] || {});
+        const rows = filteredAndSortedHotels.map((hotel, index) => {
+            const adminEmail = hotel.adminId?.email || hotel.adminId?.username || '-';
+            const permissions = Array.isArray(hotel.adminId?.permissions) && hotel.adminId.permissions.length > 0
+                ? hotel.adminId.permissions.join(' | ')
+                : '-';
+            const daysLeft = getDaysLeft(hotel.subscription?.expiryDate);
+            const active = hotel.isActive && hotel.subscription?.isActive;
+
+            return {
+                'S.No.': index + 1,
+                'Hotel Name': hotel.name || '-',
+                'Hotel Phone': hotel.phone || '-',
+                'Hotel Address': hotel.address || '-',
+                'GST Number': hotel.gstNumber || '-',
+                'Admin Name': hotel.adminId?.name || '-',
+                'Admin Email': adminEmail,
+                'Admin Phone': hotel.adminId?.phone || '-',
+                'Permissions': permissions,
+                'Plan': (hotel.subscription?.plan || '-').toUpperCase(),
+                'Subscription Start': formatDate(hotel.subscription?.startDate),
+                'Subscription Expiry': formatDate(hotel.subscription?.expiryDate),
+                'Days Left': daysLeft,
+                'Status': active ? 'Active' : 'Suspended',
+                'Created At': formatDate(hotel.createdAt)
+            };
+        });
+
+        const headers = Object.keys(rows[0]);
+        const escapeCsv = (value) => {
+            const raw = value === null || value === undefined ? '' : String(value);
+            return `"${raw.replace(/"/g, '""')}"`;
+        };
+
         const csv = [
-            headers.join(','),
-            ...csvData.map(row => headers.map(h => `"${row[h]}"`).join(','))
-        ].join('\n');
+            headers.map(escapeCsv).join(','),
+            ...rows.map((row) => headers.map((header) => escapeCsv(row[header])).join(','))
+        ].join('\r\n');
 
-        const blob = new Blob([csv], { type: 'text/csv' });
+        // UTF-8 BOM helps Excel correctly read characters and columns.
+        const bom = '\uFEFF';
+        const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `hotels_${new Date().toISOString().split('T')[0]}.csv`;
+        a.download = `hotels_export_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        setStatusNote({ type: 'success', message: `CSV exported successfully (${rows.length} records).` });
+    };
+
+    const handleViewHotel = (hotelId) => {
+        if (!hotelId) return;
+        navigate(`/super-admin/hotels/${hotelId}`);
+    };
+
+    const handleEditHotel = (hotelId) => {
+        if (!hotelId) return;
+        navigate(`/super-admin/hotels/${hotelId}`, { state: { mode: 'edit' } });
+    };
+
+    const handleAssignPermissions = (hotel) => {
+        if (!hotel?.adminId?._id) {
+            setStatusNote({ type: 'error', message: 'No admin assigned for this hotel. Please add hotel admin first.' });
+            return;
+        }
+        openPermissionModal(hotel);
     };
 
     const clearFilters = () => {
@@ -437,7 +505,7 @@ const HotelsManagement = () => {
 
     const openPermissionModal = (hotel) => {
         if (!hotel.adminId?._id) {
-            alert('No admin assigned for this hotel');
+            setStatusNote({ type: 'error', message: 'No admin assigned for this hotel.' });
             return;
         }
         setPermissionModal({ open: true, hotel });
@@ -461,7 +529,7 @@ const HotelsManagement = () => {
     const savePermissions = async () => {
         if (!permissionModal.hotel?._id) return;
         if (editingPermissions.length === 0) {
-            alert('Select at least one screen permission');
+            setStatusNote({ type: 'error', message: 'Select at least one screen permission.' });
             return;
         }
 
@@ -502,11 +570,11 @@ const HotelsManagement = () => {
 
             await fetchHotels();
             closePermissionModal();
-            alert('Permissions updated successfully');
+            setStatusNote({ type: 'success', message: 'Permissions updated successfully.' });
         } catch (err) {
             const status = err.response?.status;
             const message = err.response?.data?.message || err.message || 'Failed to update permissions';
-            alert(`Failed to update permissions${status ? ` (${status})` : ''}: ${message}`);
+            setStatusNote({ type: 'error', message: `Failed to update permissions${status ? ` (${status})` : ''}: ${message}` });
             console.error('Permission update error:', err.response?.data || err);
         } finally {
             setPermissionSaving(false);
@@ -532,6 +600,14 @@ const HotelsManagement = () => {
                 <div className="sa-sidebar-header">
                     <span style={{ fontSize: '24px', color: '#e11d48' }}>⚡</span>
                     <h2>SUPER ADMIN</h2>
+                    <button
+                        type="button"
+                        className="sa-sidebar-close"
+                        onClick={() => setSidebarOpen(false)}
+                        aria-label="Close sidebar"
+                    >
+                        ×
+                    </button>
                 </div>
 
                 <nav className="sa-nav">
@@ -566,27 +642,27 @@ const HotelsManagement = () => {
                 </nav>
             </aside>
 
+            {sidebarOpen && (
+                <div className="sa-sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+            )}
+
             {/* Main Content */}
             <main className="sa-main">
                 {/* Header */}
-                <header className="sa-header">
+                <header className="sa-header sa-header-unified">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <button className="sa-icon-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
-                            <FaBars />
-                        </button>
+                        {!sidebarOpen && (
+                            <button className="sa-icon-btn sa-menu-toggle" onClick={() => setSidebarOpen(true)}>
+                                <FaBars />
+                            </button>
+                        )}
                         <div className="sa-header-logo">
                             <FaHotel style={{ color: '#e11d48' }} />
-                            <span>HOTELS MANAGEMENT</span>
+                            <span>BIREENA ATITHI</span>
                         </div>
                     </div>
 
                     <div className="sa-header-actions">
-                        <button className="sa-icon-btn">
-                            <FaCog />
-                        </button>
-                        <button className="sa-icon-btn">
-                            <FaBell />
-                        </button>
                         <div className="sa-profile">
                             {getInitials(user?.name)}
                         </div>
@@ -594,10 +670,87 @@ const HotelsManagement = () => {
                 </header>
 
                 <div className="sa-content">
+                    {statusNote.message && (
+                        <div className={`sa-inline-note ${statusNote.type === 'error' ? 'error' : 'success'}`}>
+                            <span>{statusNote.message}</span>
+                            <button type="button" className="icon-btn" onClick={() => setStatusNote({ type: '', message: '' })}>
+                                <FaTimes />
+                            </button>
+                        </div>
+                    )}
+
+                    {permissionModal.open && (
+                        <div className="sa-card perm-inline-panel">
+                            <div className="perm-modal-header">
+                                <div>
+                                    <h3>Admin Screen Permissions</h3>
+                                    <p>
+                                        {permissionModal.hotel?.name} · {permissionModal.hotel?.adminId?.name || 'Admin'}
+                                    </p>
+                                </div>
+                                <button className="perm-close-btn" onClick={closePermissionModal}>
+                                    <FaTimes />
+                                </button>
+                            </div>
+
+                            <div className="perm-modal-toolbar">
+                                <button
+                                    className="action-btn secondary"
+                                    type="button"
+                                    onClick={() => setEditingPermissions(ADMIN_SCREEN_OPTIONS)}
+                                >
+                                    Select All
+                                </button>
+                                <button
+                                    className="action-btn secondary"
+                                    type="button"
+                                    onClick={() => setEditingPermissions([])}
+                                >
+                                    Clear All
+                                </button>
+                                <span className="perm-selected-count">
+                                    {editingPermissions.length} selected
+                                </span>
+                            </div>
+
+                            <div className="perm-grid">
+                                {ADMIN_SCREEN_OPTIONS.map((label) => {
+                                    const checked = editingPermissions.includes(label);
+                                    return (
+                                        <label
+                                            key={label}
+                                            className={`perm-item ${checked ? 'checked' : ''}`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={() => togglePermission(label)}
+                                            />
+                                            <span>{label}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="perm-modal-actions">
+                                <button className="action-btn secondary" type="button" onClick={closePermissionModal}>
+                                    Cancel
+                                </button>
+                                <button
+                                    className="action-btn primary"
+                                    type="button"
+                                    onClick={savePermissions}
+                                    disabled={permissionSaving}
+                                >
+                                    <FaSave /> {permissionSaving ? 'Saving...' : 'Save Changes'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Action Bar */}
-                    <div className="action-bar">
+                    <div className="action-bar hotels-action-bar">
                         <div className="search-bar">
-                            <FaSearch className="search-icon" />
                             <input
                                 type="text"
                                 placeholder="Search hotels, admins, email..."
@@ -607,7 +760,7 @@ const HotelsManagement = () => {
                             />
                         </div>
                         
-                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        <div className="action-bar-buttons">
                             <button
                                 className="filter-toggle-btn"
                                 onClick={() => setShowFilters(!showFilters)}
@@ -715,8 +868,8 @@ const HotelsManagement = () => {
 
                     {/* Hotels Table */}
                     <div className="sa-card">
-                        <div className="table-responsive">
-                            <table className="sa-table">
+                        <div className="table-responsive hotels-table-responsive">
+                            <table className="sa-table hotels-main-table">
                                 <thead>
                                     <tr>
                                         <th style={{ width: '40px' }}>
@@ -766,7 +919,7 @@ const HotelsManagement = () => {
                                                     <td>
                                                         <div>{hotel.adminId?.name || 'No Admin'}</div>
                                                         <div className="text-xs opacity-70">
-                                                            {hotel.adminId?.email || '-'}
+                                                            {hotel.adminId?.email || hotel.adminId?.username || '-'}
                                                         </div>
                                                         {hotel.adminId?._id && (
                                                             <div className="permission-pill-row">
@@ -795,22 +948,28 @@ const HotelsManagement = () => {
                                                     <td>
                                                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                                                             <button
-                                                                className="icon-btn"
+                                                                className="icon-btn icon-btn-view"
                                                                 title="View Details"
-                                                                onClick={() => navigate(`/super-admin/hotel/${hotel._id}`)}
+                                                                onClick={() => handleViewHotel(hotel._id)}
                                                             >
                                                                 <FaEye />
                                                             </button>
                                                             <button
                                                                 className="icon-btn permission-icon-btn"
-                                                                title="View/Edit Permissions"
-                                                                onClick={() => openPermissionModal(hotel)}
-                                                                disabled={!hotel.adminId?._id}
+                                                                title="Assign Permissions"
+                                                                onClick={() => handleAssignPermissions(hotel)}
                                                             >
                                                                 <FaUserShield />
                                                             </button>
                                                             <button
-                                                                className="icon-btn"
+                                                                className="icon-btn icon-btn-edit"
+                                                                title="Edit Hotel"
+                                                                onClick={() => handleEditHotel(hotel._id)}
+                                                            >
+                                                                <FaEdit />
+                                                            </button>
+                                                            <button
+                                                                className="icon-btn icon-btn-renew"
                                                                 title="Extend Subscription"
                                                                 onClick={() => handleExtendSubscription(hotel._id)}
                                                                 disabled={actionLoading === hotel._id}
@@ -818,7 +977,7 @@ const HotelsManagement = () => {
                                                                 <FaRedo />
                                                             </button>
                                                             <button
-                                                                className="icon-btn"
+                                                                className="icon-btn icon-btn-toggle"
                                                                 title={isActive ? 'Suspend' : 'Activate'}
                                                                 onClick={() => handleToggleStatus(hotel._id)}
                                                                 disabled={actionLoading === hotel._id}
@@ -872,76 +1031,6 @@ const HotelsManagement = () => {
                 </div>
             </main>
 
-            {permissionModal.open && (
-                <div className="perm-modal-overlay" onClick={closePermissionModal}>
-                    <div className="perm-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="perm-modal-header">
-                            <div>
-                                <h3>Admin Screen Permissions</h3>
-                                <p>
-                                    {permissionModal.hotel?.name} · {permissionModal.hotel?.adminId?.name || 'Admin'}
-                                </p>
-                            </div>
-                            <button className="perm-close-btn" onClick={closePermissionModal}>
-                                <FaTimes />
-                            </button>
-                        </div>
-
-                        <div className="perm-modal-toolbar">
-                            <button
-                                className="action-btn secondary"
-                                type="button"
-                                onClick={() => setEditingPermissions(ADMIN_SCREEN_OPTIONS)}
-                            >
-                                Select All
-                            </button>
-                            <button
-                                className="action-btn secondary"
-                                type="button"
-                                onClick={() => setEditingPermissions([])}
-                            >
-                                Clear All
-                            </button>
-                            <span className="perm-selected-count">
-                                {editingPermissions.length} selected
-                            </span>
-                        </div>
-
-                        <div className="perm-grid">
-                            {ADMIN_SCREEN_OPTIONS.map((label) => {
-                                const checked = editingPermissions.includes(label);
-                                return (
-                                    <label
-                                        key={label}
-                                        className={`perm-item ${checked ? 'checked' : ''}`}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={checked}
-                                            onChange={() => togglePermission(label)}
-                                        />
-                                        <span>{label}</span>
-                                    </label>
-                                );
-                            })}
-                        </div>
-
-                        <div className="perm-modal-actions">
-                            <button className="action-btn secondary" type="button" onClick={closePermissionModal}>
-                                Cancel
-                            </button>
-                            <button
-                                className="action-btn primary"
-                                type="button"
-                                onClick={savePermissions}
-                                disabled={permissionSaving}
-                            >
-                                <FaSave /> {permissionSaving ? 'Saving...' : 'Save Changes'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

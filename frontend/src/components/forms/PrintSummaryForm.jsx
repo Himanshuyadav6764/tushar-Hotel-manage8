@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import '../AddPayment.css';
 import { useSettings } from '../../context/SettingsContext';
+import { calculateRoomTaxBySlab } from '../../utils/roomTax';
 
 const PrintSummaryForm = ({ booking, onSubmit, onCancel }) => {
     const { settings, getCurrencySymbol, getFullAddress } = useSettings();
@@ -31,8 +32,80 @@ const PrintSummaryForm = ({ booking, onSubmit, onCancel }) => {
         }
     };
 
+    const toNum = (value, fallback = 0) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    };
+
+    const pickNum = (...values) => {
+        for (const value of values) {
+            if (value === null || value === undefined || value === '') continue;
+            const parsed = Number(value);
+            if (Number.isFinite(parsed)) return parsed;
+        }
+        return undefined;
+    };
+
     const b = booking || {};
-    const nights = b.numberOfNights || 1;
+    const billing = b.billing || {};
+    const nights = toNum(b.numberOfNights ?? b.nights, 1);
+    const roomCount = Math.max(1, Array.isArray(b.rooms) && b.rooms.length > 0 ? b.rooms.length : toNum(b.numberOfRooms, 1));
+
+    const roomRows = Array.isArray(b.rooms) && b.rooms.length > 0
+        ? b.rooms.map((room) => ({
+            ratePerNight: toNum(room.ratePerNight ?? room.roomRate ?? room.pricePerNight ?? room.price, 0),
+            discount: toNum(room.discount ?? room.discountAmount, 0)
+        }))
+        : [{
+            ratePerNight: toNum(b.pricePerNight ?? b.roomRate ?? b.ratePerNight ?? billing.roomRate ?? billing.pricePerNight, 0),
+            discount: toNum(b.roomLevelDiscount ?? billing.roomLevelDiscount, 0)
+        }];
+
+    const roomChargesFromRows = roomRows.reduce((sum, row) => sum + (toNum(row.ratePerNight, 0) * Math.max(1, nights)), 0);
+
+    const slabTax = calculateRoomTaxBySlab({
+        rooms: roomRows,
+        nights,
+        taxExempt: false,
+        inclusiveTax: settings.inclusiveTax,
+        roomGstSlabs: settings.roomGstSlabs,
+        fallbackRoomGst: settings.roomGst
+    });
+
+    const baseRate = toNum(b.pricePerNight ?? b.roomRate ?? b.ratePerNight ?? billing.roomRate ?? billing.pricePerNight, 0);
+
+    const roomCharges = pickNum(
+        b.roomCharges,
+        b.baseRoomCharges,
+        billing.roomCharges,
+        billing.roomChargesAmount
+    ) ?? (roomChargesFromRows || (baseRate * Math.max(1, nights) * roomCount) || slabTax.roomCharges);
+
+    const discount = pickNum(
+        b.discount,
+        b.discountAmount,
+        b.totalDiscount,
+        billing.discount,
+        billing.discountAmount
+    ) ?? ((pickNum(b.autoDiscountAmount, billing.autoDiscountAmount) || 0) + (pickNum(b.manualDiscountAmount, billing.manualDiscountAmount) || 0));
+
+    const explicitServiceCharge = pickNum(
+        b.serviceCharge,
+        b.serviceChargeAmount,
+        billing.serviceCharge,
+        billing.serviceChargeAmount
+    ) ?? 0;
+
+    const derivedServiceCharge = Math.max(0, roomCharges - discount) * ((parseFloat(settings.roomServiceCharge ?? settings.serviceCharge) || 0) / 100);
+    const serviceCharge = explicitServiceCharge > 0 ? explicitServiceCharge : derivedServiceCharge;
+    const tax = pickNum(b.tax, b.taxAmount, billing.tax, billing.taxAmount) ?? slabTax.taxAmount;
+    const taxPct = parseFloat(settings.roomGst ?? 12) || 12;
+    const storedTotal = pickNum(billing.totalAmount, b.totalAmount, b.grandTotal, b.amount);
+    const grossBeforeDiscount = Math.max(0, roomCharges + serviceCharge + tax);
+    const derivedDiscountFromTotal = storedTotal !== undefined ? Math.max(0, grossBeforeDiscount - Number(storedTotal || 0)) : 0;
+    const effectiveDiscount = discount > 0 ? discount : derivedDiscountFromTotal;
+    const subtotal = Math.max(roomCharges + serviceCharge - effectiveDiscount, 0);
+    const totalAmount = Math.max(0, roomCharges + serviceCharge + tax - effectiveDiscount);
 
     return (
         <div className="add-payment-form-premium" style={{ height: '100%', width: '100%', boxSizing: 'border-box' }}>
@@ -70,7 +143,40 @@ const PrintSummaryForm = ({ booking, onSubmit, onCancel }) => {
                             </div>
                             <div className="summary-item">
                                 <label>TOTAL</label>
-                                <span style={{ color: '#e11d48', fontWeight: '900' }}>{cs}{(b.totalAmount || 0).toLocaleString('en-IN')}</span>
+                                <span style={{ color: '#e11d48', fontWeight: '900' }}>{cs}{totalAmount.toLocaleString('en-IN')}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="payment-summary-card" style={{ marginTop: '10px' }}>
+                    <div className="summary-header">
+                        <span className="ref-tag">BILL BREAKDOWN</span>
+                        <span className="ref-number">{cs}{totalAmount.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="summary-main">
+                        <div className="summary-column">
+                            <div className="summary-item">
+                                <label>ROOM CHARGES</label>
+                                <span>{cs}{roomCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="summary-item">
+                                <label>SERVICE CHARGES</label>
+                                <span>{cs}{serviceCharge.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                        </div>
+                        <div className="summary-column">
+                            <div className="summary-item">
+                                <label>DISCOUNT APPLIED</label>
+                                <span style={{ color: '#059669' }}>-{cs}{effectiveDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="summary-item">
+                                <label>SUBTOTAL</label>
+                                <span>{cs}{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="summary-item">
+                                <label>TAX ({taxPct.toFixed(1)}%)</label>
+                                <span>{cs}{tax.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                         </div>
                     </div>

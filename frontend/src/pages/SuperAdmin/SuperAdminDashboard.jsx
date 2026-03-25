@@ -3,8 +3,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
-    FaBell,
-    FaCog,
     FaHotel,
     FaShieldAlt,
     FaExclamationTriangle,
@@ -14,7 +12,6 @@ import {
     FaBuilding,
     FaPlus,
     FaUser,
-    FaSearch,
     FaFilter,
     FaTimes,
     FaCheck,
@@ -231,6 +228,14 @@ const SuperAdminDashboard = () => {
                 <div className="sa-sidebar-header">
                     <span style={{ fontSize: '24px', color: '#e11d48' }}>⚡</span>
                     <h2>SUPER ADMIN</h2>
+                    <button
+                        type="button"
+                        className="sa-sidebar-close"
+                        onClick={() => setSidebarOpen(false)}
+                        aria-label="Close sidebar"
+                    >
+                        ×
+                    </button>
                 </div>
 
                 <nav className="sa-nav">
@@ -265,14 +270,20 @@ const SuperAdminDashboard = () => {
                 </nav>
             </aside>
 
+            {sidebarOpen && (
+                <div className="sa-sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+            )}
+
             {/* Main Content */}
             <main className="sa-main">
                 {/* Header */}
-                <header className="sa-header">
+                <header className="sa-header sa-header-unified">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <button className="sa-icon-btn" onClick={() => setSidebarOpen(!sidebarOpen)} style={{ display: 'none' }}>
-                            <FaBars />
-                        </button>
+                        {!sidebarOpen && (
+                            <button className="sa-icon-btn sa-menu-toggle" onClick={() => setSidebarOpen(true)}>
+                                <FaBars />
+                            </button>
+                        )}
                         <div className="sa-header-logo">
                             <FaHotel style={{ color: '#e11d48' }} />
                             <span>BIREENA ATITHI</span>
@@ -280,56 +291,6 @@ const SuperAdminDashboard = () => {
                     </div>
 
                     <div className="sa-header-actions">
-                        <button className="sa-icon-btn">
-                            <FaCog />
-                        </button>
-                        <div style={{ position: 'relative' }}>
-                            <button
-                                className="sa-icon-btn"
-                                onClick={() => setShowNotifications(!showNotifications)}
-                            >
-                                <FaBell />
-                                {notifications.length > 0 && (
-                                    <span className="sa-badge">{notifications.length}</span>
-                                )}
-                            </button>
-
-                            {showNotifications && (
-                                <div className="notification-panel">
-                                    <div className="notification-header">
-                                        <h3>Notifications</h3>
-                                        <button onClick={() => setShowNotifications(false)}>
-                                            <FaTimes />
-                                        </button>
-                                    </div>
-                                    <div className="notification-list">
-                                        {notifications.length === 0 ? (
-                                            <div className="notification-empty">
-                                                <FaCheck style={{ fontSize: '32px', opacity: 0.3 }} />
-                                                <p>No new notifications</p>
-                                            </div>
-                                        ) : (
-                                            notifications.map(notif => (
-                                                <div
-                                                    key={notif.id}
-                                                    className={`notification-item ${notif.priority}`}
-                                                >
-                                                    <div className="notification-icon">
-                                                        {notif.type === 'expired' && <FaExclamationTriangle />}
-                                                        {notif.type === 'expiring' && <FaClock />}
-                                                        {notif.type === 'suspended' && <FaBan />}
-                                                    </div>
-                                                    <div className="notification-content">
-                                                        <p>{notif.message}</p>
-                                                        <small>{notif.hotel}</small>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
                         <div className="sa-profile">
                             {getInitials(user?.name)}
                         </div>
@@ -385,7 +346,6 @@ const SuperAdminDashboard = () => {
 
                             <div className="search-filter-section">
                                 <div className="search-bar">
-                                    <FaSearch className="search-icon" />
                                     <input
                                         type="text"
                                         placeholder="Search hotels..."
@@ -397,66 +357,107 @@ const SuperAdminDashboard = () => {
                                 <button
                                     className="filter-toggle-btn"
                                     onClick={() => setShowFilters(!showFilters)}
+                                    aria-expanded={showFilters}
                                 >
                                     <FaFilter /> Filters
                                 </button>
                             </div>
 
+                            {showFilters && (
+                                <div className="filter-options">
+                                    <div className="filter-group">
+                                        <label htmlFor="status-filter">Status</label>
+                                        <select
+                                            id="status-filter"
+                                            value={filterStatus}
+                                            onChange={(e) => setFilterStatus(e.target.value)}
+                                        >
+                                            <option value="all">All</option>
+                                            <option value="active">Active</option>
+                                            <option value="suspended">Suspended</option>
+                                            <option value="expiring">Expiring Soon</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="filter-group">
+                                        <label htmlFor="plan-filter">Plan</label>
+                                        <select
+                                            id="plan-filter"
+                                            value={filterPlan}
+                                            onChange={(e) => setFilterPlan(e.target.value)}
+                                        >
+                                            <option value="all">All Plans</option>
+                                            <option value="basic">Basic</option>
+                                            <option value="premium">Premium</option>
+                                            <option value="enterprise">Enterprise</option>
+                                        </select>
+                                    </div>
+
+                                    <button className="clear-filters-btn" onClick={clearFilters}>
+                                        <FaTimes /> Clear Filters
+                                    </button>
+
+                                    <div className="filter-results">{filteredHotels.length} result(s)</div>
+                                </div>
+                            )}
+
                             <div className="sa-card">
                                 <div className="sa-card-header">
                                     <div className="sa-card-title">Subscription Status</div>
                                 </div>
-                                <table className="sa-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Hotel Details</th>
-                                            <th>Admin Contact</th>
-                                            <th>Subscription</th>
-                                            <th style={{ textAlign: 'center' }}>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredHotels.length > 0 ? (
-                                            filteredHotels.slice(0, 5).map((hotel) => {
-                                                const daysLeft = getDaysLeft(hotel.subscription?.expiryDate);
-                                                const isExpiring = daysLeft < 7 && daysLeft >= 0;
-                                                const isExpired = daysLeft < 0;
-                                                const isActive = hotel.subscription?.active;
-                                                return (
-                                                    <tr key={hotel._id}>
-                                                        <td>
-                                                            <div className="font-bold">{hotel.name}</div>
-                                                            <div className="text-xs opacity-70">
-                                                                {hotel.subscription?.plan.toUpperCase()}
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            <div>{hotel.adminId?.name || 'No Admin'}</div>
-                                                            <div className="text-xs opacity-70">{hotel.adminId?.email || '-'}</div>
-                                                        </td>
-                                                        <td>
-                                                            <div className={isExpired || isExpiring ? 'text-red' : 'text-green'}>
-                                                                {formatDate(hotel.subscription?.expiryDate)}
-                                                            </div>
-                                                            <div className="text-xs">{daysLeft} days left</div>
-                                                        </td>
-                                                        <td>
-                                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                                                <button onClick={() => handleExtendSubscription(hotel._id)}><FaRedo /></button>
-                                                                <button onClick={() => handleToggleStatus(hotel._id, isActive)}>
-                                                                    {isActive ? <FaBan /> : <FaCheck />}
-                                                                </button>
-                                                                <button onClick={() => navigate(`/super-admin/hotel/${hotel._id}`)}><FaEdit /></button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })
-                                        ) : (
-                                            <tr><td colSpan="4" style={{ textAlign: 'center', padding: '20px' }}>No hotels found.</td></tr>
-                                        )}
-                                    </tbody>
-                                </table>
+                                <div className="table-responsive subscription-table-scroll">
+                                    <table className="sa-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Hotel Details</th>
+                                                <th>Admin Contact</th>
+                                                <th>Subscription</th>
+                                                <th style={{ textAlign: 'center' }}>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredHotels.length > 0 ? (
+                                                filteredHotels.slice(0, 5).map((hotel) => {
+                                                    const daysLeft = getDaysLeft(hotel.subscription?.expiryDate);
+                                                    const isExpiring = daysLeft < 7 && daysLeft >= 0;
+                                                    const isExpired = daysLeft < 0;
+                                                    const isActive = hotel.subscription?.active;
+                                                    return (
+                                                        <tr key={hotel._id}>
+                                                            <td>
+                                                                <div className="font-bold">{hotel.name}</div>
+                                                                <div className="text-xs opacity-70">
+                                                                    {hotel.subscription?.plan.toUpperCase()}
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                <div>{hotel.adminId?.name || 'No Admin'}</div>
+                                                                <div className="text-xs opacity-70">{hotel.adminId?.email || '-'}</div>
+                                                            </td>
+                                                            <td>
+                                                                <div className={isExpired || isExpiring ? 'text-red' : 'text-green'}>
+                                                                    {formatDate(hotel.subscription?.expiryDate)}
+                                                                </div>
+                                                                <div className="text-xs">{daysLeft} days left</div>
+                                                            </td>
+                                                            <td>
+                                                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                                                    <button onClick={() => handleExtendSubscription(hotel._id)}><FaRedo /></button>
+                                                                    <button onClick={() => handleToggleStatus(hotel._id, isActive)}>
+                                                                        {isActive ? <FaBan /> : <FaCheck />}
+                                                                    </button>
+                                                                    <button onClick={() => navigate(`/super-admin/hotel/${hotel._id}`)}><FaEdit /></button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            ) : (
+                                                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '20px' }}>No hotels found.</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </>
                     ) : null}

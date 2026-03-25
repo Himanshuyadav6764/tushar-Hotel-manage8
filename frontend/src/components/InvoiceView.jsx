@@ -11,6 +11,7 @@ const InvoiceView = ({ invoice, onClose, onPrint, isModal = false }) => {
     if (!invoice) return null;
 
     const formattedInvoice = InvoiceGenerator.formatInvoiceForDisplay(invoice);
+    const serviceCharge = Number(invoice.serviceCharge || 0);
 
     const handlePrint = () => {
         setIsPrinting(true);
@@ -120,12 +121,14 @@ const InvoiceView = ({ invoice, onClose, onPrint, isModal = false }) => {
                             <span className="charge-label">Room Charges ({invoice.nights} nights)</span>
                             <span className="charge-value">{cs}{formattedInvoice.roomChargesFormatted}</span>
                         </div>
-                        {invoice.discounts > 0 && (
-                            <div className="charges-row discount">
-                                <span className="charge-label">Discount</span>
-                                <span className="charge-value">-{cs}{formattedInvoice.discountsFormatted}</span>
-                            </div>
-                        )}
+                        <div className="charges-row">
+                            <span className="charge-label">Service Charges</span>
+                            <span className="charge-value">{cs}{serviceCharge.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="charges-row discount">
+                            <span className="charge-label">Discount Applied</span>
+                            <span className="charge-value">-{cs}{formattedInvoice.discountsFormatted}</span>
+                        </div>
                         <div className="charges-row subtotal">
                             <span className="charge-label">Subtotal</span>
                             <span className="charge-value">{cs}{formattedInvoice.subtotalFormatted}</span>

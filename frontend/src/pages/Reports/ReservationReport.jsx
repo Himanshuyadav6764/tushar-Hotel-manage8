@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import jsPDF from 'jspdf';
 import { useAuth } from '../../context/AuthContext';
 import API_URL from '../../config/api';
 import './ReservationReport.css';
@@ -126,9 +127,10 @@ const ReservationReport = () => {
     };
 
     const handleExportCSV = () => {
-        if (!data?.reservationList) return;
+        const list = getTabData();
+        if (!list.length) return;
         const headers = ['ID', 'Guest', 'Phone', 'Guests', 'Table', 'Date', 'Time', 'Status'];
-        const rows = data.reservationList.map(r => [
+        const rows = list.map(r => [
             r.id, r.guestName, r.phone, r.guests, r.tableName,
             r.date ? new Date(r.date).toLocaleDateString('en-IN') : '-',
             r.startTime, r.status
@@ -141,6 +143,148 @@ const ReservationReport = () => {
         a.download = `reservation-report-${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
         URL.revokeObjectURL(url);
+    };
+
+    const handleExportExcel = () => {
+        const list = getTabData();
+        if (!list.length) return;
+
+        const headers = ['ID', 'Guest', 'Phone', 'Guests', 'Table', 'Date', 'Time', 'Status'];
+        const rows = list.map(r => [
+            r.id,
+            r.guestName,
+            r.phone,
+            r.guests,
+            r.tableName,
+            r.date ? new Date(r.date).toLocaleDateString('en-IN') : '-',
+            r.startTime,
+            r.status
+        ]);
+
+        const escapeHtml = (value) => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+        const html = `
+            <html><head><meta charset="utf-8" />
+            <style>
+                table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 12px; }
+                th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; }
+                th { background: #f3f4f6; font-weight: 700; }
+            </style>
+            </head><body>
+                <h3>Reservation Report - ${activeTab}</h3>
+                <table>
+                    <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+                    <tbody>${rows.map(r => `<tr>${r.map(v => `<td>${escapeHtml(v)}</td>`).join('')}</tr>`).join('')}</tbody>
+                </table>
+            </body></html>`;
+
+        const blob = new Blob([`\ufeff${html}`], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `reservation-report-${activeTab}-${new Date().toISOString().split('T')[0]}.xls`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleExportPDF = () => {
+        const list = getTabData();
+        if (!list.length) return;
+
+        const headers = ['ID', 'Guest', 'Phone', 'Guests', 'Table', 'Date', 'Time', 'Status'];
+        const rows = list.map(r => [
+            String(r.id || '-'),
+            String(r.guestName || '-'),
+            String(r.phone || '-'),
+            String(r.guests || '-'),
+            String(r.tableName || '-'),
+            r.date ? new Date(r.date).toLocaleDateString('en-IN') : '-',
+            String(r.startTime || '-'),
+            String(r.status || '-')
+        ]);
+
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 8;
+        const rowHeight = 6;
+        const colWidth = (pageWidth - (margin * 2)) / headers.length;
+
+        const sanitizePdfText = (value) => String(value ?? '')
+            .replace(/₹/g, 'Rs ')
+            .normalize('NFKD')
+            .replace(/[^\x20-\x7E]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const fitCellText = (value, widthMm) => {
+            const normalized = sanitizePdfText(value);
+            if (!normalized) return '';
+
+            const maxWidth = Math.max(4, widthMm - 2.2);
+            if (doc.getTextWidth(normalized) <= maxWidth) return normalized;
+
+            let text = normalized;
+            while (text.length > 1 && doc.getTextWidth(`${text}...`) > maxWidth) {
+                text = text.slice(0, -1);
+            }
+
+            return `${text}...`;
+        };
+
+        const drawHeader = () => {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.text(`Reservation Report - ${activeTab}`, margin, 10);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.text(`Generated: ${new Date().toLocaleString('en-GB')}`, pageWidth - margin, 10, { align: 'right' });
+        };
+
+        const drawTableHeader = (y) => {
+            doc.setFillColor(245, 245, 245);
+            doc.rect(margin, y, pageWidth - (margin * 2), rowHeight, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7);
+            headers.forEach((h, i) => doc.text(fitCellText(h, colWidth), margin + (i * colWidth) + 1, y + 4.2));
+        };
+
+        drawHeader();
+        let y = 16;
+        drawTableHeader(y);
+        y += rowHeight;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        rows.forEach((row, idx) => {
+            if (y > pageHeight - 10) {
+                doc.addPage();
+                drawHeader();
+                y = 16;
+                drawTableHeader(y);
+                y += rowHeight;
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7);
+            }
+
+            if (idx % 2 === 0) {
+                doc.setFillColor(252, 252, 252);
+                doc.rect(margin, y - 0.3, pageWidth - (margin * 2), rowHeight, 'F');
+            }
+
+            row.forEach((cell, i) => {
+                doc.text(fitCellText(cell, colWidth), margin + (i * colWidth) + 1, y + 4.2);
+            });
+
+            y += rowHeight;
+        });
+
+        doc.save(`reservation-report-${activeTab}-${new Date().toISOString().split('T')[0]}.pdf`);
     };
 
     const summary = data?.summary || {};
@@ -169,9 +313,13 @@ const ReservationReport = () => {
                     <p className="rr-subtitle">Table reservation analytics & guest insights</p>
                 </div>
                 <div className="rr-header-actions">
-                    <button className="rr-btn rr-btn-outline" onClick={handleExportCSV}>
+                    <button className="rr-btn rr-btn-outline" onClick={handleExportExcel}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                        Export CSV
+                        Export Excel
+                    </button>
+                    <button className="rr-btn rr-btn-outline" onClick={handleExportPDF}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
+                        Export PDF
                     </button>
                     <button className="rr-btn rr-btn-outline" onClick={() => window.print()}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>

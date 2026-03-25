@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import API_URL from '../config/api';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
@@ -11,9 +11,10 @@ import RouteFolioSidebar from './RouteFolioSidebar';
 import ConfirmationModal from './ConfirmationModal';
 import Toast from './Toast';
 import VisitorList from './visitors/VisitorList';
+import { calculateRoomTaxBySlab } from '../utils/roomTax';
 
 const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
-    const { settings, getCurrencySymbol } = useSettings();
+    const { settings, getCurrencySymbol, getFullAddress } = useSettings();
     const { user } = useAuth();
     const cs = getCurrencySymbol();
     const [selectedRoom, setSelectedRoom] = useState(0);
@@ -265,7 +266,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
             amount: -paymentData.amount,
             user: actorName,
             performedBy: actorName,
-            folioId: selectedRoom // Associate with current folio
+            folioId: paymentData?.folioId ?? selectedFolio?.folioId ?? 0
         };
 
         try {
@@ -503,30 +504,55 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
     ];
 
     // Print full folio statement
-    const handlePrintFolio = async () => {
+    const handlePrintFolio = async (printType = selectedPrintType) => {
         if (!currentFolioTransactions.length) return;
 
-        const selectedFolioData = folioList.find(f => f.id === selectedRoom);
+        const selectedFolioData = folioList.find((f) => f.id === selectedRoom);
         const guestName = selectedFolioData?.guestName || reservation?.guestName || '';
         const roomNo = selectedFolioData?.roomNumber || reservation?.roomNumber || '';
-        const hotelName = settings?.name || 'Hotel';
-        const address = [settings?.address, settings?.city, settings?.state].filter(Boolean).join(' ');
+        const hotelName = settings?.name || settings?.hotelName || 'Hotel';
+        const fullAddress = getFullAddress?.() || [settings?.address, settings?.city, settings?.state, settings?.pin].filter(Boolean).join(', ');
+        const companyPhone = settings?.phone || '';
+        const companyGst = settings?.gstNumber || '';
+        const companyPan = settings?.panNumber || '';
+        const billPrefix = settings?.billingInvoicePrefix || settings?.invoicePrefix || 'FOLIO';
+        const folioNo = `${String(billPrefix).trim() || 'FOLIO'}-${roomNo || selectedFolioData?.folioId || 'NA'}`;
+        const thankYouMessage = settings?.thankYouMessage || 'Thank you for visiting our hotel!';
+        const selectedFmt = printFormats.find((f) => f.key === (printType || selectedPrintType)) || printFormats[0];
 
         const toNum = (v) => {
             const n = Number(v);
             return Number.isFinite(n) ? n : 0;
         };
 
+        const money = (n) => `${Math.abs(toNum(n)).toFixed(2)}`;
+
+        const escapeHtml = (value) => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
         const parseTaggedAmount = (text, tags) => {
             if (!text) return null;
             const escapedCurrency = cs.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             for (const tag of tags) {
                 const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const re = new RegExp(`${escapedTag}\\s*[:=-]?\\s*(?:Rs|INR|${escapedCurrency})?\\s*([0-9]+(?:\\.[0-9]+)?)`, 'i');
+                const re = new RegExp(`${escapedTag}\\s*[:=-]?\\s*(?:Rs\\.?|INR|${escapedCurrency})?\\s*([0-9]+(?:\\.[0-9]+)?)`, 'i');
                 const m = String(text).match(re);
                 if (m) return toNum(m[1]);
             }
             return null;
+        };
+
+        const parseDiscountInfo = (text) => {
+            const sourceMatch = String(text || '').match(/discount\s*:\s*([^|\[]+)/i);
+            const amountMatch = String(text || '').match(/\[\s*(?:Rs\\.?|INR|₹)?\s*([0-9]+(?:\.[0-9]+)?)\s*\]/i);
+            return {
+                source: sourceMatch ? sourceMatch[1].trim() : '',
+                amount: amountMatch ? toNum(amountMatch[1]) : 0,
+            };
         };
 
         const tx = currentFolioTransactions.map((t) => {
@@ -543,7 +569,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
         const isPayment = (t) => t.typeLc === 'payment';
         const isDiscount = (t) => t.typeLc === 'discount';
         const isRoom = (t) => t.typeLc === 'charge' && /room\s*(tariff|charge|rent|stay|night)/i.test(t.textLc);
-        const isFood = (t) => t.typeLc === 'charge' && (/food|meal|restaurant|kot|paneer|roti|breakfast|lunch|dinner|snack|beverage|table|bill\s*#/i.test(t.textLc));
+        const isFood = (t) => t.typeLc === 'charge' && (/food|meal|restaurant|kot|bill\s*#|dine|table|take\s*away|delivery|online\s*order/i.test(t.textLc));
         const isAdd = (t) => t.typeLc === 'charge' && !isRoom(t) && !isFood(t);
 
         const roomTx = tx.filter(isRoom);
@@ -562,15 +588,16 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
             return m ? m[1].toUpperCase() : null;
         };
 
-        // Fetch settled cashier order snapshots to get exact subtotal/gst/service/discount splits for restaurant rows.
-        const orderCodeSet = new Set(foodTx.map(row => extractOrderCode(row.textRaw)).filter(Boolean));
+        const orderCodeSet = new Set(foodTx.map((row) => extractOrderCode(row.textRaw)).filter(Boolean));
         const orderByCode = new Map();
+        let allFoodOrders = [];
 
-        if (orderCodeSet.size > 0) {
+        if (foodTx.length > 0) {
             try {
                 const orderResp = await fetch(`${API_URL}/api/guest-meal/orders`);
                 const orderJson = await orderResp.json();
                 if (orderJson?.success && Array.isArray(orderJson?.data)) {
+                    allFoodOrders = orderJson.data;
                     orderJson.data.forEach((order) => {
                         const code = String(order?._id || order?.id || '').slice(-6).toUpperCase();
                         if (code) orderByCode.set(code, order);
@@ -581,79 +608,170 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
             }
         }
 
-        const sumAmount = (rows) => rows.reduce((s, r) => s + r.amountAbs, 0);
-        const chargesTotal = sumAmount(tx.filter(t => t.typeLc === 'charge'));
-        const discountTotal = sumAmount(discountTx);
-        const grandTotal = Math.max(0, chargesTotal - discountTotal);
+        const findCashierOrderForFoodRow = (row, code) => {
+            if (code && orderByCode.has(code)) return orderByCode.get(code);
 
-        const buildSectionBreakdown = (rows, sectionType) => {
-            const sectionTotal = sumAmount(rows);
-            const tagged = rows.reduce((acc, row) => {
-                const code = extractOrderCode(row.textRaw);
-                const linkedOrder = code ? orderByCode.get(code) : null;
+            const roomNo = String(selectedFolioData?.roomNumber || reservation?.roomNumber || '').trim();
+            const rowDateText = String(row.day || '').trim();
+            const candidates = allFoodOrders.filter((order) => {
+                const amountMatch = Math.abs(toNum(order.finalAmount) - row.amountAbs) <= 1;
+                const roomMatch = roomNo ? String(order.roomNumber || '').trim() === roomNo : true;
+                const dateMatch = rowDateText
+                    ? new Date(order.updatedAt || order.createdAt || Date.now()).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        weekday: 'short'
+                    }) === rowDateText
+                    : true;
+                return amountMatch && roomMatch && dateMatch;
+            });
 
-                if (sectionType === 'food' && linkedOrder) {
-                    const gst = toNum(linkedOrder.tax);
-                    const service = toNum(linkedOrder.serviceChargeAmount);
-                    const discount = toNum(linkedOrder.discountAmount);
-                    // Make base align with folio line amount so printed equation resolves exactly to posted folio total.
-                    const base = Math.max(0, row.amountAbs - gst - service + discount);
-                    acc.gross += base;
-                    acc.gst += gst;
-                    acc.service += service;
-                    acc.discount += discount;
-                    return acc;
-                }
+            if (!candidates.length) return null;
+            return candidates.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime())[0];
+        };
 
-                const gross = parseTaggedAmount(row.textRaw, ['Gross', 'Amount']);
-                const gstTag = parseTaggedAmount(row.textRaw, ['GST', 'Tax']);
-                const serviceTag = parseTaggedAmount(row.textRaw, ['Service', 'Service Charge']);
-                const discount = parseTaggedAmount(row.textRaw, ['Discount']) || 0;
-                const finalTag = parseTaggedAmount(row.textRaw, ['Final', 'Net']);
+        const normalizeEntry = (row, sectionType) => {
+            const code = extractOrderCode(row.textRaw);
+            const linkedOrder = sectionType === 'food' ? findCashierOrderForFoodRow(row, code) : null;
+            const text = row.textRaw || '';
 
-                let gst = gstTag || 0;
-                let service = serviceTag || 0;
+            const discountMeta = parseDiscountInfo(text);
 
-                // If cashier percentages are available and bill contains gross/final info, infer split without altering folio total.
-                if (sectionType === 'food' && (gross !== null || finalTag !== null) && gst === 0 && service === 0 && (taxCfg.foodGstPercent > 0 || taxCfg.servicePercent > 0)) {
-                    const targetBeforeDiscount = Math.max(0, row.amountAbs + discount);
-                    const denom = 1 + (taxCfg.foodGstPercent / 100) + (taxCfg.servicePercent / 100);
-                    const inferredBase = denom > 0 ? targetBeforeDiscount / denom : targetBeforeDiscount;
-                    gst = inferredBase * (taxCfg.foodGstPercent / 100);
-                    service = inferredBase * (taxCfg.servicePercent / 100);
-                }
+            let gross = parseTaggedAmount(text, ['Gross', 'Amount', 'Subtotal', 'Food Amount', 'Room Amount']);
+            let gst = parseTaggedAmount(text, ['Food GST', 'Room GST', 'GST', 'Tax']) || 0;
+            let service = parseTaggedAmount(text, ['Restaurant Service', 'Room Service', 'Service Charge', 'Service']) || 0;
+            let discount = discountMeta.amount || parseTaggedAmount(text, ['Discount']) || 0;
 
-                if (sectionType === 'add' && gross !== null && finalTag !== null && gst === 0) {
-                    // For add charges like: Gross 70, Discount 6, Final 64 -> GST should remain 0.
-                    gst = Math.max(0, finalTag - (gross - discount));
-                }
+            if (sectionType === 'food' && linkedOrder) {
+                const orderGst = toNum(linkedOrder.tax ?? linkedOrder.gstAmount ?? linkedOrder.foodGstAmount);
+                const orderService = toNum(
+                    linkedOrder.serviceChargeAmount
+                    ?? linkedOrder.serviceCharge
+                    ?? linkedOrder.billing?.serviceCharge
+                    ?? linkedOrder.billing?.serviceChargeAmount
+                );
+                const orderDiscount = toNum(linkedOrder.discountAmount ?? linkedOrder.discount);
+                const orderGross = toNum(linkedOrder.subtotal ?? linkedOrder.baseAmount ?? linkedOrder.foodAmount);
+                gst = orderGst || gst;
+                service = orderService || service;
+                discount = orderDiscount || discount;
+                gross = orderGross || gross;
+            }
 
-                const baseFromEquation = Math.max(0, row.amountAbs - gst - service + discount);
-                const base = gross !== null ? Math.max(gross, baseFromEquation) : baseFromEquation;
+            if (sectionType === 'food' && (gross === null || gross === 0) && (taxCfg.foodGstPercent > 0 || taxCfg.servicePercent > 0)) {
+                const targetBeforeDiscount = Math.max(0, row.amountAbs + discount);
+                const denom = 1 + (taxCfg.foodGstPercent / 100) + (taxCfg.servicePercent / 100);
+                const inferredGross = denom > 0 ? targetBeforeDiscount / denom : targetBeforeDiscount;
+                gross = inferredGross;
+                if (!gst) gst = inferredGross * (taxCfg.foodGstPercent / 100);
+                if (!service) service = inferredGross * (taxCfg.servicePercent / 100);
+            }
 
-                acc.gross += base;
-                acc.gst += gst;
-                acc.service += service;
-                acc.discount += discount;
-                return acc;
-            }, { gross: 0, gst: 0, service: 0, discount: 0 });
+            let finalTotal = row.amountAbs;
+            if (sectionType === 'food' && linkedOrder) {
+                finalTotal = toNum(linkedOrder.finalAmount ?? linkedOrder.netPayable ?? row.amountAbs) || row.amountAbs;
+            }
+            if (gross === null) {
+                gross = Math.max(0, finalTotal - gst - service + discount);
+            }
+
+            const heading = sectionType === 'food'
+                ? (linkedOrder?.billNo || row.particulars || 'Restaurant Bill')
+                : (row.particulars || (sectionType === 'room' ? 'Room Charges' : 'Additional Charge'));
 
             return {
-                base: tagged.gross,
-                gst: tagged.gst,
-                service: tagged.service,
-                discount: tagged.discount,
-                total: sectionTotal,
+                heading,
+                dateText: row.day || new Date(row.date || Date.now()).toLocaleDateString('en-GB'),
+                gross,
+                gst,
+                service,
+                discount,
+                discountSource: discountMeta.source,
+                total: finalTotal,
+                qty: parseTaggedAmount(text, ['Qty']) || null,
+                taxLabelOverride: sectionType === 'room' ? 'Room GST (Tax avg slab)' : undefined,
             };
         };
 
-        const roomCalc = buildSectionBreakdown(roomTx, 'room');
-        const foodCalc = buildSectionBreakdown(foodTx, 'food');
-        const addCalc = buildSectionBreakdown(addTx, 'add');
+        const roomEntries = roomTx.map((r) => normalizeEntry(r, 'room'));
 
-        const subtotal = roomCalc.base + foodCalc.base + addCalc.base;
-        const gstTotal = roomCalc.gst + foodCalc.gst + addCalc.gst;
-        const serviceTotal = roomCalc.service + foodCalc.service + addCalc.service;
+        const reservationRoomCharges = toNum(
+            reservation?.roomCharges
+            ?? reservation?.billing?.roomCharges
+            ?? reservation?.billing?.roomChargesAmount
+        );
+        const reservationRoomTax = toNum(
+            reservation?.tax
+            ?? reservation?.taxAmount
+            ?? reservation?.billing?.tax
+            ?? reservation?.billing?.taxAmount
+        );
+        const reservationRoomService = toNum(
+            reservation?.serviceCharge
+            ?? reservation?.serviceChargeAmount
+            ?? reservation?.billing?.serviceCharge
+            ?? reservation?.billing?.serviceChargeAmount
+        );
+        const reservationRoomDiscount = toNum(
+            reservation?.discount
+            ?? reservation?.discountAmount
+            ?? reservation?.billing?.discount
+            ?? reservation?.billing?.discountAmount
+        );
+
+        const slabFallback = calculateRoomTaxBySlab({
+            rooms: Array.isArray(reservation?.rooms) ? reservation.rooms : [],
+            nights: toNum(reservation?.nights ?? reservation?.duration?.nights, 1),
+            taxExempt: Boolean(reservation?.taxExempt),
+            inclusiveTax: Boolean(settings?.inclusiveTax),
+            roomGstSlabs: settings?.roomGstSlabs,
+            fallbackRoomGst: toNum(settings?.roomGst, 12),
+        });
+
+        if (roomEntries.length) {
+            const zeroBreakup = roomEntries.every((entry) => toNum(entry.gst) === 0 && toNum(entry.service) === 0 && toNum(entry.discount) === 0);
+            const fallbackTax = reservationRoomTax || slabFallback.taxAmount;
+            const fallbackService = reservationRoomService || toNum((slabFallback.subtotal || reservationRoomCharges) * ((toNum(settings?.roomServiceCharge, 0)) / 100));
+            const fallbackDiscount = reservationRoomDiscount;
+            const fallbackGross = reservationRoomCharges || slabFallback.roomCharges;
+
+            if (zeroBreakup && (fallbackTax > 0 || fallbackService > 0 || fallbackDiscount > 0 || fallbackGross > 0)) {
+                const grossBase = fallbackGross > 0 ? fallbackGross : roomEntries.reduce((sum, e) => sum + toNum(e.total || e.gross), 0);
+                const grossDivisor = grossBase > 0 ? grossBase : 1;
+
+                roomEntries.forEach((entry) => {
+                    const entryWeight = (toNum(entry.total || entry.gross) > 0 ? toNum(entry.total || entry.gross) : 0) / grossDivisor;
+                    const weight = Number.isFinite(entryWeight) && entryWeight > 0 ? entryWeight : (1 / roomEntries.length);
+
+                    entry.gross = toNum(entry.gross) > 0 ? toNum(entry.gross) : (grossBase * weight);
+                    entry.gst = fallbackTax * weight;
+                    entry.service = fallbackService * weight;
+                    entry.discount = fallbackDiscount * weight;
+                    entry.total = Math.max(0, entry.gross + entry.gst + entry.service - entry.discount);
+                    entry.taxLabelOverride = 'Room GST (Tax avg slab)';
+                });
+            }
+        }
+
+        const foodEntries = foodTx.map((f) => normalizeEntry(f, 'food'));
+        const addEntries = addTx.map((a) => normalizeEntry(a, 'add'));
+
+        const sectionSum = (rows) => rows.reduce((acc, row) => ({
+            gross: acc.gross + toNum(row.gross),
+            gst: acc.gst + toNum(row.gst),
+            service: acc.service + toNum(row.service),
+            discount: acc.discount + toNum(row.discount),
+            total: acc.total + toNum(row.total),
+        }), { gross: 0, gst: 0, service: 0, discount: 0, total: 0 });
+
+        const roomCalc = sectionSum(roomEntries);
+        const foodCalc = sectionSum(foodEntries);
+        const addCalc = sectionSum(addEntries);
+
+        const sectionChargesTotal = roomCalc.total + foodCalc.total + addCalc.total;
+        const ledgerDiscountTotal = discountTx.reduce((s, d) => s + d.amountAbs, 0);
+        const grandTotal = Math.max(0, sectionChargesTotal - ledgerDiscountTotal);
 
         const paymentSplit = { cash: 0, upi: 0, card: 0, other: 0, total: 0 };
         paymentTx.forEach((p) => {
@@ -665,100 +783,114 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
         });
 
         const pending = Math.max(0, grandTotal - paymentSplit.total);
-        const netPayable = pending;
 
-        const money = (n) => `${Math.abs(toNum(n)).toFixed(2)}`;
-        const lineRow = (label, value, strong = false) =>
-            `<div class="row ${strong ? 'strong' : ''}"><span>${label}</span><span>${value}</span></div>`;
+        const infoRow = (label, value) => `<div class="meta-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
 
-        const foodNameLines = foodTx.length
-            ? foodTx.map((i) => lineRow(i.particulars || 'Food', money(i.amountAbs))).join('')
-            : lineRow('No food items', '0.00');
+        const detailLine = (label, value) => `<div class="detail-row"><span>${escapeHtml(label)}</span><span>${escapeHtml(value)}</span></div>`;
 
-        const addNameLines = addTx.length
-            ? addTx.map((i) => lineRow(i.particulars || 'Add Charge', money(i.amountAbs))).join('')
-            : lineRow('No add charges', '0.00');
+        const renderCard = (row, sectionType) => {
+            const title = sectionType === 'food' ? 'Restaurant Bill' : row.heading;
+            const taxLabel = row.taxLabelOverride || (sectionType === 'food' ? 'Food GST' : 'Room GST (Tax avg slab)');
+            const serviceLabel = sectionType === 'food' ? 'Restaurant Service Charge' : 'Room Service Charge';
+            const discountLabel = row.discountSource ? `Discount (${row.discountSource})` : 'Discount';
 
-        const content = `<!DOCTYPE html><html><head><title>Tax Invoice - ${roomNo}</title>
+            return `
+                <div class="charge-card">
+                    <div class="charge-head">
+                        <div class="charge-title">${escapeHtml(title)}</div>
+                        <div class="charge-total">${cs}${money(row.total)}</div>
+                    </div>
+                    <div class="charge-date">${escapeHtml(row.dateText)}</div>
+                    ${row.qty ? detailLine('Qty', String(row.qty)) : ''}
+                    ${detailLine('Gross Amount', `${cs}${money(row.gross)}`)}
+                    ${detailLine(taxLabel, `${cs}${money(row.gst)} (${toNum(row.gross) ? ((toNum(row.gst) / Math.max(toNum(row.gross), 1)) * 100).toFixed(2) : '0.00'}%)`)}
+                    ${sectionType !== 'add' ? detailLine(serviceLabel, `${cs}${money(row.service)} (${toNum(row.gross) ? ((toNum(row.service) / Math.max(toNum(row.gross), 1)) * 100).toFixed(2) : '0.00'}%)`) : ''}
+                    ${detailLine(discountLabel, `-${cs}${money(row.discount)}`)}
+                </div>
+            `;
+        };
+
+        const roomCards = roomEntries.map((r) => renderCard(r, 'room')).join('');
+        const foodCards = foodEntries.length ? foodEntries.map((f) => renderCard(f, 'food')).join('') : '<div class="empty-text">No restaurant bills</div>';
+        const addCards = addEntries.length ? addEntries.map((a) => renderCard(a, 'add')).join('') : '<div class="empty-text">No additional charges</div>';
+
+        const printWidth = selectedFmt.key === '2inch' ? '50mm' : (selectedFmt.key === '3inch' ? '68mm' : (selectedFmt.key === 'thermal' ? '72mm' : '176mm'));
+        const pageSize = selectedFmt.key === '2inch' ? '58mm auto' : (selectedFmt.key === '3inch' ? '76mm auto' : (selectedFmt.key === 'thermal' ? '80mm auto' : selectedFmt.pageSize));
+
+        const content = `<!DOCTYPE html><html><head><title>Folio Print - ${escapeHtml(String(roomNo || 'NA'))}</title>
             <style>
-                @page { size: 80mm auto; margin: 4mm; }
-                body { font-family: 'Courier New', monospace; font-size: 12px; color: #111; margin: 0 auto; width: 74mm; }
-                .center { text-align: center; }
-                .row { display: flex; justify-content: space-between; gap: 8px; margin: 2px 0; }
-                .row span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                .strong { font-weight: 700; }
-                .sep { border-top: 1px dashed #333; margin: 6px 0; }
-                .title { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
-                .muted { color: #333; }
-                .formula { font-size: 11px; color: #333; margin: 1px 0 3px 0; }
-                .section { margin-top: 2px; }
+                @page { size: ${pageSize}; margin: 3.5mm; }
+                body { font-family: Arial, sans-serif; font-size: 11px; color: #1f2937; margin: 0 auto; width: ${printWidth}; }
+                .company-header { text-align: center; border: 1px solid #d6dbe3; border-radius: 4px; padding: 8px; margin-bottom: 6px; }
+                .company-name { font-size: 13px; font-weight: 900; letter-spacing: 0.2px; text-transform: uppercase; color: #111827; }
+                .company-line { font-size: 10px; color: #4b5563; margin-top: 2px; }
+                .header { border: 1px solid #d6dbe3; border-radius: 4px; padding: 8px; margin-bottom: 8px; }
+                .meta-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #d9dde4; padding: 3px 0; gap: 8px; }
+                .meta-row:last-child { border-bottom: none; }
+                .section-title { margin: 8px 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #111827; }
+                .charge-card { border: 1px solid #d6dbe3; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
+                .charge-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+                .charge-title { font-weight: 800; color: #111827; text-transform: uppercase; font-size: 10px; }
+                .charge-total { font-weight: 800; color: #111827; }
+                .charge-date { color: #4b5563; font-size: 10px; margin: 2px 0 4px 0; }
+                .detail-row { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; margin: 2px 0; }
+                .section-total { border: 1px solid #d6dbe3; border-radius: 4px; padding: 5px 6px; margin-bottom: 8px; display: flex; justify-content: space-between; font-weight: 800; }
+                .totals-box { border: 1px solid #d6dbe3; border-radius: 4px; padding: 8px; margin-top: 8px; }
+                .total-row { display: flex; justify-content: space-between; gap: 8px; margin: 3px 0; font-weight: 700; }
+                .total-row.light { font-weight: 600; color: #374151; }
+                .total-row.red { color: #dc2626; }
+                .total-row.green { color: #15803d; }
+                .empty-text { color: #6b7280; font-style: italic; margin: 4px 0 8px 0; }
+                .footer { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #d9dde4; text-align: center; }
+                .footer-line { font-size: 10px; color: #4b5563; margin-top: 2px; }
+                .thanks { text-align: center; margin-top: 10px; font-style: italic; color: #374151; }
             </style>
         </head><body>
-            <div class="center title">TAX INVOICE</div>
-            <div class="row"><span>${new Date().toLocaleString('en-IN')}</span><span>Folio: ${roomNo}</span></div>
-            <div class="sep"></div>
-            <div class="center strong">${hotelName}</div>
-            ${address ? `<div class="center muted">${address}</div>` : ''}
-            <div class="sep"></div>
-            ${lineRow('Guest Name', guestName || '-')}
-            <div class="sep"></div>
+            <div class="company-header">
+                <div class="company-name">${escapeHtml(hotelName)}</div>
+                ${fullAddress ? `<div class="company-line">${escapeHtml(fullAddress)}</div>` : ''}
+                ${(companyPhone || companyGst) ? `<div class="company-line">${companyPhone ? `Ph: ${escapeHtml(companyPhone)}` : ''}${(companyPhone && companyGst) ? ' | ' : ''}${companyGst ? `GSTIN: ${escapeHtml(companyGst)}` : ''}</div>` : ''}
+            </div>
 
-            <div class="section strong">ROOM</div>
-            ${roomTx.length ? roomTx.map((i) => lineRow(i.particulars || 'Room charge', money(i.amountAbs))).join('') : lineRow('Room charge', '0.00')}
-            ${lineRow('Service charge', money(roomCalc.service))}
-            ${lineRow('GST', money(roomCalc.gst))}
-            ${lineRow('Discount', `-${money(roomCalc.discount)}`)}
-            <div class="sep"></div>
-            ${lineRow('ROOM TOTAL', money(roomCalc.total), true)}
-            <div class="formula">ROOM = ${money(roomCalc.base)} + ${money(roomCalc.service)} + ${money(roomCalc.gst)} - ${money(roomCalc.discount)} = ${money(roomCalc.total)}</div>
-            <div class="sep"></div>
+            <div class="header">
+                ${infoRow('Folio No:', folioNo)}
+                ${infoRow('Date:', new Date().toLocaleDateString('en-GB'))}
+                ${infoRow('Room No:', roomNo || '-')}
+                ${infoRow('Guest:', guestName || '-')}
+            </div>
 
-            <div class="section strong">FOOD</div>
-            ${foodNameLines}
-            ${lineRow('Food amount', money(foodCalc.base))}
-            ${lineRow('Food GST', money(foodCalc.gst))}
-            ${lineRow('Food service', money(foodCalc.service))}
-            ${lineRow('Food discount', `-${money(foodCalc.discount)}`)}
-            ${lineRow('FOOD TOTAL', money(foodCalc.total), true)}
-            <div class="formula">FOOD = ${money(foodCalc.base)} + ${money(foodCalc.gst)} + ${money(foodCalc.service)} - ${money(foodCalc.discount)} = ${money(foodCalc.total)}</div>
-            <div class="sep"></div>
+            <div class="section-title">Room Charges</div>
+            ${roomCards}
+            <div class="section-total"><span>ROOM CHARGES TOTAL</span><span>${cs}${money(roomCalc.total)}</span></div>
 
-            <div class="section strong">ADD</div>
-            ${addNameLines}
-            ${lineRow('Add amount', money(addCalc.base))}
-            ${lineRow('Add GST', money(addCalc.gst))}
-            ${lineRow('Add discount', `-${money(addCalc.discount)}`)}
-            ${lineRow('ADD TOTAL', money(addCalc.total), true)}
-            <div class="formula">ADD = ${money(addCalc.base)} + ${money(addCalc.gst)} - ${money(addCalc.discount)} = ${money(addCalc.total)}</div>
-            <div class="sep"></div>
+            <div class="section-title">Restaurant Bill</div>
+            ${foodCards}
+            <div class="section-total"><span>RESTAURANT BILL TOTAL</span><span>${cs}${money(foodCalc.total)}</span></div>
 
-            ${lineRow('Subtotal', money(subtotal))}
-            ${lineRow('GST total', money(gstTotal))}
-            ${lineRow('Service total', money(serviceTotal))}
-            ${lineRow('Discount total', `-${money(discountTotal)}`)}
-            <div class="sep"></div>
-            ${lineRow('GRAND TOTAL', money(grandTotal), true)}
-            <div class="sep"></div>
+            <div class="section-title">Additional Charges</div>
+            ${addCards}
+            <div class="section-total"><span>ADDITIONAL CHARGES TOTAL</span><span>${cs}${money(addCalc.total)}</span></div>
 
-            ${lineRow('Cash', money(paymentSplit.cash))}
-            ${lineRow('UPI', money(paymentSplit.upi))}
-            ${lineRow('Card', money(paymentSplit.card))}
-            ${lineRow('Other', money(paymentSplit.other))}
-            <div class="sep"></div>
-            ${lineRow('Paid', money(paymentSplit.total), true)}
-            ${lineRow('Pending', money(pending), true)}
-            <div class="sep"></div>
-            ${lineRow('NET PAYABLE', money(netPayable), true)}
-            <div class="sep"></div>
+            <div class="totals-box">
+                <div class="total-row"><span>ROOM TOTAL</span><span>${cs}${money(roomCalc.total)}</span></div>
+                <div class="total-row"><span>RESTAURANT TOTAL</span><span>${cs}${money(foodCalc.total)}</span></div>
+                <div class="total-row"><span>ADDITIONAL TOTAL</span><span>${cs}${money(addCalc.total)}</span></div>
+                ${ledgerDiscountTotal > 0 ? `<div class="total-row red"><span>FOLIO DISCOUNT</span><span>-${cs}${money(ledgerDiscountTotal)}</span></div>` : ''}
+                <div class="total-row red" style="margin-top:6px;"><span>Grand Total</span><span>${cs}${money(grandTotal)}</span></div>
+                <div class="total-row green"><span>Paid</span><span>${cs}${money(paymentSplit.total)}</span></div>
+                <div class="total-row red"><span>Remaining</span><span>${cs}${money(pending)}</span></div>
+                <div class="total-row red"><span>Net Payable</span><span>${cs}${money(pending)}</span></div>
+            </div>
 
-            ${lineRow('Subtotal', money(subtotal))}
-            ${lineRow('GST total', money(gstTotal))}
-            ${lineRow('Discount total', `-${money(discountTotal)}`)}
-            ${lineRow('Grand Total', money(grandTotal), true)}
+            <div class="footer">
+                <div class="thanks">${escapeHtml(thankYouMessage)}</div>
+                ${companyPan ? `<div class="footer-line">PAN: ${escapeHtml(companyPan)}</div>` : ''}
+                ${companyGst ? `<div class="footer-line">GSTIN: ${escapeHtml(companyGst)}</div>` : ''}
+            </div>
             <script>window.onload=function(){window.print();setTimeout(function(){window.close();},500)}<\/script>
         </body></html>`;
 
-        const w = window.open('', '_blank', 'height=820,width=420');
+        const w = window.open('', '_blank', `height=860,width=${selectedFmt.windowWidth || 420}`);
         w.document.write(content);
         w.document.close();
         setShowPrintDrawer(false);
@@ -767,19 +899,44 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
     // Print individual receipt
     const handlePrint = (index) => {
         const item = currentFolioTransactions[index];
+        const receiptDescription = getDisplayDescription(item) || item.description || '-';
+        const receiptAmount = Number(getDisplayAmount(item) || 0);
+        const companyName = settings?.name || settings?.hotelName || 'Hotel';
+        const fullAddress = getFullAddress?.() || [settings?.address, settings?.city, settings?.state, settings?.pin].filter(Boolean).join(', ');
+        const companyPhone = settings?.phone || '';
+        const companyGst = settings?.gstNumber || '';
+        const companyPan = settings?.panNumber || '';
+        const billPrefix = settings?.billingInvoicePrefix || settings?.invoicePrefix || 'REC';
+        const roomNo = reservation?.roomNumber || '-';
+        const receiptNo = `${String(billPrefix).trim() || 'REC'}-${roomNo}`;
+        const thankYouMessage = settings?.thankYouMessage || 'Thank you for visiting our hotel!';
         const w = window.open('', '_blank', 'height=400,width=550');
         w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title>
             <style>body{font-family:Arial,sans-serif;padding:20mm;font-size:12px;}
-            h3{margin:0 0 10px}table{width:100%;border-collapse:collapse;margin-top:12px}
+            h3{margin:0 0 10px}.company{text-align:center;margin-bottom:10px}
+            .cname{font-size:16px;font-weight:800;text-transform:uppercase}
+            .cline{font-size:11px;color:#555;margin-top:2px}
+            table{width:100%;border-collapse:collapse;margin-top:12px}
             td{padding:6px 0;border-bottom:1px solid #eee}.label{color:#666}.val{font-weight:700;text-align:right}
+            .footer{margin-top:12px;padding-top:8px;border-top:1px dashed #ddd;text-align:center}
             </style></head><body>
+            <div class="company">
+                <div class="cname">${companyName}</div>
+                ${fullAddress ? `<div class="cline">${fullAddress}</div>` : ''}
+                ${(companyPhone || companyGst) ? `<div class="cline">${companyPhone ? `Ph: ${companyPhone}` : ''}${(companyPhone && companyGst) ? ' | ' : ''}${companyGst ? `GSTIN: ${companyGst}` : ''}</div>` : ''}
+            </div>
             <h3>Transaction Receipt</h3>
-            <table><tr><td class=label>Date</td><td class=val>${item.day}</td></tr>
+            <table><tr><td class=label>Receipt No</td><td class=val>${receiptNo}</td></tr>
+            <tr><td class=label>Date</td><td class=val>${item.day}</td></tr>
             <tr><td class=label>Type</td><td class=val>${item.particulars}</td></tr>
-            <tr><td class=label>Description</td><td class=val>${item.description}</td></tr>
-            <tr><td class=label>Amount</td><td class=val>${cs} ${Math.abs(item.amount).toFixed(2)}</td></tr>
+            <tr><td class=label>Description</td><td class=val>${receiptDescription}</td></tr>
+            <tr><td class=label>Amount</td><td class=val>${cs} ${receiptAmount.toFixed(2)}</td></tr>
             <tr><td class=label>User</td><td class=val>${item.user}</td></tr></table>
-            <p style="margin-top:20px;text-align:center;color:#999;font-size:11px">Thank you!</p>
+            <div class="footer">
+                <div style="color:#555;font-size:11px">${thankYouMessage}</div>
+                ${companyPan ? `<div style="color:#666;font-size:10px;margin-top:3px">PAN: ${companyPan}</div>` : ''}
+                ${companyGst ? `<div style="color:#666;font-size:10px;margin-top:3px">GSTIN: ${companyGst}</div>` : ''}
+            </div>
             <script>window.onload=function(){window.print();setTimeout(()=>window.close(),500)}<\/script>
             </body></html>`);
         w.document.close();
@@ -912,27 +1069,120 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
         }
     }
 
+    const roomDescriptionBreakdown = useMemo(() => {
+        const toNum = (value, fallback = 0) => {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : fallback;
+        };
+
+        const nights = Math.max(1, toNum(reservation?.duration?.nights ?? reservation?.nights, 1));
+        const gross = toNum(
+            reservation?.roomCharges
+            ?? reservation?.billing?.roomCharges
+            ?? reservation?.billing?.roomChargesAmount,
+            toNum(reservation?.pricePerNight ?? reservation?.billing?.roomRate ?? reservation?.rooms?.[0]?.ratePerNight, 0) * nights
+        );
+
+        const slabTax = calculateRoomTaxBySlab({
+            rooms: Array.isArray(reservation?.rooms) ? reservation.rooms : [],
+            nights,
+            taxExempt: Boolean(reservation?.taxExempt),
+            inclusiveTax: Boolean(settings?.inclusiveTax),
+            roomGstSlabs: settings?.roomGstSlabs,
+            fallbackRoomGst: toNum(settings?.roomGst, 12),
+        });
+
+        const gst = toNum(
+            reservation?.tax
+            ?? reservation?.taxAmount
+            ?? reservation?.billing?.tax
+            ?? reservation?.billing?.taxAmount,
+            slabTax.taxAmount
+        );
+
+        const service = toNum(
+            reservation?.serviceCharge
+            ?? reservation?.serviceChargeAmount
+            ?? reservation?.billing?.serviceCharge
+            ?? reservation?.billing?.serviceChargeAmount,
+            Math.round((gross * (toNum(settings?.roomServiceCharge, 0) / 100)) * 100) / 100
+        );
+
+        const discount = toNum(
+            reservation?.discount
+            ?? reservation?.discountAmount
+            ?? reservation?.billing?.discount
+            ?? reservation?.billing?.discountAmount,
+            0
+        );
+
+        const final = Math.max(0, gross + gst + service - discount);
+        return { nights, gross, gst, service, discount, final };
+    }, [reservation, settings.inclusiveTax, settings.roomGst, settings.roomGstSlabs, settings.roomServiceCharge]);
+
+    const isRoomChargeTransaction = (transaction) => {
+        const text = `${transaction?.particulars || ''} ${transaction?.description || ''}`.toLowerCase();
+        return transaction?.type?.toLowerCase() === 'charge' && (
+            text.includes('room charges') ||
+            text.includes('room tariff') ||
+            text.includes('room stay') ||
+            String(transaction?.particulars || '').toLowerCase().includes('room')
+        );
+    };
+
+    const getDisplayDescription = (transaction) => {
+        if (!isRoomChargeTransaction(transaction)) return transaction?.description;
+
+        const b = roomDescriptionBreakdown;
+        return `Room Stay (${b.nights} nights) | Gross: Rs ${b.gross.toFixed(2)} | Room GST (Tax avg slab): Rs ${b.gst.toFixed(2)} | Room Service Charge: Rs ${b.service.toFixed(2)} | Discount: Rs ${b.discount.toFixed(2)} | Final: Rs ${b.final.toFixed(2)}`;
+    };
+
+    const getDisplayAmount = (transaction) => {
+        if (isRoomChargeTransaction(transaction)) {
+            return Number(roomDescriptionBreakdown.final) || 0;
+        }
+        const rawAmount = Number(transaction?.amount);
+        return Number.isFinite(rawAmount) ? Math.abs(rawAmount) : 0;
+    };
+
     const calculateTotals = () => {
-        // Core calculation from transactions list (includes virtual charges)
-        let charges = currentFolioTransactions
-            .filter(t => t.type?.toLowerCase() === 'charge')
-            .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
+        const summary = currentFolioTransactions.reduce((acc, transaction) => {
+            const typeLc = String(transaction?.type || '').toLowerCase();
+            const amountAbs = getDisplayAmount(transaction);
 
-        const discounts = Math.abs(currentFolioTransactions
-            .filter(t => t.type?.toLowerCase() === 'discount')
-            .reduce((sum, t) => sum + (Number(t.amount) || 0), 0));
+            if (typeLc === 'payment') {
+                acc.payments += amountAbs;
+                return acc;
+            }
 
-        let payments = currentFolioTransactions
-            .filter(t => t.type?.toLowerCase() === 'payment')
-            .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
+            if (typeLc === 'discount') {
+                acc.discounts += amountAbs;
+                return acc;
+            }
 
-        const grandTotal = charges - discounts;
-        const remaining = grandTotal - payments;
+            acc.charges += amountAbs;
+            return acc;
+        }, { charges: 0, discounts: 0, payments: 0 });
 
-        return { subTotal: charges, grandTotal, paid: payments, remaining, discounts, advance: 0 };
+        const grandTotal = Math.max(0, summary.charges - summary.discounts);
+        const remaining = Math.max(0, grandTotal - summary.payments);
+
+        return {
+            subTotal: summary.charges,
+            grandTotal,
+            paid: summary.payments,
+            remaining,
+            discounts: summary.discounts,
+            advance: 0
+        };
     };
 
     const totals = calculateTotals();
+
+    const formatSummaryAmount = (value) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed.toFixed(2) : '0.00';
+    };
 
     // Notify parent about totals change for checkout button control
     useEffect(() => {
@@ -1057,9 +1307,9 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                                                     {transaction.particulars}
                                                 </span>
                                             </td>
-                                            <td>{transaction.description}</td>
+                                            <td>{getDisplayDescription(transaction)}</td>
                                             <td className={`amount-cell ${transaction.amount < 0 ? 'payment-amount' : ''}`}>
-                                                {Math.abs(transaction.amount)}
+                                                {getDisplayAmount(transaction)}
                                             </td>
                                             <td>{transaction.user}</td>
                                             <td style={{ textAlign: 'center', position: 'relative' }}>
@@ -1085,37 +1335,37 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                             <div className="summary-left">
                                 <div className="summary-row">
                                     <span className="summary-label-text">Sub Total</span>
-                                    <span className="summary-amount">{cs} {totals.subTotal}</span>
+                                    <span className="summary-amount">{cs} {formatSummaryAmount(totals.subTotal)}</span>
                                 </div>
                                 {totals.discounts > 0 && (
                                     <div className="summary-row">
                                         <span className="summary-label-text">Discount</span>
-                                        <span className="summary-amount discount-amount">- {cs} {totals.discounts}</span>
+                                        <span className="summary-amount discount-amount">- {cs} {formatSummaryAmount(totals.discounts)}</span>
                                     </div>
                                 )}
                                 <div className="summary-row">
                                     <span className="summary-label-text">Grand Total</span>
-                                    <span className="summary-amount grand-total">{cs} {totals.grandTotal}</span>
+                                    <span className="summary-amount grand-total">{cs} {formatSummaryAmount(totals.grandTotal)}</span>
                                 </div>
                                 <div className="summary-row">
                                     <span className="summary-label-text">Paid {totals.advance > 0 && '(Incl. Advance)'}</span>
-                                    <span className="summary-amount">{cs} {totals.paid}</span>
+                                    <span className="summary-amount">{cs} {formatSummaryAmount(totals.paid)}</span>
                                 </div>
                                 <div className="summary-row">
                                     <span className="summary-label-text">Remaining</span>
-                                    <span className="summary-amount remaining">{cs} {totals.remaining}</span>
+                                    <span className="summary-amount remaining">{cs} {formatSummaryAmount(totals.remaining)}</span>
                                 </div>
                             </div>
                             <div className="summary-right">
                                 <div className="summary-row-right">
                                     <span className="summary-label-text">Current Balance</span>
                                     <span className="summary-amount-right" style={{ fontSize: '1.2rem', fontWeight: '800', color: totals.remaining > 0 ? '#ef4444' : '#22c55e' }}>
-                                        {cs} {totals.remaining}
+                                        {cs} {formatSummaryAmount(totals.remaining)}
                                     </span>
                                 </div>
                                 <div className="summary-row-right" style={{ borderTop: '1px dashed #e2e8f0', marginTop: '10px', paddingTop: '10px' }}>
                                     <span className="summary-label-text">Total Paid</span>
-                                    <span className="summary-amount-right paid">{cs} {totals.paid}</span>
+                                    <span className="summary-amount-right paid">{cs} {formatSummaryAmount(totals.paid)}</span>
                                 </div>
                             </div>
                         </div>
@@ -1130,10 +1380,14 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                 <AddPayment
                     onClose={() => setShowAddPayment(false)}
                     onAdd={handleAddPayment}
+                    lockToFolio={true}
+                    fixedFolioId={selectedFolio?.folioId ?? 0}
+                    fixedGuestName={selectedFolio?.guestName || reservation?.guestName || 'Guest'}
                     reservation={{
                         ...reservation,
                         totalAmount: totals.grandTotal,
                         paidAmount: totals.paid,
+                        folioRemainingAmount: totals.remaining,
                         remainingAmount: totals.remaining
                     }}
                 />

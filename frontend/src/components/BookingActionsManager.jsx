@@ -22,20 +22,20 @@ import API_URL from '../config/api';
 import soundManager from '../utils/soundManager';
 
 const ACTION_CONFIG = {
-    'check-in': { title: '✓ Check-In Guest', endpoint: (id) => `/api/reservations/checkin/${id}`, method: 'PUT' },
-    'add-payment': { title: '💳 Add Payment', endpoint: (id) => `/api/bookings/add-payment/${id}`, method: 'POST' },
-    'amend-stay': { title: '📅 Amend Stay', endpoint: (id) => `/api/reservations/amend/${id}`, method: 'PUT' },
-    'room-move': { title: '🚪 Room Move', endpoint: (id) => `/api/reservations/${id}/room-move`, method: 'PUT' },
-    'exchange-room': { title: '⇄ Exchange Room', endpoint: (id) => `/api/reservations/${id}/exchange-room`, method: 'PUT' },
-    'add-visitor': { title: '👤 Add Visitor', endpoint: (id) => `/api/bookings/add-visitor/${id}`, method: 'POST' },
-    'no-show': { title: '❌ Mark No-Show', endpoint: (id) => `/api/reservations/${id}/no-show`, method: 'PUT' },
-    'void': { title: '🗑️ Void Reservation', endpoint: (id) => `/api/reservations/${id}/void`, method: 'PUT' },
-    'cancel': { title: '⚠️ Cancel Reservation', endpoint: (id) => `/api/bookings/cancel/${id}`, method: 'POST' },
-    'print-summary': { title: '📄 Print Summary' },
-    'print-invoice': { title: '🧾 Print Invoice' },
-    'print-grc': { title: '📋 Print GRC' },
-    'print-grc-all': { title: '📋 Print All GRCs' },
-    'send-invoice': { title: '📧 Send Invoice' },
+    'check-in': { title: 'Check-In Guest', icon: '✓', subtitle: 'PROCESS CHECK-IN', endpoint: (id) => `/api/reservations/checkin/${id}`, method: 'PUT' },
+    'add-payment': { title: 'Add Payment', icon: '💳', subtitle: 'PROCESS NEW TRANSACTION', endpoint: (id) => `/api/bookings/add-payment/${id}`, method: 'POST' },
+    'amend-stay': { title: 'Amend Stay', icon: '📅', subtitle: 'UPDATE STAY DETAILS', endpoint: (id) => `/api/reservations/amend/${id}`, method: 'PUT' },
+    'room-move': { title: 'Room Move', icon: '🚪', subtitle: 'TRANSFER ROOM ASSIGNMENT', endpoint: (id) => `/api/reservations/${id}/room-move`, method: 'PUT' },
+    'exchange-room': { title: 'Exchange Room', icon: '⇄', subtitle: 'SWAP ROOM ALLOCATION', endpoint: (id) => `/api/reservations/${id}/exchange-room`, method: 'PUT' },
+    'add-visitor': { title: 'Add Visitor', icon: '👤', subtitle: 'REGISTER VISITOR ENTRY', endpoint: (id) => `/api/bookings/add-visitor/${id}`, method: 'POST' },
+    'no-show': { title: 'Mark No-Show', icon: '✕', subtitle: 'UPDATE RESERVATION STATUS', endpoint: (id) => `/api/reservations/${id}/no-show`, method: 'PUT' },
+    'void': { title: 'Void Reservation', icon: '🗑', subtitle: 'VOID THIS RESERVATION', endpoint: (id) => `/api/reservations/${id}/void`, method: 'PUT' },
+    'cancel': { title: 'Cancel Reservation', icon: '⚠️', subtitle: 'PROCESS CANCELLATION', endpoint: (id) => `/api/bookings/cancel/${id}`, method: 'POST' },
+    'print-summary': { title: 'Print Summary', icon: '📄', subtitle: 'PRINT OR SHARE DOCUMENT' },
+    'print-invoice': { title: 'Print Invoice', icon: '🧾', subtitle: 'PRINT OR SHARE DOCUMENT' },
+    'print-grc': { title: 'Print GRC', icon: '📋', subtitle: 'PRINT OR SHARE DOCUMENT' },
+    'print-grc-all': { title: 'Print All GRCs', icon: '🗂️', subtitle: 'PRINT OR SHARE DOCUMENT' },
+    'send-invoice': { title: 'Send Invoice', icon: '📧', subtitle: 'SHARE TO GUEST' },
 };
 
 const PRINT_ACTIONS = ['print-summary', 'print-invoice', 'print-grc', 'print-grc-all', 'send-invoice'];
@@ -149,7 +149,14 @@ const BookingActionsManager = ({ isOpen, onClose, actionType, booking, onSuccess
 
     return (
         <>
-            <Drawer isOpen={isOpen} onClose={onClose} title={config.title || 'Action'} height="premium">
+            <Drawer
+                isOpen={isOpen}
+                onClose={onClose}
+                title={config.title || 'Action'}
+                subtitle={config.subtitle || 'PROCESS REQUEST'}
+                icon={config.icon || '⚙️'}
+                height="premium"
+            >
                 {renderForm()}
             </Drawer>
 

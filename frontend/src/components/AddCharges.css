@@ -106,6 +106,42 @@
     color: #fff;
 }
 
+.discount-ui-box {
+    display: block !important;
+    min-height: auto !important;
+    align-items: initial !important;
+    margin-bottom: 10px;
+}
+
+.discount-ui-label {
+    display: block;
+    min-width: 140px;
+    line-height: 1.2;
+    margin-bottom: 8px;
+}
+
+.discount-auto-source {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    opacity: 0.72;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.discount-ui-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    flex-shrink: 0;
+}
+
+.discount-ui-controls .disc-val-input {
+    margin-left: auto;
+    min-width: 96px;
+}
+
 /* Discount Section Layout Fixes */
 .disc-val-input {
     width: 80px;
@@ -130,6 +166,17 @@
     min-height: 56px;
     padding: 12px 16px !important;
     gap: 12px;
+}
+
+@media (max-width: 520px) {
+    .discount-ui-controls {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}
+
+.discount-ui-box + .payment-field-group {
+    margin-top: 8px;
 }
 
 /* Net Summary Text */

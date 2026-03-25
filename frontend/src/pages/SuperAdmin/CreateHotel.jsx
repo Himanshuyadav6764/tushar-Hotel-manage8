@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { 
-    FaBell, 
-    FaCog,
+import {
+    FaBars,
     FaHotel,
     FaMapMarkerAlt,
     FaPhone,
@@ -14,7 +13,9 @@ import {
     FaUser,
     FaEnvelope,
     FaLock,
-    FaPlus
+    FaPlus,
+    FaEye,
+    FaEyeSlash
 } from 'react-icons/fa';
 import { MdDashboard, MdLogout } from 'react-icons/md';
 import './SuperAdminDashboard.css';
@@ -38,11 +39,197 @@ const ADMIN_SCREEN_OPTIONS = [
     'Cashier Logs',
     'Payment Logs',
     'Reports',
-    'Property Setup',
     'Property Configuration',
     'CRM Model',
     'Settings'
 ];
+
+const PROPERTY_SETUP_OPTIONS = [
+    'Property Setup (All)',
+    'Property Setup - Discount',
+    'Property Setup - Generate Room QR'
+];
+
+const PROPERTY_CONFIG_OPTIONS = [
+    'Property Configuration (All)',
+    'Property Configuration - Floor Setup',
+    'Property Configuration - Room Facilities Type',
+    'Property Configuration - Meal Type',
+    'Property Configuration - Reservation Type',
+    'Property Configuration - Extra Charges',
+    'Property Configuration - Complimentary Services',
+    'Property Configuration - Customer Identity',
+    'Property Configuration - Booking Source',
+    'Property Configuration - Business Source',
+    'Property Configuration - Maintenance Block',
+    'Property Configuration - Table Management',
+    'Property Configuration - Company Settings'
+];
+
+const REPORT_OPTIONS = [
+    'Reports (All)',
+    'Reports - Sales',
+    'Reports - Payments',
+    'Reports - Rooms',
+    'Reports - Kitchen',
+    'Reports - GST',
+    'Reports - Staff',
+    'Reports - Billing',
+    'Reports - Reservations',
+    'Reports - Analytics'
+];
+
+const MultiPermissionPicker = ({
+    title,
+    options,
+    selectedOptions,
+    setSelectedOptions,
+    onAdd,
+    description
+}) => {
+    const toggleOption = (label) => {
+        setSelectedOptions((prev) => (
+            prev.includes(label)
+                ? prev.filter((item) => item !== label)
+                : [...prev, label]
+        ));
+    };
+
+    return (
+        <div className="multi-permission-picker" style={{ marginTop: '14px' }}>
+            <label className="mpp-title" style={{
+                display: 'block',
+                fontSize: '13px',
+                fontWeight: '700',
+                color: '#1f2937',
+                marginBottom: '8px'
+            }}>
+                {title}
+            </label>
+
+            <div className="mpp-box" style={{
+                border: '1px solid #e5e7eb',
+                borderRadius: '10px',
+                background: '#fff',
+                overflow: 'hidden'
+            }}>
+                <div className="mpp-head" style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                    padding: '10px 12px',
+                    borderBottom: '1px solid #f1f5f9',
+                    background: '#f8fafc'
+                }}>
+                    <div className="mpp-count" style={{ fontSize: '12px', color: '#475569', fontWeight: '600' }}>
+                        {selectedOptions.length} selected
+                    </div>
+                    <div className="mpp-actions" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        <button
+                            type="button"
+                            onClick={() => setSelectedOptions(options)}
+                            className="mpp-btn mpp-btn-neutral"
+                            style={{
+                                border: '1px solid #cbd5e1',
+                                background: '#fff',
+                                color: '#334155',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                padding: '5px 8px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Select All
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setSelectedOptions([])}
+                            className="mpp-btn mpp-btn-neutral"
+                            style={{
+                                border: '1px solid #cbd5e1',
+                                background: '#fff',
+                                color: '#334155',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                padding: '5px 8px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Clear
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onAdd}
+                            className="mpp-btn mpp-btn-primary"
+                            style={{
+                                border: 'none',
+                                background: '#e11d48',
+                                color: '#fff',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                padding: '6px 10px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Add Selected
+                        </button>
+                    </div>
+                </div>
+
+                <div className="mpp-options" style={{
+                    padding: '10px',
+                    maxHeight: '170px',
+                    overflowY: 'auto',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                    gap: '8px'
+                }}>
+                    {options.map((label) => {
+                        const checked = selectedOptions.includes(label);
+                        return (
+                            <label
+                                key={label}
+                                className="mpp-option"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    fontSize: '13px',
+                                    color: '#1f2937',
+                                    cursor: 'pointer',
+                                    background: checked ? '#fff1f2' : '#fff',
+                                    border: checked ? '1px solid #fb7185' : '1px solid #e5e7eb',
+                                    borderRadius: '8px',
+                                    padding: '8px 10px'
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleOption(label)}
+                                    style={{ cursor: 'pointer' }}
+                                />
+                                <span>{label}</span>
+                            </label>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <p className="mpp-description" style={{
+                margin: '8px 0 0 0',
+                fontSize: '12px',
+                color: '#6b7280'
+            }}>
+                {description}
+            </p>
+        </div>
+    );
+};
 
 const CreateHotel = () => {
     const { user, logout } = useAuth();
@@ -51,6 +238,10 @@ const CreateHotel = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [showAdminPassword, setShowAdminPassword] = useState(false);
+    const [selectedPropertySetupOptions, setSelectedPropertySetupOptions] = useState([]);
+    const [selectedPropertyConfigOptions, setSelectedPropertyConfigOptions] = useState([]);
+    const [selectedReportOptions, setSelectedReportOptions] = useState([]);
 
     const [formData, setFormData] = useState({
         hotelName: '',
@@ -88,6 +279,30 @@ const CreateHotel = () => {
             };
         });
         setError('');
+    };
+
+    const addSelectedPermissions = (labels) => {
+        if (!Array.isArray(labels) || labels.length === 0) return;
+        setFormData((prev) => {
+            const nextPermissions = [...new Set([...prev.adminPermissions, ...labels])];
+            return {
+                ...prev,
+                adminPermissions: nextPermissions
+            };
+        });
+        setError('');
+    };
+
+    const addPropertySetupPermission = () => {
+        addSelectedPermissions(selectedPropertySetupOptions);
+    };
+
+    const addPropertyConfigPermission = () => {
+        addSelectedPermissions(selectedPropertyConfigOptions);
+    };
+
+    const addReportsPermission = () => {
+        addSelectedPermissions(selectedReportOptions);
     };
 
     const validateForm = () => {
@@ -186,6 +401,10 @@ const CreateHotel = () => {
                 adminPhone: '',
                 adminPermissions: []
             });
+            setShowAdminPassword(false);
+            setSelectedPropertySetupOptions([]);
+            setSelectedPropertyConfigOptions([]);
+            setSelectedReportOptions([]);
 
             setTimeout(() => {
                 navigate('/super-admin/hotels');
@@ -216,6 +435,14 @@ const CreateHotel = () => {
                 <div className="sa-sidebar-header">
                     <span style={{ fontSize: '24px', color: '#e11d48' }}>⚡</span>
                     <h2>SUPER ADMIN</h2>
+                    <button
+                        type="button"
+                        className="sa-sidebar-close"
+                        onClick={() => setSidebarOpen(false)}
+                        aria-label="Close sidebar"
+                    >
+                        ×
+                    </button>
                 </div>
 
                 <nav className="sa-nav">
@@ -249,30 +476,27 @@ const CreateHotel = () => {
                 </nav>
             </aside>
 
+            {sidebarOpen && (
+                <div className="sa-sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+            )}
+
             {/* Main Content */}
             <main className="sa-main">
                 {/* Header */}
-                <header className="sa-header">
+                <header className="sa-header sa-header-unified">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <button className="sa-icon-btn" onClick={() => setSidebarOpen(!sidebarOpen)} style={{ display: 'none' }}>
-                            ☰
-                        </button>
+                        {!sidebarOpen && (
+                            <button className="sa-icon-btn sa-menu-toggle" onClick={() => setSidebarOpen(true)}>
+                                <FaBars />
+                            </button>
+                        )}
                         <div className="sa-header-logo">
-                            {/* Chef Hat Icon */}
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M6 13.87C4.31 13.12 3.25 11.53 3.5 9.77C3.76 7.91 5.38 6.54 7.26 6.54C7.54 6.54 7.82 6.57 8.08 6.63C8.62 3.96 11.08 2 14 2C17.31 2 20 4.69 20 8C20 8.35 19.96 8.69 19.89 9.03C21.43 9.94 22.34 11.64 22.09 13.43C21.82 15.35 20.15 16.71 18.23 16.71H17V19C17 20.66 15.66 22 14 22H9C7.34 22 6 20.66 6 19V17H5.77C5.83 15.89 5.86 14.86 6 13.87ZM8 17H15V19C15 19.55 14.55 20 14 20H9C8.45 20 8 19.55 8 19V17Z" fill="#374151" />
-                            </svg>
+                            <FaHotel style={{ color: '#e11d48' }} />
                             <span>BIREENA ATITHI</span>
                         </div>
                     </div>
 
                     <div className="sa-header-actions">
-                        <button className="sa-icon-btn">
-                            <FaCog />
-                        </button>
-                        <button className="sa-icon-btn">
-                            <FaBell />
-                        </button>
                         <div className="sa-profile">
                             {getInitials(user?.name)}
                         </div>
@@ -284,7 +508,7 @@ const CreateHotel = () => {
                     <h3 className="sa-section-title">Create New Hotel</h3>
 
                     {/* Create Hotel Form */}
-                    <div className="sa-card" style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                    <div className="sa-card create-hotel-card" style={{ maxWidth: '1200px', margin: '0 auto' }}>
                         {error && (
                             <div style={{
                                 padding: '16px',
@@ -315,10 +539,10 @@ const CreateHotel = () => {
                             </div>
                         )}
 
-                        <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
+                        <form onSubmit={handleSubmit} className="create-hotel-form" style={{ padding: '24px' }}>
                             {/* Hotel Information Section */}
-                            <div style={{ marginBottom: '32px' }}>
-                                <h3 style={{
+                            <div className="create-hotel-section" style={{ marginBottom: '32px' }}>
+                                <h3 className="create-hotel-heading" style={{
                                     fontSize: '18px',
                                     fontWeight: '700',
                                     color: '#1f2937',
@@ -332,8 +556,8 @@ const CreateHotel = () => {
                                     Hotel Information
                                 </h3>
                                 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                    <div style={{ marginBottom: '16px' }}>
+                                <div className="create-hotel-grid create-hotel-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                    <div className="create-hotel-field" style={{ marginBottom: '16px' }}>
                                         <label style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -364,7 +588,7 @@ const CreateHotel = () => {
                                         />
                                     </div>
 
-                                    <div style={{ marginBottom: '16px' }}>
+                                    <div className="create-hotel-field" style={{ marginBottom: '16px' }}>
                                         <label style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -395,7 +619,7 @@ const CreateHotel = () => {
                                     </div>
                                 </div>
 
-                                <div style={{ marginBottom: '16px' }}>
+                                <div className="create-hotel-field" style={{ marginBottom: '16px' }}>
                                     <label style={{
                                         display: 'flex',
                                         alignItems: 'center',
@@ -428,7 +652,7 @@ const CreateHotel = () => {
                                     ></textarea>
                                 </div>
 
-                                <div style={{ marginBottom: '16px' }}>
+                                <div className="create-hotel-field" style={{ marginBottom: '16px' }}>
                                     <label style={{
                                         display: 'flex',
                                         alignItems: 'center',
@@ -460,8 +684,8 @@ const CreateHotel = () => {
                             </div>
 
                             {/* Subscription Section */}
-                            <div style={{ marginBottom: '32px' }}>
-                                <h3 style={{
+                            <div className="create-hotel-section" style={{ marginBottom: '32px' }}>
+                                <h3 className="create-hotel-heading" style={{
                                     fontSize: '18px',
                                     fontWeight: '700',
                                     color: '#1f2937',
@@ -475,8 +699,8 @@ const CreateHotel = () => {
                                     Subscription Details
                                 </h3>
                                 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                    <div style={{ marginBottom: '16px' }}>
+                                <div className="create-hotel-grid create-hotel-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                    <div className="create-hotel-field" style={{ marginBottom: '16px' }}>
                                         <label style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -510,7 +734,7 @@ const CreateHotel = () => {
                                         </select>
                                     </div>
 
-                                    <div style={{ marginBottom: '16px' }}>
+                                    <div className="create-hotel-field" style={{ marginBottom: '16px' }}>
                                         <label style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -550,8 +774,8 @@ const CreateHotel = () => {
                             </div>
 
                             {/* Admin Information Section */}
-                            <div style={{ marginBottom: '32px' }}>
-                                <h3 style={{
+                            <div className="create-hotel-section" style={{ marginBottom: '32px' }}>
+                                <h3 className="create-hotel-heading" style={{
                                     fontSize: '18px',
                                     fontWeight: '700',
                                     color: '#1f2937',
@@ -565,8 +789,8 @@ const CreateHotel = () => {
                                     Admin Details
                                 </h3>
                                 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                    <div style={{ marginBottom: '16px' }}>
+                                <div className="create-hotel-grid create-hotel-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                    <div className="create-hotel-field" style={{ marginBottom: '16px' }}>
                                         <label style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -597,7 +821,7 @@ const CreateHotel = () => {
                                         />
                                     </div>
 
-                                    <div style={{ marginBottom: '16px' }}>
+                                    <div className="create-hotel-field" style={{ marginBottom: '16px' }}>
                                         <label style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -628,8 +852,8 @@ const CreateHotel = () => {
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                    <div style={{ marginBottom: '16px' }}>
+                                <div className="create-hotel-grid create-hotel-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                    <div className="create-hotel-field" style={{ marginBottom: '16px' }}>
                                         <label style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -660,7 +884,7 @@ const CreateHotel = () => {
                                         />
                                     </div>
 
-                                    <div style={{ marginBottom: '16px' }}>
+                                    <div className="create-hotel-field" style={{ marginBottom: '16px' }}>
                                         <label style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -672,24 +896,47 @@ const CreateHotel = () => {
                                             <FaLock style={{ marginRight: '6px', fontSize: '14px' }} />
                                             Admin Password <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
                                         </label>
-                                        <input
-                                            type="password"
-                                            name="adminPassword"
-                                            value={formData.adminPassword}
-                                            onChange={handleChange}
-                                            required
-                                            placeholder="Enter secure password"
-                                            minLength="6"
-                                            style={{
-                                                width: '100%',
-                                                padding: '12px 16px',
-                                                border: '1px solid #d1d5db',
-                                                borderRadius: '8px',
-                                                fontSize: '14px',
-                                                transition: 'all 0.2s',
-                                                outline: 'none'
-                                            }}
-                                        />
+                                        <div style={{ position: 'relative' }}>
+                                            <input
+                                                type={showAdminPassword ? 'text' : 'password'}
+                                                name="adminPassword"
+                                                value={formData.adminPassword}
+                                                onChange={handleChange}
+                                                required
+                                                placeholder="Enter secure password"
+                                                minLength="6"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '12px 44px 12px 16px',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '8px',
+                                                    fontSize: '14px',
+                                                    transition: 'all 0.2s',
+                                                    outline: 'none'
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowAdminPassword((prev) => !prev)}
+                                                aria-label={showAdminPassword ? 'Hide admin password' : 'Show admin password'}
+                                                style={{
+                                                    position: 'absolute',
+                                                    right: '10px',
+                                                    top: '50%',
+                                                    transform: 'translateY(-50%)',
+                                                    border: 'none',
+                                                    background: 'transparent',
+                                                    color: '#6b7280',
+                                                    cursor: 'pointer',
+                                                    padding: '4px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                            >
+                                                {showAdminPassword ? <FaEyeSlash /> : <FaEye />}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -712,7 +959,7 @@ const CreateHotel = () => {
                                         Admin ko sirf selected screens hi dikhenge.
                                     </p>
 
-                                    <div style={{
+                                    <div className="create-hotel-permissions-grid" style={{
                                         border: '1px solid #e5e7eb',
                                         borderRadius: '10px',
                                         padding: '14px',
@@ -750,11 +997,38 @@ const CreateHotel = () => {
                                             );
                                         })}
                                     </div>
+
+                                    <MultiPermissionPicker
+                                        title="Property Setup Options"
+                                        options={PROPERTY_SETUP_OPTIONS}
+                                        selectedOptions={selectedPropertySetupOptions}
+                                        setSelectedOptions={setSelectedPropertySetupOptions}
+                                        onAdd={addPropertySetupPermission}
+                                        description="Ek sath multiple Property Setup options select karke Add Selected se permissions add karein."
+                                    />
+
+                                    <MultiPermissionPicker
+                                        title="Property Configuration Options"
+                                        options={PROPERTY_CONFIG_OPTIONS}
+                                        selectedOptions={selectedPropertyConfigOptions}
+                                        setSelectedOptions={setSelectedPropertyConfigOptions}
+                                        onAdd={addPropertyConfigPermission}
+                                        description="Property Configuration ke bahut saare options ek sath choose karke admin ko access de sakte hain."
+                                    />
+
+                                    <MultiPermissionPicker
+                                        title="Reports Options"
+                                        options={REPORT_OPTIONS}
+                                        selectedOptions={selectedReportOptions}
+                                        setSelectedOptions={setSelectedReportOptions}
+                                        onAdd={addReportsPermission}
+                                        description="Reports ke liye bhi multiple select supported hai, select karke Add Selected karein."
+                                    />
                                 </div>
                             </div>
 
                             {/* Submit Buttons */}
-                            <div style={{ 
+                            <div className="create-hotel-actions" style={{ 
                                 display: 'flex', 
                                 gap: '16px', 
                                 justifyContent: 'flex-end',
@@ -766,6 +1040,7 @@ const CreateHotel = () => {
                                     type="button"
                                     onClick={() => navigate('/super-admin/hotels')}
                                     disabled={loading}
+                                    className="create-hotel-btn create-hotel-btn-cancel"
                                     style={{
                                         padding: '12px 32px',
                                         border: '2px solid #d1d5db',
@@ -784,6 +1059,7 @@ const CreateHotel = () => {
                                 <button
                                     type="submit"
                                     disabled={loading}
+                                    className="create-hotel-btn create-hotel-btn-submit"
                                     style={{
                                         padding: '12px 32px',
                                         border: 'none',

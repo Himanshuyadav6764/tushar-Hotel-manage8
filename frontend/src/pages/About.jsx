@@ -129,20 +129,20 @@ const About = () => {
                                 </div>
                                 <div className="team-card">
                                     <div className="team-image">
-                                        <img src="/images/arshad.jpg" alt="Md Arsad Raza" />
-                                    </div>
-                                    <div className="team-info">
-                                        <h4>Md Arshad Raza</h4>
-                                        <span>Frontend Developer</span>
-                                    </div>
-                                </div>
-                                <div className="team-card">
-                                    <div className="team-image">
                                         <img src="/images/shekhar.jpg" alt="Shekhar Kumar" />
                                     </div>
                                     <div className="team-info">
                                         <h4>Shekhar Kumar</h4>
                                         <span>Backend Developer</span>
+                                    </div>
+                                </div>
+                                <div className="team-card">
+                                    <div className="team-image">
+                                        <img src="/images/arshad.jpg" alt="Md Arsad Raza" />
+                                    </div>
+                                    <div className="team-info">
+                                        <h4>Md Arshad Raza</h4>
+                                        <span>Frontend Developer</span>
                                     </div>
                                 </div>
 

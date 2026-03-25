@@ -93,7 +93,7 @@ const getAllHotels = async (req, res) => {
         }
         
         const hotels = await Hotel.find(query)
-            .populate('adminId', 'name email phone permissions')
+            .populate('adminId', 'name username phone permissions')
             .sort({ createdAt: -1 });
         
         res.status(200).json(hotels);
@@ -112,7 +112,7 @@ const getAllHotels = async (req, res) => {
 const getHotelById = async (req, res) => {
     try {
         const hotel = await Hotel.findById(req.params.id)
-            .populate('adminId', 'name email phone permissions');
+            .populate('adminId', 'name username phone permissions');
         
         if (!hotel) {
             return res.status(404).json({ message: 'Hotel not found' });
@@ -236,6 +236,122 @@ const createHotel = async (req, res) => {
         res.status(500).json({ 
             message: 'Error creating hotel', 
             error: error.message 
+        });
+    }
+};
+
+// @desc    Update hotel and admin details
+// @route   PATCH /api/super-admin/hotel/:id
+// @access  Private (Super Admin only)
+const updateHotelDetails = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const {
+            hotelName,
+            address,
+            gstNumber,
+            phone,
+            subscriptionPlan,
+            subscriptionStartDate,
+            subscriptionExpiryDate,
+            adminName,
+            adminEmail,
+            adminPhone,
+            adminPermissions
+        } = req.body;
+
+        const hotel = await Hotel.findById(id);
+        if (!hotel) {
+            return res.status(404).json({ message: 'Hotel not found' });
+        }
+
+        if (typeof hotelName === 'string' && hotelName.trim()) hotel.name = hotelName.trim();
+        if (typeof address === 'string' && address.trim()) hotel.address = address.trim();
+        if (typeof gstNumber === 'string') hotel.gstNumber = gstNumber.trim();
+        if (typeof phone === 'string') hotel.phone = phone.trim();
+
+        if (typeof subscriptionPlan === 'string') {
+            const normalizedPlan = subscriptionPlan.trim().toLowerCase();
+            if (!['basic', 'premium'].includes(normalizedPlan)) {
+                return res.status(400).json({ message: 'Invalid subscription plan' });
+            }
+            hotel.subscription.plan = normalizedPlan;
+        }
+
+        if (subscriptionStartDate) {
+            const parsedStartDate = new Date(subscriptionStartDate);
+            if (Number.isNaN(parsedStartDate.getTime())) {
+                return res.status(400).json({ message: 'Invalid subscription start date' });
+            }
+            hotel.subscription.startDate = parsedStartDate;
+        }
+
+        if (subscriptionExpiryDate) {
+            const parsedExpiryDate = new Date(subscriptionExpiryDate);
+            if (Number.isNaN(parsedExpiryDate.getTime())) {
+                return res.status(400).json({ message: 'Invalid subscription expiry date' });
+            }
+            hotel.subscription.expiryDate = parsedExpiryDate;
+        }
+
+        await hotel.save();
+
+        let admin = null;
+        if (hotel.adminId) {
+            admin = await User.findById(hotel.adminId);
+            if (admin) {
+                const nextUsername = typeof adminEmail === 'string' ? adminEmail.trim().toLowerCase() : '';
+
+                if (typeof adminName === 'string' && adminName.trim()) {
+                    admin.name = adminName.trim();
+                }
+
+                if (nextUsername) {
+                    const exists = await User.findOne({
+                        username: nextUsername,
+                        _id: { $ne: admin._id }
+                    });
+
+                    if (exists) {
+                        return res.status(400).json({ message: 'Admin email already exists' });
+                    }
+                    admin.username = nextUsername;
+                } else if (!admin.username || !admin.username.trim()) {
+                    return res.status(400).json({
+                        message: 'Admin email is required. Please enter admin email and save again.'
+                    });
+                }
+
+                if (typeof adminPhone === 'string') {
+                    admin.phone = adminPhone.trim();
+                }
+
+                if (Array.isArray(adminPermissions)) {
+                    const sanitizedPermissions = [...new Set(adminPermissions
+                        .filter((item) => typeof item === 'string')
+                        .map((item) => item.trim())
+                        .filter(Boolean))];
+
+                    admin.permissions = sanitizedPermissions;
+                }
+
+                if (admin.isModified('name') || admin.isModified('username') || admin.isModified('phone') || admin.isModified('permissions')) {
+                    await admin.save();
+                }
+            }
+        }
+
+        const updatedHotel = await Hotel.findById(id).populate('adminId', 'name username phone permissions');
+
+        return res.status(200).json({
+            message: 'Hotel details updated successfully',
+            hotel: updatedHotel
+        });
+    } catch (error) {
+        console.error('Error updating hotel details:', error);
+        return res.status(500).json({
+            message: 'Error updating hotel details',
+            error: error.message
         });
     }
 };
@@ -841,6 +957,7 @@ module.exports = {
     getAllHotels,
     getHotelById,
     createHotel,
+    updateHotelDetails,
     updateHotelAdminPermissions,
     suspendHotel,
     activateHotel,

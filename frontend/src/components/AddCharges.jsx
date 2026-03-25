@@ -358,11 +358,12 @@ const AddCharges = ({ onClose, onAdd, reservation }) => {
                     </div>
 
                     {/* Discount Box */}
-                    <div className="new-balance-preview animate-in" style={{ background: '#f0f9ff', borderColor: '#bae6fd', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div className="preview-label" style={{ color: '#0369a1', flex: 1 }}>
-                            Discount {discountSource && <span style={{ fontSize: '10px', opacity: 0.7 }}>(Auto: {discountSource})</span>}
+                    <div className="new-balance-preview animate-in discount-ui-box" style={{ background: '#f0f9ff', borderColor: '#bae6fd', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div className="preview-label discount-ui-label" style={{ color: '#0369a1', flex: 1 }}>
+                            <div>Discount</div>
+                            {discountSource && <span className="discount-auto-source">(Auto: {discountSource})</span>}
                         </div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <div className="discount-ui-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <div className="disc-toggle">
                                 <button className={discountType === 'PERCENTAGE' ? 'active' : ''} onClick={() => setDiscountType('PERCENTAGE')}>%</button>
                                 <button className={discountType === 'FLAT' ? 'active' : ''} onClick={() => setDiscountType('FLAT')}>{cs}</button>

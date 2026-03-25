@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSettings } from '../context/SettingsContext';
+import { calculateRoomTaxBySlab } from '../utils/roomTax';
 
 const PrintTemplates = ({ type, data, booking }) => {
     const { settings, getCurrencySymbol, formatDate } = useSettings();
@@ -23,6 +24,15 @@ const PrintTemplates = ({ type, data, booking }) => {
         return Number.isFinite(num) ? num : fallback;
     };
 
+    const pickNumber = (...values) => {
+        for (const value of values) {
+            if (value === null || value === undefined || value === '') continue;
+            const num = Number(value);
+            if (Number.isFinite(num)) return num;
+        }
+        return undefined;
+    };
+
     const safeText = (value, fallback = 'N/A') => {
         if (value === null || value === undefined) return fallback;
         const text = String(value).trim();
@@ -34,22 +44,132 @@ const PrintTemplates = ({ type, data, booking }) => {
         '-'
     );
     const nights = toNumber(booking?.nights ?? booking?.numberOfNights, 1);
-    const totalAmount = toNumber(booking?.totalAmount ?? booking?.grandTotal ?? booking?.amount, 0);
-    const taxAmount = toNumber(booking?.tax ?? booking?.taxAmount, 0);
-    const subtotal = Math.max(totalAmount - taxAmount, 0);
-    const paidAmount = toNumber(booking?.paidAmount ?? booking?.advanceAmount ?? booking?.amountPaid, 0);
-    const balanceDue = toNumber(
-        booking?.balanceDue ?? booking?.balanceAmount,
-        Math.max(totalAmount - paidAmount, 0)
-    );
-    const roomRate = toNumber(
-        booking?.pricePerNight ?? booking?.roomRate,
-        nights > 0 ? subtotal / nights : subtotal
+    const billing = booking?.billing || {};
+    const roomCount = Math.max(1, Array.isArray(booking?.rooms) && booking.rooms.length > 0 ? booking.rooms.length : toNumber(booking?.numberOfRooms, 1));
+    const transactions = Array.isArray(booking?.transactions) ? booking.transactions : [];
+
+    const roomRows = Array.isArray(booking?.rooms) && booking.rooms.length > 0
+        ? booking.rooms.map((r) => ({
+            ratePerNight: toNumber(r?.ratePerNight ?? r?.roomRate ?? r?.pricePerNight ?? r?.price, 0),
+            discount: toNumber(r?.discount ?? r?.discountAmount, 0)
+        }))
+        : [{
+            ratePerNight: toNumber(booking?.pricePerNight ?? booking?.roomRate ?? booking?.ratePerNight ?? billing?.roomRate ?? billing?.pricePerNight, 0),
+            discount: toNumber(booking?.roomLevelDiscount ?? billing?.roomLevelDiscount, 0)
+        }];
+
+    const slabTax = calculateRoomTaxBySlab({
+        rooms: roomRows,
+        nights,
+        taxExempt: false,
+        inclusiveTax: settings?.inclusiveTax,
+        roomGstSlabs: settings?.roomGstSlabs,
+        fallbackRoomGst: settings?.roomGst
+    });
+
+    const txSum = (matcher) => transactions
+        .filter((t) => matcher((`${t.particulars || ''} ${t.description || ''}`).toLowerCase(), t))
+        .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
+
+    const roomChargesFromTx = txSum((text, t) =>
+        t.type?.toLowerCase() === 'charge' &&
+        (text.includes('room charge') || text.includes('room tariff') || text.includes('room rent') || text.includes('accommodation'))
     );
 
-    const paymentModes = Object.entries(settings?.paymentModes || {})
-        .filter(([, enabled]) => Boolean(enabled))
-        .map(([mode]) => mode.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()));
+    const serviceChargeFromTx = txSum((text, t) =>
+        t.type?.toLowerCase() === 'charge' &&
+        text.includes('service charge')
+    );
+
+    const discountFromTx = txSum((text, t) => {
+        const kind = (t.type || '').toLowerCase();
+        return kind === 'discount' || text.includes('discount');
+    });
+
+    const roomChargesFromRows = Array.isArray(booking?.rooms) && booking.rooms.length > 0
+        ? booking.rooms.reduce((sum, r) => {
+            const nightly = toNumber(r?.ratePerNight ?? r?.roomRate ?? r?.pricePerNight ?? r?.price, 0);
+            return sum + (nightly * Math.max(1, nights));
+        }, 0)
+        : 0;
+
+    const baseRoomRate = toNumber(
+        booking?.pricePerNight ?? booking?.roomRate ?? booking?.ratePerNight ?? billing?.roomRate ?? billing?.pricePerNight,
+        0
+    );
+
+    const roomChargesFallback = roomChargesFromRows || (baseRoomRate * Math.max(1, nights) * roomCount);
+
+    const roomCharges = pickNumber(
+        booking?.roomCharges,
+        booking?.baseRoomCharges,
+        billing?.roomCharges,
+        billing?.roomChargesAmount
+    ) ?? (roomChargesFromTx || roomChargesFallback || slabTax.roomCharges);
+
+    const explicitServiceCharge = pickNumber(
+        booking?.serviceCharge,
+        booking?.serviceChargeAmount,
+        billing?.serviceCharge,
+        billing?.serviceChargeAmount
+    ) ?? serviceChargeFromTx;
+
+    const autoDiscountAmount = pickNumber(booking?.autoDiscountAmount, billing?.autoDiscountAmount) ?? 0;
+    const manualDiscountAmount = pickNumber(booking?.manualDiscountAmount, billing?.manualDiscountAmount) ?? 0;
+
+    const discountAmount = pickNumber(
+        booking?.discount,
+        booking?.discountAmount,
+        booking?.totalDiscount,
+        billing?.discount,
+        billing?.discountAmount
+    ) ?? (autoDiscountAmount + manualDiscountAmount || discountFromTx);
+
+    const derivedServiceCharge = Math.max(0, roomCharges - discountAmount) * ((parseFloat(settings?.roomServiceCharge ?? settings?.serviceCharge) || 0) / 100);
+    const serviceCharge = explicitServiceCharge > 0 ? explicitServiceCharge : derivedServiceCharge;
+
+    const taxAmount = pickNumber(
+        booking?.tax,
+        booking?.taxAmount,
+        billing?.tax,
+        billing?.taxAmount
+    ) ?? slabTax.taxAmount;
+
+    const storedGrandTotal = pickNumber(
+        billing?.totalAmount,
+        booking?.totalAmount,
+        booking?.grandTotal,
+        booking?.amount
+    );
+
+    const grossBeforeDiscount = Math.max(0, roomCharges + serviceCharge + taxAmount);
+    const derivedDiscountFromTotals = storedGrandTotal !== undefined
+        ? Math.max(0, grossBeforeDiscount - Number(storedGrandTotal || 0))
+        : 0;
+    const effectiveDiscountAmount = discountAmount > 0 ? discountAmount : derivedDiscountFromTotals;
+
+    const subtotal = Math.max(roomCharges + serviceCharge - effectiveDiscountAmount, 0);
+    const totalAmount = Math.max(0, roomCharges + serviceCharge + taxAmount - effectiveDiscountAmount);
+
+    const paidAmount = toNumber(
+        booking?.paidAmount ?? booking?.advanceAmount ?? booking?.amountPaid,
+        txSum((_, t) => t.type?.toLowerCase() === 'payment')
+    );
+
+    const latestPaymentTx = [...transactions]
+        .filter((t) => t.type?.toLowerCase() === 'payment')
+        .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())[0];
+
+    const paymentModeUsed = safeText(
+        booking?.paymentMode ?? booking?.billing?.paymentMode ?? latestPaymentTx?.method,
+        'Cash'
+    );
+
+    const balanceDue = pickNumber(
+        booking?.balanceDue,
+        booking?.balanceAmount,
+        billing?.balanceAmount
+    ) ?? Math.max(totalAmount - paidAmount, 0);
 
     const pageStyle = `@media print { @page { size: ${cfg.pageSize}; margin: ${isNarrow ? '4mm' : '10mm'}; } }`;
 
@@ -121,7 +241,19 @@ const PrintTemplates = ({ type, data, booking }) => {
                             Room Charges ({safeText(booking?.roomType || booking?.rooms?.[0]?.categoryId, 'Room')}) x {nights}
                         </td>
                         <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>
-                            {amount(roomRate * nights)}
+                            {amount(roomCharges)}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Service Charges</td>
+                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>
+                            {amount(serviceCharge)}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Discount Applied</td>
+                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', color: '#059669', fontWeight: 700 }}>
+                            -{amount(effectiveDiscountAmount)}
                         </td>
                     </tr>
                     <tr>
@@ -207,7 +339,7 @@ const PrintTemplates = ({ type, data, booking }) => {
             {renderBillBlock()}
             <div style={{ fontSize: isNarrow ? '9px' : '11px' }}>
                 <p style={{ margin: '2px 0' }}><strong>Invoice Prefix:</strong> {safeText(settings.billingInvoicePrefix || settings.invoicePrefix, '-')}</p>
-                <p style={{ margin: '2px 0' }}><strong>Payment Modes:</strong> {paymentModes.length ? paymentModes.join(', ') : 'N/A'}</p>
+                <p style={{ margin: '2px 0' }}><strong>Payment Mode:</strong> {paymentModeUsed}</p>
                 <p style={{ margin: '2px 0' }}><strong>Print Type:</strong> {format}</p>
             </div>
             <Footer />

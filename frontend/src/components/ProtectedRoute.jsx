@@ -76,6 +76,10 @@ const ProtectedRoute = ({ children, module, role }) => {
 
     // If module is specified, check if user has access
     if (module) {
+        if (safeUser?.role === 'super_admin' || safeUser?.role === 'superadmin') {
+            return children;
+        }
+
         const modulesToCheck = Array.isArray(module) ? module : [module];
         let hasAccess = false;
 

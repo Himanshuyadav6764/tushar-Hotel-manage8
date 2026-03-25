@@ -69,6 +69,8 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
     const [showBookingHistory, setShowBookingHistory] = useState(false);
     const [loading, setLoading] = useState(true);
     const [successMessage, setSuccessMessage] = useState('');
+    const [errors, setErrors] = useState({});
+    const [isSavingReservation, setIsSavingReservation] = useState(false);
     const [fromRoomsPage, setFromRoomsPage] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [cardViewMode, setCardViewMode] = useState('grid'); // 'grid' or 'list'
@@ -104,8 +106,23 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         };
     }, [reservations, getCurrentDateISO, getDateISOWithOffset]);
 
+    const normalizeCategoryKey = (value) => {
+        return String(value || '')
+            .trim()
+            .toLowerCase()
+            .replace(/&/g, 'and')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    };
+
     // Helper function to convert room type name to category ID
     const getCategoryIdFromRoomType = (roomType) => {
+        if (!roomType) return '';
+
+        const normalizedInput = normalizeCategoryKey(roomType);
+        const matchedType = facilityTypes.find((type) => normalizeCategoryKey(type.name) === normalizedInput);
+        if (matchedType) return matchedType.name;
+
         // Use exact name if it's one of the common types we see in the UI
         if (['AC / Non-AC', 'Deluxe Room', 'Standard Room', 'Suite Double', 'Deluxe AC Double', 'Premium'].includes(roomType)) {
             return roomType;
@@ -122,7 +139,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
 
         if (typeMapping[roomType]) return typeMapping[roomType];
 
-        return roomType?.toLowerCase().replace(/ /g, '-').replace(/\//g, '-') || 'deluxe-ac-double';
+        return roomType;
     };
 
     // Sync internal view state with prop changes
@@ -327,21 +344,58 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         const billing = booking.billing || {};
         const duration = booking.duration || {};
 
-        const totalAmount = booking.totalAmount || billing.totalAmount || 0;
-        const paidAmount = booking.advancePaid || billing.paidAmount || 0;
-        const balanceDue = booking.remainingAmount || billing.balanceAmount || (totalAmount - paidAmount);
-        const nights = booking.numberOfNights || duration.nights || 1;
-        const pricePerNight = booking.pricePerNight || billing.roomRate || 0;
-        const serviceChargeAmount = Number(booking.serviceChargeAmount ?? billing.serviceCharge ?? 0) || 0;
-        const taxAmount = Number(booking.taxAmount ?? billing.tax ?? 0) || 0;
+        const num = (value, fallback = 0) => {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : fallback;
+        };
+
+        const nights = Math.max(1, num(booking.numberOfNights ?? duration.nights, 1));
+        const roomCount = Math.max(1, Array.isArray(booking.rooms) && booking.rooms.length > 0
+            ? booking.rooms.length
+            : num(booking.numberOfRooms, 1));
+
+        const pricePerNight = num(
+            booking.pricePerNight ?? booking.roomRate ?? booking.ratePerNight ?? billing.roomRate ?? billing.pricePerNight,
+            0
+        );
 
         const roomChargesFromRows = Array.isArray(booking.rooms) && booking.rooms.length > 0
-            ? booking.rooms.reduce((sum, r) => sum + ((Number(r.ratePerNight) || 0) * nights), 0)
-            : (pricePerNight * nights);
+            ? booking.rooms.reduce((sum, r) => {
+                const rate = num(r.ratePerNight ?? r.roomRate ?? r.pricePerNight ?? r.price, 0);
+                return sum + (rate * nights);
+            }, 0)
+            : (pricePerNight * nights * roomCount);
 
         const discountFromRows = Array.isArray(booking.rooms) && booking.rooms.length > 0
-            ? booking.rooms.reduce((sum, r) => sum + (Number(r.discount) || 0), 0)
+            ? booking.rooms.reduce((sum, r) => sum + num(r.discount ?? r.discountAmount, 0), 0)
             : 0;
+
+        const roomCharges = num(
+            booking.roomCharges ?? booking.baseRoomCharges ?? billing.roomCharges ?? billing.roomChargesAmount,
+            roomChargesFromRows
+        );
+
+        const explicitDiscountAmount = num(
+            booking.discount ?? booking.discountAmount ?? billing.discount ?? billing.discountAmount,
+            discountFromRows
+        );
+
+        const serviceChargeAmount = num(
+            booking.serviceChargeAmount ?? booking.serviceCharge ?? billing.serviceCharge ?? billing.serviceChargeAmount,
+            0
+        );
+
+        const taxAmount = num(
+            booking.taxAmount ?? booking.tax ?? billing.tax ?? billing.taxAmount,
+            0
+        );
+
+        const computedTotal = Math.max(0, roomCharges + serviceChargeAmount + taxAmount - explicitDiscountAmount);
+        const totalAmount = num(billing.totalAmount ?? booking.totalAmount, computedTotal);
+        const derivedDiscountFromTotal = Math.max(0, (roomCharges + serviceChargeAmount + taxAmount) - totalAmount);
+        const discountAmount = explicitDiscountAmount > 0 ? explicitDiscountAmount : derivedDiscountFromTotal;
+        const paidAmount = num(booking.advancePaid ?? booking.paidAmount ?? billing.paidAmount, 0);
+        const balanceDue = num(booking.remainingAmount ?? booking.balanceDue ?? billing.balanceAmount, Math.max(0, totalAmount - paidAmount));
 
         return {
             id: booking._id || `booking-${Math.random()}`,
@@ -371,17 +425,17 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             rooms: booking.rooms && booking.rooms.length > 0
                 ? booking.rooms.map((r, idx) => ({
                     id: idx + 1,
-                    categoryId: r.roomType?.toLowerCase().replace(/ /g, '-') || 'deluxe-ac-double',
+                    categoryId: getCategoryIdFromRoomType(r.roomType) || '',
                     roomNumber: r.roomNumber || '',
                     mealPlan: r.mealPlan || 'CP',
                     adultsCount: r.adults || 1,
                     childrenCount: r.children || 0,
-                    ratePerNight: r.ratePerNight || 0,
-                    discount: r.discount || 0
+                    ratePerNight: num(r.ratePerNight ?? r.roomRate ?? r.pricePerNight ?? r.price, 0),
+                    discount: num(r.discount ?? r.discountAmount, 0)
                 }))
                 : [{
                     id: 1,
-                    categoryId: booking.roomType?.toLowerCase().replace(/ /g, '-') || 'deluxe-ac-double',
+                    categoryId: getCategoryIdFromRoomType(booking.roomType) || '',
                     roomNumber: booking.roomNumber || '',
                     mealPlan: 'CP',
                     adultsCount: booking.numberOfAdults || duration.adults || 1,
@@ -393,8 +447,8 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             status: booking.status === 'Upcoming' ? 'RESERVED' :
                 booking.status === 'Checked-in' || booking.status === 'IN_HOUSE' || booking.status === 'CheckedIn' ? 'IN_HOUSE' :
                     booking.status === 'Checked-out' || booking.status === 'CHECKED_OUT' || booking.status === 'CheckedOut' ? 'CHECKED_OUT' : 'RESERVED',
-            roomCharges: roomChargesFromRows,
-            discount: discountFromRows,
+            roomCharges: roomCharges,
+            discount: discountAmount,
             tax: taxAmount,
             serviceCharge: serviceChargeAmount,
             totalAmount: totalAmount,
@@ -638,10 +692,28 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
     const [showGuestModal, setShowGuestModal] = useState(false);
     const [guests, setGuests] = useState([]);
 
+    const getAuthHeaders = () => {
+        const headers = {};
+        try {
+            const savedUser = localStorage.getItem('authUser');
+            if (!savedUser) return headers;
+
+            const parsed = JSON.parse(savedUser);
+            if (parsed?.token) headers.Authorization = `Bearer ${parsed.token}`;
+            if (parsed?.hotelId) headers['x-hotel-id'] = parsed.hotelId;
+            if (parsed?.dbName) headers['x-tenant-db'] = parsed.dbName;
+        } catch (error) {
+            console.warn('Failed to parse authUser for guest list headers:', error);
+        }
+        return headers;
+    };
+
     // Fetch guests from API
     const fetchGuestsFromAPI = async () => {
         try {
-            const response = await fetch(`${API_URL_CONFIG}/api/guests/list`);
+            const response = await fetch(`${API_URL_CONFIG}/api/guests/list`, {
+                headers: getAuthHeaders()
+            });
             const data = await response.json();
 
             if (data.success && data.data) {
@@ -771,13 +843,22 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             setRooms(prevRooms => {
                 return prevRooms.map(room => {
                     // Check if current categoryId (which acts as key) exists in the new facilityTypes list
-                    const isValid = facilityTypes.some(t => t.name === room.categoryId);
+                    const matchedType = facilityTypes.find((t) => normalizeCategoryKey(t.name) === normalizeCategoryKey(room.categoryId));
+                    const isValid = Boolean(matchedType);
 
                     if (room.categoryId !== '' && !isValid) {
                         // If invalid (e.g. was using hardcoded ID), switch to empty
                         return {
                             ...room,
                             categoryId: ''
+                        };
+                    }
+
+                    if (room.categoryId !== '' && matchedType && room.categoryId !== matchedType.name) {
+                        // Normalize legacy slug values to the exact facility type name so select can display properly.
+                        return {
+                            ...room,
+                            categoryId: matchedType.name
                         };
                     }
                     return room;
@@ -908,9 +989,23 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
     }, [invoices]);
 
     // Handle More Options action selection
-    const handleMoreOptionsAction = useCallback((actionType, bookingSpec) => {
+    const handleMoreOptionsAction = useCallback(async (actionType, bookingSpec) => {
         const targetReservation = bookingSpec || selectedReservation;
         if (!targetReservation) return;
+        const bookingId = targetReservation.id || targetReservation._id;
+
+        let sourceReservation = targetReservation;
+        try {
+            if (bookingId) {
+                const latestResp = await fetch(`${API_URL}/${bookingId}`);
+                const latestJson = await latestResp.json();
+                if (latestResp.ok && latestJson?.success && latestJson?.data) {
+                    sourceReservation = { ...targetReservation, ...latestJson.data };
+                }
+            }
+        } catch (fetchErr) {
+            console.warn('Unable to refresh latest booking before opening action drawer:', fetchErr);
+        }
 
         // Keep check-in inside page flow (no popup drawer).
         if (actionType === 'check-in') {
@@ -929,20 +1024,34 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             return;
         }
 
-        // Calculate correct billing totals (matching ReservationCard logic)
-        const transactions = targetReservation.transactions || [];
-        const isMultiRoom = targetReservation.rooms && targetReservation.rooms.length > 1;
+        // Calculate correct billing totals for action drawers/print flows.
+        const transactions = sourceReservation.transactions || [];
+        const isMultiRoom = sourceReservation.rooms && sourceReservation.rooms.length > 1;
+        const toNum = (value, fallback = 0) => {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : fallback;
+        };
         
         // 1. Calculate Core Room Charges
         let roomCharges = 0;
         if (isMultiRoom) {
-            roomCharges = targetReservation.rooms.reduce((sum, room) => {
-                return sum + ((room.ratePerNight || 0) * (targetReservation.nights || 1)) - (room.discount || 0);
+                roomCharges = sourceReservation.rooms.reduce((sum, room) => {
+                const rate = toNum(room.ratePerNight ?? room.roomRate ?? room.pricePerNight ?? room.price, 0);
+                    const discount = toNum(room.discount ?? room.discountAmount, 0);
+                    return sum + (rate * (sourceReservation.nights || 1)) - discount;
             }, 0);
         } else {
-            roomCharges = targetReservation.roomCharges || 
-                         ((targetReservation.rooms?.[0]?.ratePerNight || 0) * (targetReservation.nights || 1)) - (targetReservation.rooms?.[0]?.discount || 0);
+            roomCharges = toNum(sourceReservation.roomCharges, 0) ||
+                ((toNum(sourceReservation.rooms?.[0]?.ratePerNight ?? sourceReservation.rooms?.[0]?.roomRate ?? sourceReservation.pricePerNight, 0) * (sourceReservation.nights || 1))
+                    - toNum(sourceReservation.rooms?.[0]?.discount ?? sourceReservation.discount, 0));
         }
+
+        const discountAmount = toNum(sourceReservation.discount ?? sourceReservation.discountAmount ?? sourceReservation.totalDiscount, 0);
+        const taxAmount = toNum(sourceReservation.tax ?? sourceReservation.taxAmount, 0);
+        const serviceChargeAmount = toNum(
+            sourceReservation.serviceCharge ?? sourceReservation.serviceChargeAmount,
+            Math.max(0, roomCharges - discountAmount) * ((parseFloat(settings.roomServiceCharge) || 0) / 100)
+        );
 
         // 2. Folio Charges
         const totalFolioCharges = transactions
@@ -955,40 +1064,141 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             .filter(t => t.type?.toLowerCase() === 'payment')
             .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
 
-        const calculatedTotal = roomCharges + totalFolioCharges;
-        const calculatedBalance = calculatedTotal - totalPaid;
+        const latestPaymentTx = [...transactions]
+            .filter((t) => t.type?.toLowerCase() === 'payment')
+            .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())[0];
+
+        const paymentModeUsed = sourceReservation.paymentMode || latestPaymentTx?.method || 'Cash';
+
+        const calculatedTotal = Math.max(0, roomCharges + serviceChargeAmount + taxAmount - discountAmount + totalFolioCharges);
+        const calculatedBalance = Math.max(0, calculatedTotal - totalPaid);
+
+        const storedTotal = toNum(sourceReservation.totalAmount, 0);
+        const storedPaid = toNum(sourceReservation.paidAmount, 0);
+        const storedBalance = toNum(sourceReservation.balanceDue, 0);
+        const derivedStoredBalance = Math.max(0, storedTotal - storedPaid);
+
+        const folioBalances = {};
+        const baseFolioEntries = [
+            { folioId: 0 },
+            ...((Array.isArray(sourceReservation.additionalGuests) ? sourceReservation.additionalGuests : []).map((_, index) => ({ folioId: index + 1 })))
+        ];
+
+        baseFolioEntries.forEach(({ folioId }) => {
+            const folioTxns = transactions.filter((t) => Number(t?.folioId || 0) === Number(folioId));
+            const summary = folioTxns.reduce((acc, transaction) => {
+                const typeLc = String(transaction?.type || '').toLowerCase();
+                const amountAbs = Math.abs(Number(transaction?.amount) || 0);
+                if (typeLc === 'payment') {
+                    acc.payments += amountAbs;
+                } else if (typeLc === 'discount') {
+                    acc.discounts += amountAbs;
+                } else {
+                    acc.charges += amountAbs;
+                }
+                return acc;
+            }, { charges: 0, discounts: 0, payments: 0 });
+
+            const folioGrandTotal = Math.max(0, summary.charges - summary.discounts);
+            folioBalances[folioId] = Math.max(0, folioGrandTotal - summary.payments);
+        });
+
+        // Prefer canonical folio module balances when available (PRIMARY -> folioId 0, SECONDARY -> folioId 1..n).
+        try {
+            if (bookingId) {
+                const folioResp = await fetch(`${API_URL_CONFIG}/api/folio/reservation/${bookingId}`);
+                const folioJson = await folioResp.json();
+                if (folioResp.ok && folioJson?.success) {
+                    const folioList = Array.isArray(folioJson?.allFolios)
+                        ? folioJson.allFolios
+                        : (Array.isArray(folioJson?.data) ? folioJson.data : [folioJson?.data].filter(Boolean));
+
+                    const typeOf = (folio) => String(folio?.type || '').trim().toUpperCase();
+                    const primaryFolio = folioList.find((f) => ['PRIMARY', 'MAIN', 'PRIMARY_FOLIO'].includes(typeOf(f)))
+                        || folioList.find((f) => !['SECONDARY', 'COMPANY'].includes(typeOf(f)))
+                        || folioList[0];
+                    if (primaryFolio) {
+                        folioBalances[0] = Math.max(0, toNum(primaryFolio?.balance, folioBalances[0] ?? 0));
+                    }
+
+                    const secondaryFolios = folioList.filter((f) => f !== primaryFolio);
+                    secondaryFolios.forEach((folio, idx) => {
+                        const folioId = idx + 1;
+                        folioBalances[folioId] = Math.max(0, toNum(folio?.balance, folioBalances[folioId] ?? 0));
+                    });
+                }
+            }
+        } catch (folioErr) {
+            console.warn('Unable to refresh folio balances from folio module:', folioErr);
+        }
+
+        // Prefer the most reliable outstanding numbers across card-computed and stored payload values.
+        const resolvedTotal = Math.max(storedTotal, calculatedTotal);
+        const resolvedPaid = Math.max(storedPaid, totalPaid);
+        const resolvedBalance = Math.max(storedBalance, derivedStoredBalance, calculatedBalance, Math.max(0, resolvedTotal - resolvedPaid));
+
+        // Keep primary folio (Shekhar/current guest) aligned with booking's authoritative remaining amount.
+        const authoritativePrimaryBalance = Math.max(0, toNum(
+            sourceReservation?.folioRemainingAmount
+            ?? sourceReservation?.billing?.remainingAmount
+            ?? sourceReservation?.billing?.balanceDue
+            ?? sourceReservation?.remainingAmount
+            ?? sourceReservation?.balanceDue,
+            resolvedBalance
+        ));
+        folioBalances[0] = Math.max(toNum(folioBalances[0], 0), authoritativePrimaryBalance);
 
         // Convert reservation to booking format for the actions
         const bookingData = {
-            _id: targetReservation.id,
-            bookingId: targetReservation.referenceNumber,
-            guestName: targetReservation.guestName,
-            mobileNumber: targetReservation.guestPhone,
-            email: targetReservation.guestEmail,
-            roomNumber: targetReservation.rooms?.[0]?.roomNumber || '',
-            roomType: targetReservation.rooms?.[0]?.categoryId?.replace(/-/g, ' ').toUpperCase() || '',
-            checkInDate: targetReservation.checkInDate,
-            checkInTime: targetReservation.checkInTime || '14:00',
-            checkOutDate: targetReservation.checkOutDate,
-            checkOutTime: targetReservation.checkOutTime || '11:00',
-            numberOfNights: targetReservation.nights,
-            numberOfAdults: targetReservation.rooms?.[0]?.adultsCount || 1,
-            numberOfChildren: targetReservation.rooms?.[0]?.childrenCount || 0,
-            numberOfGuests: targetReservation.rooms?.[0]?.adultsCount || 1, // Fallback
-            childrenCount: targetReservation.rooms?.[0]?.childrenCount || 0, // Explicit for form
-            pricePerNight: targetReservation.rooms?.[0]?.ratePerNight || 0,
-            totalAmount: calculatedTotal,
-            advancePaid: totalPaid,
-            remainingAmount: calculatedBalance,
-            status: targetReservation.status === 'RESERVED' ? 'Upcoming' :
-                targetReservation.status === 'IN_HOUSE' ? 'Checked-in' :
-                    targetReservation.status === 'CHECKED_OUT' ? 'Checked-out' : 'Upcoming',
-            idProofType: targetReservation.idProofType,
-            idNumber: targetReservation.idNumber || targetReservation.idProofNumber,
-            idProofNumber: targetReservation.idNumber || targetReservation.idProofNumber,
-            vehicleNumber: targetReservation.vehicleNumber,
-            additionalGuests: targetReservation.additionalGuests || [],
-            visitors: targetReservation.visitors || [],
+            _id: sourceReservation.id,
+            bookingId: sourceReservation.referenceNumber,
+            guestName: sourceReservation.guestName,
+            mobileNumber: sourceReservation.guestPhone,
+            email: sourceReservation.guestEmail,
+            roomNumber: sourceReservation.rooms?.[0]?.roomNumber || '',
+            roomType: sourceReservation.rooms?.[0]?.categoryId?.replace(/-/g, ' ').toUpperCase() || '',
+            checkInDate: sourceReservation.checkInDate,
+            checkInTime: sourceReservation.checkInTime || '14:00',
+            checkOutDate: sourceReservation.checkOutDate,
+            checkOutTime: sourceReservation.checkOutTime || '11:00',
+            numberOfNights: sourceReservation.nights,
+            numberOfAdults: sourceReservation.rooms?.[0]?.adultsCount || 1,
+            numberOfChildren: sourceReservation.rooms?.[0]?.childrenCount || 0,
+            numberOfGuests: sourceReservation.rooms?.[0]?.adultsCount || 1, // Fallback
+            childrenCount: sourceReservation.rooms?.[0]?.childrenCount || 0, // Explicit for form
+            pricePerNight: toNum(sourceReservation.rooms?.[0]?.ratePerNight ?? sourceReservation.rooms?.[0]?.roomRate ?? sourceReservation.pricePerNight, 0),
+            roomCharges: toNum(sourceReservation.roomCharges, roomCharges),
+            serviceCharge: toNum(sourceReservation.serviceCharge ?? sourceReservation.serviceChargeAmount, serviceChargeAmount),
+            discount: discountAmount,
+            tax: taxAmount,
+            totalAmount: resolvedTotal,
+            paidAmount: resolvedPaid,
+            advancePaid: resolvedPaid,
+            folioRemainingAmount: resolvedBalance,
+            balanceDue: resolvedBalance,
+            remainingAmount: resolvedBalance,
+            folioBalances,
+            billing: {
+                totalAmount: resolvedTotal,
+                paidAmount: resolvedPaid,
+                balanceAmount: resolvedBalance,
+                balanceDue: resolvedBalance,
+                remainingAmount: resolvedBalance,
+                roomCharges: toNum(sourceReservation.roomCharges, roomCharges),
+                serviceCharge: toNum(sourceReservation.serviceCharge ?? sourceReservation.serviceChargeAmount, serviceChargeAmount),
+                discount: discountAmount,
+                tax: taxAmount
+            },
+            paymentMode: paymentModeUsed,
+            status: sourceReservation.status === 'RESERVED' ? 'Upcoming' :
+                sourceReservation.status === 'IN_HOUSE' ? 'Checked-in' :
+                    sourceReservation.status === 'CHECKED_OUT' ? 'Checked-out' : 'Upcoming',
+            idProofType: sourceReservation.idProofType,
+            idNumber: sourceReservation.idNumber || sourceReservation.idProofNumber,
+            idProofNumber: sourceReservation.idNumber || sourceReservation.idProofNumber,
+            vehicleNumber: sourceReservation.vehicleNumber,
+            additionalGuests: sourceReservation.additionalGuests || [],
+            visitors: sourceReservation.visitors || [],
             transactions: transactions
         };
 
@@ -996,7 +1206,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         setCurrentAction(actionType);
         setActionBooking(bookingData);
         setActionDrawerOpen(true);
-    }, [selectedReservation]);
+    }, [selectedReservation, settings.roomServiceCharge, API_URL]);
 
     const handlePrintConfirm = (type, booking) => {
         // Implement actual print logic here
@@ -1063,8 +1273,9 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                 console.log('⚡ handleGenerateInvoice: No local invoice found, regenerating preview...');
                 const billingDataForInvoice = {
                     roomCharges: reservation.roomCharges || 0,
+                    serviceChargeAmount: reservation.serviceCharge || reservation.serviceChargeAmount || 0,
                     totalDiscount: reservation.discount || 0,
-                    subtotal: (reservation.roomCharges || 0) - (reservation.discount || 0),
+                    subtotal: (reservation.roomCharges || 0) + (reservation.serviceCharge || reservation.serviceChargeAmount || 0) - (reservation.discount || 0),
                     taxAmount: reservation.tax || 0,
                     totalAmount: reservation.totalAmount || 0,
                     paidAmount: reservation.paidAmount || 0,
@@ -1107,8 +1318,9 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         try {
             const billingDataForInvoice = {
                 roomCharges: reservation.roomCharges,
+                serviceChargeAmount: reservation.serviceCharge || reservation.serviceChargeAmount || 0,
                 totalDiscount: reservation.discount,
-                subtotal: reservation.roomCharges - reservation.discount,
+                subtotal: (reservation.roomCharges || 0) + (reservation.serviceCharge || reservation.serviceChargeAmount || 0) - (reservation.discount || 0),
                 taxAmount: reservation.tax,
                 totalAmount: reservation.totalAmount,
                 paidAmount: reservation.paidAmount,
@@ -1187,8 +1399,54 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         if (newStatus === 'IN_HOUSE') {
             const reservation = displayReservations.find(r => r.id === reservationId);
             if (reservation) {
-                handleMoreOptionsAction('check-in', reservation);
-                return;
+                try {
+                    const checkInPayload = {
+                        arrivalDate: reservation.checkInDate || getCurrentDateISO(),
+                        checkInTime: reservation.checkInTime || reservation.scheduledCheckInTime || getCurrentTime24(),
+                        idProofType: reservation.idProofType,
+                        idNumber: reservation.idNumber || reservation.idProofNumber,
+                        adults: reservation.rooms?.[0]?.adultsCount || reservation.duration?.adults || 1,
+                        children: reservation.rooms?.[0]?.childrenCount || reservation.duration?.children || 0,
+                        vehicleNumber: reservation.vehicleNumber || '',
+                        remarks: reservation.notes || reservation.specialRequests || ''
+                    };
+
+                    // Try reservation check-in endpoint first, then booking check-in, then status update fallback.
+                    let response = await fetch(`${API_URL_CONFIG}/api/reservations/checkin/${reservationId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(checkInPayload)
+                    });
+
+                    if (!response.ok) {
+                        response = await fetch(`${API_URL}/check-in/${reservationId}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(checkInPayload)
+                        });
+                    }
+
+                    if (!response.ok) {
+                        response = await fetch(`${API_URL}/status/${reservationId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: 'Checked-in' })
+                        });
+                    }
+
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || 'Check-in failed');
+                    }
+
+                    await fetchReservationsFromAPI();
+                    setActiveTab('in-house');
+                    return;
+                } catch (error) {
+                    console.error('Error checking in:', error);
+                    alert(error.message || 'Failed to check-in guest');
+                    return;
+                }
             }
         }
 
@@ -1215,7 +1473,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             console.error('Error updating status:', error);
             alert('Failed to update status');
         }
-    }, [displayReservations, handleMoreOptionsAction]);
+    }, [displayReservations, getCurrentDateISO, getCurrentTime24, fetchReservationsFromAPI]);
 
     // Reset Form
     const resetForm = useCallback(() => {
@@ -1245,11 +1503,16 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         setCurrentInvoice(null);
         setFromRoomsPage(false);
         setPrefilledData(null);
+        setErrors({});
+        setIsSavingReservation(false);
     }, []);
 
     // Handle Save Reservation
     const handleSaveReservation = async (e, status = 'RESERVED') => {
         if (e && e.preventDefault) e.preventDefault();
+
+        if (isSavingReservation) return;
+        setErrors({});
 
         if (selectedGuests.length === 0) {
             alert('Please select at least one guest');
@@ -1339,7 +1602,20 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
 
         console.log('Sending multi-room booking data:', bookingData);
 
+        const parseJsonSafe = async (response) => {
+            const raw = await response.text();
+            try {
+                return JSON.parse(raw);
+            } catch {
+                return {
+                    success: false,
+                    message: raw || `Request failed with status ${response.status}`
+                };
+            }
+        };
+
         try {
+            setIsSavingReservation(true);
             if (isEditingMode) {
                 // Update existing booking
                 const response = await fetch(`${API_URL}/update/${editingReservationId}`, {
@@ -1348,8 +1624,8 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     body: JSON.stringify(bookingData)
                 });
 
-                const data = await response.json();
-                if (data.success) {
+                const data = await parseJsonSafe(response);
+                if (response.ok && data.success) {
                     await fetchReservationsFromAPI();
                     setSuccessMessage('Reservation updated successfully!');
                     setTimeout(() => {
@@ -1357,7 +1633,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                         navigate('/admin/dashboard');
                     }, 1500);
                 } else {
-                    setErrors({ submit: `Error: ${data.message}` });
+                    setErrors({ submit: `Error: ${data.message || 'Unable to update reservation'}` });
                     return;
                 }
             } else {
@@ -1368,8 +1644,8 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     body: JSON.stringify(bookingData)
                 });
 
-                const data = await response.json();
-                if (data.success) {
+                const data = await parseJsonSafe(response);
+                if (response.ok && data.success) {
                     await fetchReservationsFromAPI(); // Refresh list
                     setSuccessMessage('Reservation created successfully!');
                     setTimeout(() => {
@@ -1387,6 +1663,8 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         } catch (error) {
             console.error('Error saving reservation:', error);
             setErrors({ submit: `Failed to save reservation: ${error.message}` });
+        } finally {
+            setIsSavingReservation(false);
         }
     };
 
@@ -1563,6 +1841,12 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                 <div className="form-container">
                     <div className="form-main">
                         <h1>{isEditingMode ? 'Edit Reservation' : 'Create New Reservation'}</h1>
+
+                        {errors.submit && (
+                            <div className="error-alert" role="alert">
+                                {errors.submit}
+                            </div>
+                        )}
 
                         <div className="reservation-form-view">
                             {/* Reservation Details Section */}
@@ -1849,15 +2133,17 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                                     className="btn btn-primary"
                                     style={{ backgroundColor: '#28a745', borderColor: '#28a745', marginRight: '1rem' }}
                                     onClick={(e) => handleSaveReservation(e, 'IN_HOUSE')}
+                                    disabled={isSavingReservation}
                                 >
-                                    ✓ Check-In
+                                    {isSavingReservation ? 'Processing...' : '✓ Check-In'}
                                 </button>
                                 <button
                                     type="button"
                                     className="btn btn-primary"
                                     onClick={(e) => handleSaveReservation(e, 'RESERVED')}
+                                    disabled={isSavingReservation}
                                 >
-                                    {isEditingMode ? 'Update Reservation' : 'Create Reservation'}
+                                    {isSavingReservation ? 'Saving...' : (isEditingMode ? 'Update Reservation' : 'Create Reservation')}
                                 </button>
                             </div>
                         </div>
@@ -2107,86 +2393,88 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
 
                 {/* Details Panel */}
                 {selectedReservation && (
-                    <div className="reservation-details-panel">
-                        <div className="details-header">
-                            <button
-                                className="close-details-btn-top"
-                                onClick={() => setSelectedReservation(null)}
-                            >
-                                ✕
-                            </button>
-                            <div className="details-guest-info">
-                                <div className="guest-info-row">
-                                    <span className="guest-icon">👤</span>
-                                    <span className="guest-name-header">{selectedReservation.guestName}</span>
-                                </div>
-                                <div className="guest-info-row">
-                                    <span className="phone-icon">📞</span>
-                                    <span className="phone-number">{selectedReservation.guestPhone}</span>
-                                </div>
-                            </div>
-                            <div className="details-header-top">
-                                <div className="header-tabs">
-                                    <button
-                                        className="tab-option active"
-                                        onClick={() => setShowEditModal(true)}
-                                    >
-                                        Edit Reservation
-                                    </button>
-
-                                    <div className="relative inline-block ml-2 mr-2">
-                                        <MoreOptionsMenu
-                                            buttonLabel="More Options"
-                                            buttonClassName="tab-option"
-                                            reservationStatus={selectedReservation?.status}
-                                            onAction={(action) => handleMoreOptionsAction(action, selectedReservation)}
-                                        />
+                    <>
+                        <div className="details-sheet-backdrop" onClick={() => setSelectedReservation(null)} />
+                        <div className="reservation-details-panel">
+                            <div className="details-header">
+                                <button
+                                    className="close-details-btn-top"
+                                    onClick={() => setSelectedReservation(null)}
+                                >
+                                    ✕
+                                </button>
+                                <div className="details-guest-info">
+                                    <div className="guest-info-row">
+                                        <span className="guest-icon">👤</span>
+                                        <span className="guest-name-header">{selectedReservation.guestName}</span>
                                     </div>
-
-                                    <div className="print-menu-wrap" ref={printMenuRef}>
+                                    <div className="guest-info-row">
+                                        <span className="phone-icon">📞</span>
+                                        <span className="phone-number">{selectedReservation.guestPhone}</span>
+                                    </div>
+                                </div>
+                                <div className="details-header-top">
+                                    <div className="header-tabs">
                                         <button
-                                            className={`print-menu-trigger ${showPrintMenu ? 'active' : ''}`}
-                                            onClick={() => setShowPrintMenu(!showPrintMenu)}
+                                            className="tab-option active"
+                                            onClick={() => setShowEditModal(true)}
                                         >
-                                            <svg className="print-menu-icon" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                                            <span>Print</span>
-                                            <span className={`print-menu-arrow ${showPrintMenu ? 'open' : ''}`}>▼</span>
+                                            Edit Reservation
                                         </button>
-                                        {showPrintMenu && (
-                                            <div className="print-menu-dropdown">
-                                                {[
-                                                    { action: 'print-summary', icon: '📄', label: 'Print Summary', color: '#2563eb' },
-                                                    { action: 'print-invoice', icon: '🧾', label: 'Print Invoice', color: '#16a34a' },
-                                                    { action: 'print-grc', icon: '📋', label: 'Print GRC', color: '#9333ea' },
-                                                    { action: 'print-grc-all', icon: '🗂️', label: 'Print GRC All', color: '#b45309' },
-                                                ].map((item, i) => (
-                                                    <button
-                                                        key={item.action}
-                                                        className="print-menu-item"
-                                                        onClick={() => {
-                                                            setShowPrintMenu(false);
-                                                            handleMoreOptionsAction(item.action, selectedReservation);
-                                                        }}
-                                                    >
-                                                        <span
-                                                            className="print-menu-item-icon"
-                                                            style={{ background: `${item.color}15` }}
+
+                                        <div className="relative inline-block ml-2 mr-2">
+                                            <MoreOptionsMenu
+                                                buttonLabel="More Options"
+                                                buttonClassName="tab-option"
+                                                reservationStatus={selectedReservation?.status}
+                                                onAction={(action) => handleMoreOptionsAction(action, selectedReservation)}
+                                            />
+                                        </div>
+
+                                        <div className="print-menu-wrap" ref={printMenuRef}>
+                                            <button
+                                                className={`print-menu-trigger ${showPrintMenu ? 'active' : ''}`}
+                                                onClick={() => setShowPrintMenu(!showPrintMenu)}
+                                            >
+                                                <svg className="print-menu-icon" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                                                <span>Print</span>
+                                                <span className={`print-menu-arrow ${showPrintMenu ? 'open' : ''}`}>▼</span>
+                                            </button>
+                                            {showPrintMenu && (
+                                                <div className="print-menu-dropdown">
+                                                    {[
+                                                        { action: 'print-summary', icon: '📄', label: 'Print Summary', color: '#2563eb' },
+                                                        { action: 'print-invoice', icon: '🧾', label: 'Print Invoice', color: '#16a34a' },
+                                                        { action: 'print-grc', icon: '📋', label: 'Print GRC', color: '#9333ea' },
+                                                        { action: 'print-grc-all', icon: '🗂️', label: 'Print GRC All', color: '#b45309' },
+                                                    ].map((item, i) => (
+                                                        <button
+                                                            key={item.action}
+                                                            className="print-menu-item"
+                                                            onClick={() => {
+                                                                setShowPrintMenu(false);
+                                                                handleMoreOptionsAction(item.action, selectedReservation);
+                                                            }}
                                                         >
-                                                            {item.icon}
-                                                        </span>
-                                                        <span className="print-menu-item-label">{item.label}</span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
+                                                            <span
+                                                                className="print-menu-item-icon"
+                                                                style={{ background: `${item.color}15` }}
+                                                            >
+                                                                {item.icon}
+                                                            </span>
+                                                            <span className="print-menu-item-label">{item.label}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="details-content">
-                            <table className="details-table">
-                                <tbody>
+                            <div className="details-content">
+                                <table className="details-table">
+                                    <tbody>
                                     <tr>
                                         <td className="details-label">Reservation Number</td>
                                         <td className="details-value">{selectedReservation.id}</td>
@@ -2235,10 +2523,11 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                                         <td className="details-label">Total Bills</td>
                                         <td className="details-value details-value-highlight">{cs}{selectedReservation.totalAmount?.toLocaleString('en-IN') || '0'}</td>
                                     </tr>
-                                </tbody>
-                            </table>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
+                    </>
                 )}
             </div>
 
@@ -2433,7 +2722,12 @@ function getDummyReservations() {
             totalAmount: 5600,
             paidAmount: 5600,
             balanceDue: 0,
-            paymentMode: 'Cash',
+            paymentMode: (() => {
+                const latestPayment = [...(booking.transactions || [])]
+                    .filter((t) => t.type?.toLowerCase() === 'payment')
+                    .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())[0];
+                return booking.paymentMode || billing.paymentMode || latestPayment?.method || 'Cash';
+            })(),
             taxExempt: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()

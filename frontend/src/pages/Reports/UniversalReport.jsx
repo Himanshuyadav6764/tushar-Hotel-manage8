@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import soundManager from '../../utils/soundManager';
 import axios from 'axios';
+import jsPDF from 'jspdf';
 import { io } from 'socket.io-client';
 import API_URL from '../../config/api';
 
@@ -83,6 +84,7 @@ const UniversalReport = ({ type }) => {
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [openFilterDropdown, setOpenFilterDropdown] = useState(null);
+    const [openRowPrintMenu, setOpenRowPrintMenu] = useState(null);
 
     // Report configurations
     const reportConfig = {
@@ -174,8 +176,6 @@ const UniversalReport = ({ type }) => {
                 return { ...base, columns: ['#', 'Item Name', 'Category', 'Quantity Sold', 'Revenue'] };
             } else if (activeTab === 'Cancelled Bills') {
                 return { ...base, columns: ['Bill No', 'Amount', 'Reason', 'Date'] };
-            } else if (activeTab === 'Overview') {
-                return { ...base, columns: [] }; // Hide table in overview
             }
         } else if (type === 'reports-payments' && activeTab === 'Discount') {
             return {
@@ -227,6 +227,10 @@ const UniversalReport = ({ type }) => {
         const handleClickOutside = (event) => {
             const insideFilter = event.target.closest('.control-group-header.responsive-filter-group');
             if (!insideFilter) setOpenFilterDropdown(null);
+
+            const insideRowAction = event.target.closest('.row-action-wrap');
+            const insideRowMenu = event.target.closest('.row-print-menu');
+            if (!insideRowAction && !insideRowMenu) setOpenRowPrintMenu(null);
         };
 
         document.addEventListener('mousedown', handleClickOutside);
@@ -1105,11 +1109,7 @@ const UniversalReport = ({ type }) => {
                     }));
                 }
 
-                if (activeTab === 'Overview') {
-                    setReportData([]);
-                } else {
-                    setReportData(mappedData);
-                }
+                setReportData(mappedData);
                 setBillingSummary({ summary, breakdowns, topSelling, cancelledBills });
 
                 setSummaryStats(prev => ({
@@ -1189,6 +1189,207 @@ const UniversalReport = ({ type }) => {
         URL.revokeObjectURL(url);
     };
 
+    const escapeHtml = (value) => String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const getExportRows = () => {
+        const labels = config.columns || [];
+        return sortedReportData.map((row) => labels.map((_, idx) => {
+            const rawValue = row?.[`val${idx + 1}`];
+            if (rawValue === null || rawValue === undefined) return '';
+            return String(rawValue);
+        }));
+    };
+
+    const handleExcelExport = () => {
+        const rows = getExportRows();
+        if (!config.columns.length || !rows.length) {
+            alert('No data available to export.');
+            return;
+        }
+
+        const headers = config.columns.map(col => `<th>${escapeHtml(col)}</th>`).join('');
+        const bodyRows = rows.map((row) => `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('');
+        const html = `
+            <html>
+            <head>
+                <meta charset="utf-8" />
+                <style>
+                    table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 12px; }
+                    th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; }
+                    th { background: #f3f4f6; font-weight: 700; }
+                    .title { font-size: 16px; font-weight: 800; margin-bottom: 8px; }
+                    .meta { color: #4b5563; margin-bottom: 10px; }
+                </style>
+            </head>
+            <body>
+                <div class="title">${escapeHtml(config.title)} - ${escapeHtml(activeTab)}</div>
+                <div class="meta">Date Range: ${escapeHtml(dateRange.from)} to ${escapeHtml(dateRange.to)}</div>
+                <table>
+                    <thead><tr>${headers}</tr></thead>
+                    <tbody>${bodyRows}</tbody>
+                </table>
+            </body>
+            </html>`;
+
+        const blob = new Blob([`\ufeff${html}`], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${config.title.replace(/\s+/g, '_')}_${activeTab.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xls`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handlePdfExport = () => {
+        const rows = getExportRows();
+        if (!config.columns.length || !rows.length) {
+            alert('No data available to export.');
+            return;
+        }
+
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const marginX = 8;
+        const topY = 10;
+        const rowHeight = 6;
+        const usableWidth = pageWidth - (marginX * 2);
+        const colCount = config.columns.length;
+        const colWidth = usableWidth / Math.max(colCount, 1);
+
+        // jsPDF default fonts do not reliably support some symbols (e.g., Rupee sign),
+        // so normalize text and fit it inside each cell width.
+        const sanitizePdfText = (value) => String(value ?? '')
+            .replace(/₹/g, 'Rs ')
+            .normalize('NFKD')
+            .replace(/[^\x20-\x7E]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const fitCellText = (value, widthMm) => {
+            const normalized = sanitizePdfText(value);
+            if (!normalized) return '';
+
+            const maxWidth = Math.max(4, widthMm - 2.2);
+            if (doc.getTextWidth(normalized) <= maxWidth) return normalized;
+
+            let text = normalized;
+            while (text.length > 1 && doc.getTextWidth(`${text}...`) > maxWidth) {
+                text = text.slice(0, -1);
+            }
+
+            return `${text}...`;
+        };
+
+        const drawHeader = () => {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.text(`${config.title} - ${activeTab}`, marginX, topY);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.text(`Date Range: ${dateRange.from} to ${dateRange.to}`, marginX, topY + 5);
+            doc.text(`Generated: ${new Date().toLocaleString('en-GB')}`, pageWidth - marginX, topY + 5, { align: 'right' });
+        };
+
+        const drawTableHeader = (startY) => {
+            doc.setFillColor(245, 245, 245);
+            doc.rect(marginX, startY, usableWidth, rowHeight, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7);
+            config.columns.forEach((col, idx) => {
+                const x = marginX + (idx * colWidth) + 1;
+                doc.text(fitCellText(col, colWidth), x, startY + 4.2);
+            });
+        };
+
+        drawHeader();
+        let y = topY + 12;
+        drawTableHeader(y);
+        y += rowHeight;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+
+        rows.forEach((row, rowIndex) => {
+            if (y > pageHeight - 10) {
+                doc.addPage();
+                drawHeader();
+                y = topY + 12;
+                drawTableHeader(y);
+                y += rowHeight;
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7);
+            }
+
+            if (rowIndex % 2 === 0) {
+                doc.setFillColor(252, 252, 252);
+                doc.rect(marginX, y - 0.3, usableWidth, rowHeight, 'F');
+            }
+
+            row.forEach((cell, idx) => {
+                const text = fitCellText(cell, colWidth);
+                const x = marginX + (idx * colWidth) + 1;
+                doc.text(text, x, y + 4.2);
+            });
+
+            y += rowHeight;
+        });
+
+        doc.save(`${config.title.replace(/\s+/g, '_')}_${activeTab.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+    };
+
+    const handlePrintExport = () => {
+        const rows = getExportRows();
+        if (!config.columns.length || !rows.length) {
+            alert('No data available to print.');
+            return;
+        }
+
+        const printWindow = window.open('', '_blank', 'width=1200,height=800');
+        if (!printWindow) {
+            alert('Please allow popups to print the report.');
+            return;
+        }
+
+        const headerHtml = config.columns.map(col => `<th>${escapeHtml(col)}</th>`).join('');
+        const rowsHtml = rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('');
+
+        printWindow.document.write(`
+            <!doctype html>
+            <html>
+            <head>
+                <title>${escapeHtml(config.title)} - ${escapeHtml(activeTab)}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 16px; color: #111827; }
+                    h1 { font-size: 18px; margin: 0; }
+                    .meta { margin: 4px 0 12px 0; font-size: 12px; color: #4b5563; }
+                    table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+                    th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; word-break: break-word; overflow-wrap: anywhere; }
+                    th { background: #f3f4f6; }
+                    tr:nth-child(even) { background: #fafafa; }
+                </style>
+            </head>
+            <body>
+                <h1>${escapeHtml(config.title)} - ${escapeHtml(activeTab)}</h1>
+                <div class="meta">Date Range: ${escapeHtml(dateRange.from)} to ${escapeHtml(dateRange.to)} | Generated: ${escapeHtml(new Date().toLocaleString('en-GB'))}</div>
+                <table>
+                    <thead><tr>${headerHtml}</tr></thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+                <script>window.onload=function(){window.print();}</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
     const handleGenerate = () => {
         soundManager.play('click');
         if (type === 'reports-sales') fetchSalesReport(true);
@@ -1204,17 +1405,130 @@ const UniversalReport = ({ type }) => {
     const handleExport = (format) => {
         soundManager.play('success');
         if (format === 'Excel') {
-            if (sortedReportData.length === 0) {
-                alert("No data available to export.");
-                return;
-            }
-            downloadCSV(sortedReportData, `${config.title.replace(/\s+/g, '_')}_${activeTab.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
-        } else {
-            window.print();
+            handleExcelExport();
+            return;
         }
+
+        if (format === 'PDF') {
+            handlePdfExport();
+            return;
+        }
+
+        handlePrintExport();
     };
 
     const sortedReportData = useMemo(() => sortRowsLatestFirst(reportData), [reportData]);
+    const showRowPrintAction = useMemo(() => {
+        return config.columns.some(col => String(col || '').trim().toLowerCase() === 'staff');
+    }, [config.columns]);
+
+    const rowPrintFormats = [
+        { key: 'a4', label: 'A4', desc: 'Standard', pageSize: 'A4', bodyWidth: '100%', windowWidth: 980 },
+        { key: 'a5', label: 'A5', desc: 'Half Sheet', pageSize: 'A5', bodyWidth: '100%', windowWidth: 820 },
+        { key: 'thermal', label: 'Thermal', desc: '80mm Roll', pageSize: '80mm auto', bodyWidth: '72mm', windowWidth: 430 },
+        { key: 'dotmatrix', label: 'Dot Matrix', desc: 'DMP', pageSize: 'A4', bodyWidth: '100%', windowWidth: 980 },
+        { key: '3inch', label: '3 inch', desc: '76mm Roll', pageSize: '76mm auto', bodyWidth: '68mm', windowWidth: 400 },
+        { key: '2inch', label: '2 inch', desc: '58mm Roll', pageSize: '58mm auto', bodyWidth: '50mm', windowWidth: 360 }
+    ];
+
+    const handleRowPrint = (row, formatKey) => {
+        const fmt = rowPrintFormats.find(f => f.key === formatKey) || rowPrintFormats[0];
+        const pageSize = fmt.pageSize;
+        const printWidth = fmt.key === '2inch' ? '50mm' : (fmt.key === '3inch' ? '68mm' : (fmt.key === 'thermal' ? '72mm' : '190mm'));
+
+        const clean = (value) => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+        const details = config.columns.map((label, idx) => ({
+            label,
+            value: row?.[`val${idx + 1}`] ?? '-'
+        }));
+
+        const detailRows = details.map((d) => `
+            <div class="rp-row">
+                <span class="rp-label">${clean(d.label)}</span>
+                <span class="rp-value">${clean(d.value)}</span>
+            </div>
+        `).join('');
+
+        const popup = window.open('', '_blank', `height=860,width=${fmt.windowWidth || 820}`);
+        if (!popup) {
+            alert('Please allow popups to print.');
+            return;
+        }
+
+        popup.document.write(`
+            <!doctype html>
+            <html>
+            <head>
+                <title>${clean(config.title)} - ${clean(activeTab)} - ${clean(fmt.label)}</title>
+                <style>
+                    @page { size: ${pageSize}; margin: 4mm; }
+                    body { font-family: Arial, sans-serif; margin: 0 auto; width: ${printWidth}; color: #111827; }
+                    .rp-wrap { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+                    .rp-head { border-bottom: 1px dashed #d1d5db; padding-bottom: 8px; margin-bottom: 8px; }
+                    .rp-title { font-size: 14px; font-weight: 800; text-transform: uppercase; }
+                    .rp-sub { font-size: 10px; color: #4b5563; margin-top: 2px; }
+                    .rp-row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px dashed #eef2f7; }
+                    .rp-row:last-child { border-bottom: none; }
+                    .rp-label { font-size: 10px; color: #6b7280; font-weight: 700; text-transform: uppercase; }
+                    .rp-value { font-size: 11px; color: #111827; font-weight: 700; text-align: right; max-width: 62%; word-break: break-word; }
+                    .rp-foot { margin-top: 10px; text-align: center; font-size: 10px; color: #6b7280; }
+                </style>
+            </head>
+            <body>
+                <div class="rp-wrap">
+                    <div class="rp-head">
+                        <div class="rp-title">${clean(config.title)}</div>
+                        <div class="rp-sub">${clean(activeTab)} | Format: ${clean(fmt.label)} | Generated: ${clean(new Date().toLocaleString('en-GB'))}</div>
+                    </div>
+                    ${detailRows}
+                </div>
+                <div class="rp-foot">Printed via Action menu</div>
+                <script>window.onload=function(){window.print();setTimeout(function(){window.close();},500)}<\/script>
+            </body>
+            </html>
+        `);
+        popup.document.close();
+        setOpenRowPrintMenu(null);
+    };
+
+    const toggleRowPrintMenu = (event, rowId, rowData) => {
+        if (openRowPrintMenu?.id === rowId) {
+            setOpenRowPrintMenu(null);
+            return;
+        }
+
+        const rect = event.currentTarget.getBoundingClientRect();
+        const menuWidth = 210;
+        const minGap = 8;
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+        const estimatedMenuHeight = 270;
+
+        const spaceAbove = rect.top - minGap;
+        const spaceBelow = viewportHeight - rect.bottom - minGap;
+
+        let direction = 'up';
+        if (spaceAbove < estimatedMenuHeight && spaceBelow >= estimatedMenuHeight) {
+            direction = 'down';
+        }
+
+        const maxHeight = Math.max(140, Math.min(estimatedMenuHeight, direction === 'up' ? spaceAbove : spaceBelow));
+
+        const unclampedLeft = rect.right - menuWidth;
+        const left = Math.max(minGap, Math.min(unclampedLeft, viewportWidth - menuWidth - minGap));
+
+        const top = direction === 'up'
+            ? Math.max(minGap, rect.top - maxHeight - minGap)
+            : Math.min(viewportHeight - maxHeight - minGap, rect.bottom + minGap);
+
+        setOpenRowPrintMenu({ id: rowId, row: rowData, direction, top, left, maxHeight });
+    };
 
     const kitchenStatusPanel = useMemo(() => {
         const status = kitchenInsights.tableStatus || {};
@@ -1951,6 +2265,7 @@ const UniversalReport = ({ type }) => {
                                 <thead>
                                     <tr>
                                         {config.columns.map((col, idx) => <th key={idx}>{col}</th>)}
+                                        {showRowPrintAction && <th style={{ width: '90px' }}>Action</th>}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1960,11 +2275,24 @@ const UniversalReport = ({ type }) => {
                                                 {config.columns.map((_, i) => (
                                                     <td key={i}>{row[`val${i + 1}`]}</td>
                                                 ))}
+                                                {showRowPrintAction && (
+                                                    <td className="row-action-cell">
+                                                        <div className="row-action-wrap">
+                                                            <button
+                                                                type="button"
+                                                                className="row-print-btn"
+                                                                onClick={() => handleRowPrint(row, '3inch')}
+                                                            >
+                                                                Print
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                )}
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={config.columns.length} style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                                            <td colSpan={config.columns.length + (showRowPrintAction ? 1 : 0)} style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
                                                 {loading ? 'Fetching data...' : 'No data generated. Click "Generate Report" to view results.'}
                                             </td>
                                         </tr>
@@ -1972,6 +2300,30 @@ const UniversalReport = ({ type }) => {
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                )}
+
+                {openRowPrintMenu?.id && (
+                    <div
+                        className={`row-print-menu ${openRowPrintMenu?.direction === 'down' ? 'open-down' : 'open-up'}`}
+                        style={{
+                            position: 'fixed',
+                            top: `${openRowPrintMenu?.top || 0}px`,
+                            left: `${openRowPrintMenu?.left || 0}px`,
+                            maxHeight: `${openRowPrintMenu?.maxHeight || 270}px`
+                        }}
+                    >
+                        {rowPrintFormats.map((fmt) => (
+                            <button
+                                type="button"
+                                key={fmt.key}
+                                className="row-print-option"
+                                onClick={() => handleRowPrint(openRowPrintMenu?.row, fmt.key)}
+                            >
+                                <span>{fmt.label}</span>
+                                <small>{fmt.desc}</small>
+                            </button>
+                        ))}
                     </div>
                 )}
             </div>

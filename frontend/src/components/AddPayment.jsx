@@ -2,9 +2,16 @@ import React, { useState, useMemo, useEffect } from 'react';
 import './AddPayment.css';
 import { useSettings } from '../context/SettingsContext';
 
-const AddPayment = ({ onClose, onAdd, reservation }) => {
+const AddPayment = ({ onClose, onAdd, reservation, lockToFolio = false, fixedFolioId = 0, fixedGuestName = '' }) => {
     const { settings, getCurrencySymbol } = useSettings();
     const cs = getCurrencySymbol();
+    const EPSILON = 0.005;
+
+    const normalize2 = (value) => {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) return 0;
+        return Number(parsed.toFixed(2));
+    };
 
     // Build payment modes from settings or defaults
     const availableModes = useMemo(() => {
@@ -37,16 +44,54 @@ const AddPayment = ({ onClose, onAdd, reservation }) => {
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedGuestId, setSelectedGuestId] = useState('primary');
+    
+    const toNumber = (value, fallback = 0) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    };
+
+    const resolveOverallBalance = (record) => {
+        const candidates = [
+            record?.remainingAmount,
+            record?.balanceDue,
+            record?.billing?.remainingAmount,
+            record?.billing?.balanceDue,
+            record?.billing?.balanceAmount,
+            (toNumber(record?.totalAmount, 0) - toNumber(record?.paidAmount ?? record?.advancePaid, 0))
+        ];
+
+        const positiveCandidates = candidates
+            .map((value) => toNumber(value, NaN))
+            .filter((value) => Number.isFinite(value) && value > 0);
+
+        if (positiveCandidates.length > 0) {
+            return Math.max(...positiveCandidates);
+        }
+
+        const firstFinite = candidates.find((value) => Number.isFinite(Number(value)));
+        return toNumber(firstFinite, 0);
+    };
+
+    const formatMoney = (value) => Number(value || 0).toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 
     const handleChange = (field, value) => {
         let finalValue = value;
-        if (field === 'amount' && value !== '') {
-            const absoluteValue = value.replace(/-/g, '');
-            const numVal = parseFloat(absoluteValue);
-            finalValue = absoluteValue;
-
-            if (numVal > selectedFolioBalance) {
-                finalValue = selectedFolioBalance.toString();
+        if (field === 'amount') {
+            const cleaned = String(value ?? '')
+                .replace(/[^0-9.]/g, '')
+                .replace(/(\..*)\./g, '$1');
+            if (cleaned === '' || /^\d*(\.\d{0,2})?$/.test(cleaned)) {
+                finalValue = cleaned;
+                const parsed = Number(cleaned);
+                const limit = normalize2(selectedFolioBalance);
+                if (cleaned !== '' && Number.isFinite(parsed) && parsed > (limit + EPSILON)) {
+                    finalValue = limit.toFixed(2);
+                }
+            } else {
+                return;
             }
         }
 
@@ -56,16 +101,34 @@ const AddPayment = ({ onClose, onAdd, reservation }) => {
         }
     };
 
+    const handleAmountBlur = () => {
+        const raw = String(formData.amount ?? '').trim();
+        if (!raw) return;
+
+        const parsed = Number(raw);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+            setFormData((prev) => ({ ...prev, amount: '' }));
+            return;
+        }
+
+        const entered = normalize2(Math.abs(parsed));
+        const limit = normalize2(selectedFolioBalance);
+        const normalized = entered > (limit + EPSILON) ? limit : entered;
+        setFormData((prev) => ({ ...prev, amount: normalized.toFixed(2) }));
+    };
+
     const validateForm = () => {
         const newErrors = {};
         if (!formData.date) newErrors.date = 'Date is required';
         if (!formData.paymentMethod) newErrors.paymentMethod = 'Method is required';
         
         const amountValue = parseFloat(formData.amount);
+        const entered = normalize2(amountValue);
+        const limit = normalize2(selectedFolioBalance);
         if (!formData.amount || amountValue <= 0) {
             newErrors.amount = 'Enter valid amount';
-        } else if (amountValue > selectedFolioBalance) {
-            newErrors.amount = `Amount cannot exceed selected folio balance (${cs}${selectedFolioBalance.toLocaleString('en-IN')})`;
+        } else if (entered > (limit + EPSILON)) {
+            newErrors.amount = `Amount cannot exceed selected folio balance (${cs}${formatMoney(selectedFolioBalance)})`;
         }
         
         if (['Card', 'UPI', 'Bank Transfer'].includes(formData.paymentMethod) && !formData.referenceId) {
@@ -81,12 +144,16 @@ const AddPayment = ({ onClose, onAdd, reservation }) => {
         setIsSubmitting(true);
 
         try {
+            const selectedGuestName = lockToFolio
+                ? (fixedGuestName || folioGuests.find((guest) => Number(guest.folioId) === Number(fixedFolioId))?.name || reservation?.guestName || 'Guest')
+                : (selectedGuest?.name || reservation?.guestName || 'Guest');
+
             const paymentData = {
                 ...formData,
                 amount: parseFloat(formData.amount),
                 paymentType: formData.paymentMethod, // mapping for parent
                 folioId: selectedFolioId,
-                selectedGuestName: selectedGuest?.name || reservation?.guestName || 'Guest',
+                selectedGuestName,
                 timestamp: new Date().toISOString()
             };
 
@@ -99,10 +166,60 @@ const AddPayment = ({ onClose, onAdd, reservation }) => {
         }
     };
 
-    const balance = reservation ? (
-        reservation.balanceDue !== undefined ? reservation.balanceDue :
-        (reservation.remainingAmount || (reservation.totalAmount - (reservation.paidAmount || reservation.advancePaid || 0)))
-    ) : 0;
+    const balance = reservation ? Math.max(0, resolveOverallBalance(reservation)) : 0;
+
+    const roomChargeFinal = useMemo(() => {
+        const nights = Math.max(1, toNumber(reservation?.duration?.nights ?? reservation?.nights ?? reservation?.numberOfNights, 1));
+        const gross = toNumber(
+            reservation?.roomCharges
+            ?? reservation?.billing?.roomCharges
+            ?? reservation?.billing?.roomChargesAmount,
+            toNumber(reservation?.pricePerNight ?? reservation?.billing?.roomRate ?? reservation?.rooms?.[0]?.ratePerNight, 0) * nights
+        );
+
+        const tax = toNumber(
+            reservation?.tax
+            ?? reservation?.taxAmount
+            ?? reservation?.billing?.tax
+            ?? reservation?.billing?.taxAmount,
+            0
+        );
+
+        const service = toNumber(
+            reservation?.serviceCharge
+            ?? reservation?.serviceChargeAmount
+            ?? reservation?.billing?.serviceCharge
+            ?? reservation?.billing?.serviceChargeAmount,
+            Math.round((gross * (toNumber(settings?.roomServiceCharge, 0) / 100)) * 100) / 100
+        );
+
+        const discount = toNumber(
+            reservation?.discount
+            ?? reservation?.discountAmount
+            ?? reservation?.billing?.discount
+            ?? reservation?.billing?.discountAmount,
+            0
+        );
+
+        return Math.max(0, gross + tax + service - discount);
+    }, [reservation, settings?.roomServiceCharge]);
+
+    const isRoomChargeTransaction = (transaction) => {
+        const text = `${transaction?.particulars || ''} ${transaction?.description || ''}`.toLowerCase();
+        return String(transaction?.type || '').toLowerCase() === 'charge' && (
+            text.includes('room charges')
+            || text.includes('room tariff')
+            || text.includes('room stay')
+            || String(transaction?.particulars || '').toLowerCase().includes('room')
+        );
+    };
+
+    const getDisplayAmount = (transaction) => {
+        if (isRoomChargeTransaction(transaction)) {
+            return toNumber(roomChargeFinal, 0);
+        }
+        return Math.abs(toNumber(transaction?.amount, 0));
+    };
 
     const folioGuests = useMemo(() => {
         const primaryGuest = {
@@ -138,34 +255,63 @@ const AddPayment = ({ onClose, onAdd, reservation }) => {
 
         let otherFoliosTotal = 0;
         folioGuests.forEach((guest) => {
-            if (guest.folioId === 0) return;
+            const folioTxns = txns.filter((t) => Number(t.folioId || 0) === guest.folioId);
 
-            const charges = txns
-                .filter((t) => Number(t.folioId || 0) === guest.folioId && t.type?.toLowerCase() === 'charge')
-                .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
+            const summary = folioTxns.reduce((acc, transaction) => {
+                const typeLc = String(transaction?.type || '').toLowerCase();
+                const amountAbs = getDisplayAmount(transaction);
 
-            const paid = txns
-                .filter((t) => Number(t.folioId || 0) === guest.folioId && t.type?.toLowerCase() === 'payment')
-                .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
+                if (typeLc === 'payment') {
+                    acc.payments += amountAbs;
+                    return acc;
+                }
 
-            const folioBal = Math.max(0, charges - paid);
+                if (typeLc === 'discount') {
+                    acc.discounts += amountAbs;
+                    return acc;
+                }
+
+                acc.charges += amountAbs;
+                return acc;
+            }, { charges: 0, discounts: 0, payments: 0 });
+
+            const grandTotal = Math.max(0, summary.charges - summary.discounts);
+            let folioBal = Math.max(0, grandTotal - summary.payments);
+
             balanceMap[guest.folioId] = folioBal;
-            otherFoliosTotal += folioBal;
+            if (guest.folioId !== 0) otherFoliosTotal += folioBal;
         });
 
-        balanceMap[0] = Math.max(0, overall - otherFoliosTotal);
+        const expectedPrimary = Math.max(0, overall - otherFoliosTotal);
+        const currentPrimary = Math.max(0, toNumber(balanceMap[0], 0));
+
+        // Keep primary folio in sync with the most reliable overall outstanding amount.
+        balanceMap[0] = Math.max(currentPrimary, expectedPrimary);
         return balanceMap;
-    }, [reservation?.transactions, folioGuests, balance]);
+    }, [reservation?.transactions, folioGuests, balance, roomChargeFinal]);
 
     const selectedGuest = folioGuests.find((guest) => guest.id === selectedGuestId) || folioGuests[0];
-    const selectedFolioId = selectedGuest?.folioId ?? 0;
-    const selectedFolioBalance = Math.max(0, folioBalances[selectedFolioId] ?? 0);
+    const selectedFolioId = lockToFolio
+        ? Number(fixedFolioId || 0)
+        : (selectedGuest?.folioId ?? 0);
+
+    const lockedFolioBalance = Math.max(0, toNumber(
+        reservation?.folioRemainingAmount
+        ?? reservation?.balanceDue
+        ?? reservation?.remainingAmount,
+        0
+    ));
+
+    const selectedFolioBalance = lockToFolio
+        ? lockedFolioBalance
+        : Math.max(0, folioBalances[selectedFolioId] ?? 0);
 
     useEffect(() => {
+        if (lockToFolio) return;
         if (!folioGuests.some((guest) => guest.id === selectedGuestId)) {
             setSelectedGuestId(folioGuests[0]?.id || 'primary');
         }
-    }, [folioGuests, selectedGuestId]);
+    }, [folioGuests, selectedGuestId, lockToFolio]);
 
     return (
         <div className="add-payment-overlay" onClick={onClose}>
@@ -186,7 +332,7 @@ const AddPayment = ({ onClose, onAdd, reservation }) => {
 
                 <div className="add-payment-body">
                     {/* Reservation Summary Card */}
-                    {reservation && (
+                    {reservation && !lockToFolio && (
                         <div className="payment-summary-card">
                             <div className="summary-header">
                                 <span className="ref-tag">SELECT FOLIO / GUEST</span>
@@ -208,7 +354,7 @@ const AddPayment = ({ onClose, onAdd, reservation }) => {
                                             <span className="folio-guest-meta">
                                                 <span className="folio-guest-name">{guest.name}</span>
                                                 <span className="folio-guest-balance">
-                                                    Folio Balance: {cs}{(folioBalances[guest.folioId] || 0).toLocaleString('en-IN')}
+                                                    Folio Balance: {cs}{formatMoney(folioBalances[guest.folioId] || 0)}
                                                 </span>
                                             </span>
                                         </button>
@@ -218,11 +364,34 @@ const AddPayment = ({ onClose, onAdd, reservation }) => {
                         </div>
                     )}
 
+                    {reservation && lockToFolio && (
+                        <div className="payment-summary-card">
+                            <div className="summary-header">
+                                <span className="ref-tag">CURRENT FOLIO</span>
+                                <span className="ref-number">{reservation.bookingId || reservation._id?.toString().slice(-6).toUpperCase() || 'RES-1002'}</span>
+                            </div>
+                            <div className="summary-main">
+                                <div className="summary-column">
+                                    <div className="summary-item">
+                                        <label>Guest</label>
+                                        <span>{fixedGuestName || folioGuests.find((guest) => Number(guest.folioId) === Number(selectedFolioId))?.name || reservation?.guestName || 'Guest'}</span>
+                                    </div>
+                                </div>
+                                <div className="summary-column">
+                                    <div className="summary-item" style={{ textAlign: 'right' }}>
+                                        <label>Folio Balance</label>
+                                        <span style={{ color: '#059669', fontWeight: '800' }}>{cs}{formatMoney(selectedFolioBalance)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* New Balance Preview (Dynamic) */}
                     <div className="new-balance-preview animate-in">
                         <div className="preview-label">Balance after this payment</div>
                         <div className={`preview-amount ${ (selectedFolioBalance - (parseFloat(formData.amount) || 0)) <= 0 ? 'fully-paid' : ''}`}>
-                            {cs}{Math.max(0, selectedFolioBalance - (parseFloat(formData.amount) || 0)).toLocaleString('en-IN')}
+                            {cs}{formatMoney(Math.max(0, selectedFolioBalance - (parseFloat(formData.amount) || 0)))}
                         </div>
                     </div>
 
@@ -270,8 +439,11 @@ const AddPayment = ({ onClose, onAdd, reservation }) => {
                                 type="number"
                                 value={formData.amount}
                                 onChange={(e) => handleChange('amount', e.target.value)}
+                                onBlur={handleAmountBlur}
                                 onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
                                 min="0"
+                                max={normalize2(selectedFolioBalance)}
+                                step="0.01"
                                 placeholder="0.00"
                                 className={`amount-input-field ${errors.amount ? 'error' : ''}`}
                             />
@@ -279,7 +451,7 @@ const AddPayment = ({ onClose, onAdd, reservation }) => {
                                 <button
                                     type="button"
                                     className="pay-full-action-btn"
-                                    onClick={() => handleChange('amount', selectedFolioBalance.toString())}
+                                    onClick={() => handleChange('amount', Number(selectedFolioBalance).toFixed(2))}
                                 >
                                     PAY FULL
                                 </button>

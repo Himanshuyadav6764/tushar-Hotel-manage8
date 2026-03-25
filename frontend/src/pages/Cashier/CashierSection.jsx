@@ -432,7 +432,6 @@ const CashierSection = () => {
                         <div className="sidebar-header">
                             {/* Search Bar first as per image 2 */}
                             <div className="search-bar">
-                                <span className="search-icon">🔍</span>
                                 <input
                                     type="text"
                                     placeholder="Search orders..."

@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { 
-    FaBell, 
-    FaCog,
+import {
+    FaBars,
     FaBuilding,
     FaUser,
     FaEnvelope,
@@ -15,42 +14,105 @@ import {
     FaCheckCircle,
     FaTimesCircle,
     FaHotel,
-    FaPlus
+    FaPlus,
+    FaEdit,
+    FaSave
 } from 'react-icons/fa';
 import { MdDashboard, MdLogout } from 'react-icons/md';
 import './SuperAdminDashboard.css';
 
+const ADMIN_SCREEN_OPTIONS = [
+    'Dashboard', 'Reservations', 'Rooms (Dashboard)', 'Rooms (New Reservation)', 'Room Service', 'Housekeeping',
+    'Reservation Card', 'Food Order', 'Cashier Section (Table)', 'Cashier Section (Room Service)', 'Cashier Section (Take Away)',
+    'Table View', 'KOT Order', 'View order', 'Customer List', 'Cashier Logs', 'Payment Logs', 'Reports',
+    'Reports (All)', 'Reports - Sales', 'Reports - Payments', 'Reports - Rooms', 'Reports - Kitchen', 'Reports - GST',
+    'Reports - Staff', 'Reports - Billing', 'Reports - Reservations', 'Reports - Analytics',
+    'Property Setup (All)', 'Property Setup - Discount', 'Property Setup - Generate Room QR',
+    'Property Configuration', 'Property Configuration (All)', 'Property Configuration - Floor Setup',
+    'Property Configuration - Room Facilities Type', 'Property Configuration - Meal Type', 'Property Configuration - Reservation Type',
+    'Property Configuration - Extra Charges', 'Property Configuration - Complimentary Services', 'Property Configuration - Customer Identity',
+    'Property Configuration - Booking Source', 'Property Configuration - Business Source', 'Property Configuration - Maintenance Block',
+    'Property Configuration - Table Management', 'Property Configuration - Company Settings', 'CRM Model', 'Settings'
+];
+
+const inputStyle = {
+    width: '100%',
+    padding: '10px',
+    border: '1px solid #d1d5db',
+    borderRadius: '8px'
+};
+
 const HotelDetails = () => {
     const { logout, user } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const { id } = useParams();
+
     const [hotel, setHotel] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [actionLoading, setActionLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [showRenewModal, setShowRenewModal] = useState(false);
-    const [renewDuration, setRenewDuration] = useState('12');
-    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-    const [upgradePlan, setUpgradePlan] = useState('premium');
+
+    const [actionLoading, setActionLoading] = useState(false);
+    const [saveLoading, setSaveLoading] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
-    useEffect(() => {
-        fetchHotelDetails();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id]);
+    const [activeActionNote, setActiveActionNote] = useState('');
+    const [renewDuration, setRenewDuration] = useState('12');
+    const [upgradePlan, setUpgradePlan] = useState('premium');
+
+    const [editMode, setEditMode] = useState(Boolean(location.state?.mode === 'edit'));
+    const [editForm, setEditForm] = useState({
+        hotelName: '',
+        address: '',
+        gstNumber: '',
+        phone: '',
+        subscriptionPlan: 'basic',
+        subscriptionStartDate: '',
+        subscriptionExpiryDate: '',
+        adminName: '',
+        adminEmail: '',
+        adminPhone: '',
+        adminPermissions: []
+    });
+
+    const getInitials = (name) => (name ? name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : 'SA');
+
+    const toDateInput = (value) => {
+        if (!value) return '';
+        const dt = new Date(value);
+        return Number.isNaN(dt.getTime()) ? '' : dt.toISOString().split('T')[0];
+    };
+
+    const formatDate = (date) => {
+        if (!date) return '-';
+        return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    };
+
+    const hydrateEditForm = (payloadHotel) => {
+        if (!payloadHotel) return;
+        setEditForm({
+            hotelName: payloadHotel.name || '',
+            address: payloadHotel.address || '',
+            gstNumber: payloadHotel.gstNumber || '',
+            phone: payloadHotel.phone || '',
+            subscriptionPlan: payloadHotel.subscription?.plan || 'basic',
+            subscriptionStartDate: toDateInput(payloadHotel.subscription?.startDate),
+            subscriptionExpiryDate: toDateInput(payloadHotel.subscription?.expiryDate),
+            adminName: payloadHotel.adminId?.name || '',
+            adminEmail: payloadHotel.adminId?.username || payloadHotel.adminId?.email || '',
+            adminPhone: payloadHotel.adminId?.phone || '',
+            adminPermissions: Array.isArray(payloadHotel.adminId?.permissions) ? payloadHotel.adminId.permissions : []
+        });
+    };
 
     const fetchHotelDetails = async () => {
         try {
             const token = user?.token;
-            const config = {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            };
-
+            const config = { headers: { Authorization: `Bearer ${token}` } };
             const response = await axios.get(`/api/super-admin/hotel/${id}`, config);
             setHotel(response.data);
+            hydrateEditForm(response.data);
             setLoading(false);
         } catch (err) {
             setError(err.response?.data?.message || 'Error fetching hotel details');
@@ -58,21 +120,183 @@ const HotelDetails = () => {
         }
     };
 
+    useEffect(() => {
+        fetchHotelDetails();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id]);
+
+    const handleEditFieldChange = (e) => {
+        const { name, value } = e.target;
+        setEditForm((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const toggleEditPermission = (label) => {
+        setEditForm((prev) => ({
+            ...prev,
+            adminPermissions: prev.adminPermissions.includes(label)
+                ? prev.adminPermissions.filter((item) => item !== label)
+                : [...prev.adminPermissions, label]
+        }));
+    };
+
+    const handleSaveEdits = async () => {
+        const trimmedHotelName = editForm.hotelName.trim();
+        const trimmedAddress = editForm.address.trim();
+        const trimmedAdminName = editForm.adminName.trim();
+        const trimmedAdminEmail = editForm.adminEmail.trim().toLowerCase();
+
+        if (!trimmedHotelName) {
+            setError('Hotel name is required');
+            return;
+        }
+        if (!trimmedAddress) {
+            setError('Address is required');
+            return;
+        }
+        if (!trimmedAdminName) {
+            setError('Admin name is required');
+            return;
+        }
+        if (!trimmedAdminEmail) {
+            setError('Admin email is required');
+            return;
+        }
+
+        setSaveLoading(true);
+        setError('');
+        setSuccess('');
+        try {
+            const token = user?.token;
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const payload = {
+                hotelName: trimmedHotelName,
+                address: trimmedAddress,
+                gstNumber: editForm.gstNumber?.trim() || '',
+                phone: editForm.phone?.trim() || '',
+                subscriptionPlan: editForm.subscriptionPlan,
+                subscriptionStartDate: editForm.subscriptionStartDate,
+                subscriptionExpiryDate: editForm.subscriptionExpiryDate,
+                adminName: trimmedAdminName,
+                adminEmail: trimmedAdminEmail,
+                adminPhone: editForm.adminPhone?.trim() || '',
+                adminPermissions: editForm.adminPermissions
+            };
+
+            const requestVariants = [
+                () => axios.patch(`/api/super-admin/hotel/${id}`, payload, config),
+                () => axios.patch(`/api/super-admin/hotels/${id}`, payload, config),
+                () => axios.put(`/api/super-admin/hotel/${id}`, payload, config),
+                () => axios.put(`/api/super-admin/hotels/${id}`, payload, config),
+                () => axios.patch(`/api/superadmin/hotel/${id}`, payload, config),
+                () => axios.put(`/api/superadmin/hotel/${id}`, payload, config)
+            ];
+
+            let response;
+            let lastError;
+
+            for (let index = 0; index < requestVariants.length; index += 1) {
+                try {
+                    response = await requestVariants[index]();
+                    break;
+                } catch (variantError) {
+                    lastError = variantError;
+                    const status = variantError?.response?.status;
+                    const message = String(variantError?.response?.data?.error || variantError?.response?.data?.message || '').toLowerCase();
+                    const shouldRetry = status === 404 || status === 405 || message.includes('route not found');
+                    if (!shouldRetry || index === requestVariants.length - 1) {
+                        throw variantError;
+                    }
+                }
+            }
+
+            if (!response) {
+                const status = lastError?.response?.status;
+                const message = String(lastError?.response?.data?.error || lastError?.response?.data?.message || '').toLowerCase();
+                const isRouteMismatch = status === 404 || status === 405 || message.includes('route not found');
+
+                if (!isRouteMismatch) {
+                    throw lastError || new Error('Failed to update hotel details');
+                }
+
+                const settingsPayload = {
+                    hotelId: id,
+                    name: trimmedHotelName,
+                    address: trimmedAddress,
+                    gstNumber: editForm.gstNumber?.trim() || '',
+                    phone: editForm.phone?.trim() || ''
+                };
+
+                await axios.put('/api/hotel/settings', settingsPayload, config);
+
+                let permissionsSynced = false;
+                const permissionRoutes = [
+                    `/api/super-admin/hotel/${id}/admin-permissions`,
+                    `/api/super-admin/hotel/${id}/permissions`,
+                    `/api/super-admin/hotels/${id}/admin-permissions`
+                ];
+
+                for (let p = 0; p < permissionRoutes.length; p += 1) {
+                    try {
+                        await axios.patch(permissionRoutes[p], { permissions: editForm.adminPermissions }, config);
+                        permissionsSynced = true;
+                        break;
+                    } catch (permErr) {
+                        const permStatus = permErr?.response?.status;
+                        const permMsg = String(permErr?.response?.data?.error || permErr?.response?.data?.message || '').toLowerCase();
+                        const retryNext = permStatus === 404 || permStatus === 405 || permMsg.includes('route not found');
+                        if (!retryNext) {
+                            throw permErr;
+                        }
+                    }
+                }
+
+                await fetchHotelDetails();
+
+                const adminChanged =
+                    trimmedAdminName !== (hotel.adminId?.name || '').trim()
+                    || trimmedAdminEmail !== ((hotel.adminId?.username || hotel.adminId?.email || '').trim().toLowerCase())
+                    || (editForm.adminPhone?.trim() || '') !== ((hotel.adminId?.phone || '').trim());
+
+                if (adminChanged || !permissionsSynced) {
+                    setSuccess('Hotel details saved. Admin profile update route is unavailable on current backend.');
+                } else {
+                    setSuccess('Hotel details updated successfully');
+                }
+
+                setEditMode(false);
+                return;
+            }
+
+            if (response.data?.hotel) {
+                setHotel(response.data.hotel);
+                hydrateEditForm(response.data.hotel);
+            } else {
+                await fetchHotelDetails();
+            }
+
+            setSuccess('Hotel details updated successfully');
+            setEditMode(false);
+        } catch (err) {
+            setError(
+                err.response?.data?.message
+                || err.response?.data?.error
+                || err.message
+                || 'Failed to update hotel details'
+            );
+        } finally {
+            setSaveLoading(false);
+        }
+    };
+
     const handleSuspend = async () => {
-        if (!window.confirm('Are you sure you want to suspend this hotel?')) return;
-        
         setActionLoading(true);
         try {
             const token = user?.token;
-            const config = {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            };
-
+            const config = { headers: { Authorization: `Bearer ${token}` } };
             await axios.patch(`/api/super-admin/suspend/${id}`, {}, config);
             setSuccess('Hotel suspended successfully');
-            fetchHotelDetails();
+            setActiveActionNote('');
+            await fetchHotelDetails();
         } catch (err) {
             setError(err.response?.data?.message || 'Error suspending hotel');
         } finally {
@@ -84,15 +308,11 @@ const HotelDetails = () => {
         setActionLoading(true);
         try {
             const token = user?.token;
-            const config = {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            };
-
+            const config = { headers: { Authorization: `Bearer ${token}` } };
             await axios.patch(`/api/super-admin/activate/${id}`, {}, config);
             setSuccess('Hotel activated successfully');
-            fetchHotelDetails();
+            setActiveActionNote('');
+            await fetchHotelDetails();
         } catch (err) {
             setError(err.response?.data?.message || 'Error activating hotel');
         } finally {
@@ -104,19 +324,11 @@ const HotelDetails = () => {
         setActionLoading(true);
         try {
             const token = user?.token;
-            const config = {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            };
-
-            await axios.patch(`/api/super-admin/renew/${id}`, 
-                { duration: renewDuration }, 
-                config
-            );
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            await axios.patch(`/api/super-admin/renew/${id}`, { duration: renewDuration }, config);
             setSuccess('Subscription renewed successfully');
-            setShowRenewModal(false);
-            fetchHotelDetails();
+            setActiveActionNote('');
+            await fetchHotelDetails();
         } catch (err) {
             setError(err.response?.data?.message || 'Error renewing subscription');
         } finally {
@@ -128,19 +340,11 @@ const HotelDetails = () => {
         setActionLoading(true);
         try {
             const token = user?.token;
-            const config = {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            };
-
-            await axios.patch(`/api/super-admin/upgrade-plan/${id}`, 
-                { plan: upgradePlan }, 
-                config
-            );
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            await axios.patch(`/api/super-admin/upgrade-plan/${id}`, { plan: upgradePlan }, config);
             setSuccess('Subscription plan updated successfully');
-            setShowUpgradeModal(false);
-            fetchHotelDetails();
+            setActiveActionNote('');
+            await fetchHotelDetails();
         } catch (err) {
             setError(err.response?.data?.message || 'Error updating plan');
         } finally {
@@ -153,759 +357,232 @@ const HotelDetails = () => {
         navigate('/login');
     };
 
-    const getInitials = (name) => {
-        if (!name) return 'SA';
-        return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    };
-
-    const formatDate = (date) => {
-        return new Date(date).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
-    };
-
-    const getDaysRemaining = (expiryDate) => {
-        const now = new Date();
-        const expiry = new Date(expiryDate);
-        const diffTime = expiry - now;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays;
-    };
-
     if (loading) {
-        return (
-            <div className="sa-container">
-                <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    alignItems: 'center', 
-                    height: '100vh',
-                    fontSize: '18px',
-                    color: '#64748b'
-                }}>
-                    Loading hotel details...
-                </div>
-            </div>
-        );
+        return <div className="sa-loading">Loading hotel details...</div>;
     }
-
     if (!hotel) {
-        return (
-            <div className="sa-container">
-                <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    alignItems: 'center', 
-                    height: '100vh',
-                    fontSize: '18px',
-                    color: '#ef4444'
-                }}>
-                    Hotel not found
-                </div>
-            </div>
-        );
+        return <div className="sa-loading">Hotel not found</div>;
     }
 
-    const daysRemaining = getDaysRemaining(hotel.subscription.expiryDate);
+    const daysRemaining = Math.ceil((new Date(hotel.subscription?.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
     const isExpired = daysRemaining < 0;
 
     return (
-        <>
         <div className="sa-container">
-            {/* Sidebar */}
             <aside className={`sa-sidebar ${sidebarOpen ? 'open' : ''}`}>
                 <div className="sa-sidebar-header">
                     <span style={{ fontSize: '24px', color: '#e11d48' }}>⚡</span>
                     <h2>SUPER ADMIN</h2>
+                    <button
+                        type="button"
+                        className="sa-sidebar-close"
+                        onClick={() => setSidebarOpen(false)}
+                        aria-label="Close sidebar"
+                    >
+                        ×
+                    </button>
                 </div>
-
                 <nav className="sa-nav">
-                    <button
-                        className="sa-nav-item"
-                        onClick={() => navigate('/super-admin/dashboard')}
-                    >
-                        <MdDashboard />
-                        Dashboard
-                    </button>
-                    <button
-                        className="sa-nav-item active"
-                        onClick={() => navigate('/super-admin/hotels')}
-                    >
-                        <FaHotel />
-                        Hotels
-                    </button>
-                    <button
-                        className="sa-nav-item"
-                        onClick={() => navigate('/super-admin/create-hotel')}
-                    >
-                        <FaPlus />
-                        Create Hotel
-                    </button>
-                    <button
-                        className="sa-nav-item"
-                        onClick={handleLogout}
-                    >
-                        <MdLogout />
-                        Logout
-                    </button>
+                    <button className="sa-nav-item" onClick={() => navigate('/super-admin/dashboard')}><MdDashboard />Dashboard</button>
+                    <button className="sa-nav-item active" onClick={() => navigate('/super-admin/hotels')}><FaHotel />Hotels</button>
+                    <button className="sa-nav-item" onClick={() => navigate('/super-admin/hotels/create')}><FaPlus />Create Hotel</button>
+                    <button className="sa-nav-item" onClick={handleLogout}><MdLogout />Logout</button>
                 </nav>
             </aside>
 
-            {/* Main Content */}
-            <main className="sa-main">
-                {/* Header */}
-                <header className="sa-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <button className="sa-icon-btn" onClick={() => setSidebarOpen(!sidebarOpen)} style={{ display: 'none' }}>
-                            ☰
-                        </button>
-                        <div className="sa-header-logo">
-                            {/* Chef Hat Icon */}
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M6 13.87C4.31 13.12 3.25 11.53 3.5 9.77C3.76 7.91 5.38 6.54 7.26 6.54C7.54 6.54 7.82 6.57 8.08 6.63C8.62 3.96 11.08 2 14 2C17.31 2 20 4.69 20 8C20 8.35 19.96 8.69 19.89 9.03C21.43 9.94 22.34 11.64 22.09 13.43C21.82 15.35 20.15 16.71 18.23 16.71H17V19C17 20.66 15.66 22 14 22H9C7.34 22 6 20.66 6 19V17H5.77C5.83 15.89 5.86 14.86 6 13.87ZM8 17H15V19C15 19.55 14.55 20 14 20H9C8.45 20 8 19.55 8 19V17Z" fill="#374151" />
-                            </svg>
-                            <span>BIREENA ATITHI</span>
-                        </div>
-                    </div>
+            {sidebarOpen && (
+                <div className="sa-sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+            )}
 
-                    <div className="sa-header-actions">
-                        <button className="sa-icon-btn">
-                            <FaCog />
-                        </button>
-                        <button className="sa-icon-btn">
-                            <FaBell />
-                        </button>
-                        <div className="sa-profile">
-                            {getInitials(user?.name)}
-                        </div>
+            <main className="sa-main">
+                <header className="sa-header sa-header-unified">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        {!sidebarOpen && (
+                            <button className="sa-icon-btn sa-menu-toggle" onClick={() => setSidebarOpen(true)}><FaBars /></button>
+                        )}
+                        <div className="sa-header-logo"><FaHotel style={{ color: '#e11d48' }} /><span>BIREENA ATITHI</span></div>
                     </div>
+                    <div className="sa-header-actions"><div className="sa-profile">{getInitials(user?.name)}</div></div>
                 </header>
 
-                {/* Dashboard Content */}
                 <div className="sa-content">
                     <h3 className="sa-section-title">Hotel Details</h3>
 
-                    {/* Alerts */}
-                    {error && (
-                        <div style={{
-                            padding: '16px',
-                            marginBottom: '24px',
-                            background: '#fee2e2',
-                            border: '1px solid #ef4444',
-                            borderRadius: '8px',
-                            color: '#E31E24',
-                            fontSize: '14px',
-                            fontWeight: '500'
-                        }}>
-                            {error}
-                        </div>
-                    )}
-
-                    {success && (
-                        <div style={{
-                            padding: '16px',
-                            marginBottom: '24px',
-                            background: '#d1fae5',
-                            border: '1px solid #10b981',
-                            borderRadius: '8px',
-                            color: '#047857',
-                            fontSize: '14px',
-                            fontWeight: '500'
-                        }}>
-                            {success}
-                        </div>
-                    )}
-
-                    {/* Hotel Details Grid */}
-                    <div style={{ 
-                        display: 'grid', 
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', 
-                        gap: '24px',
-                        marginBottom: '24px'
-                    }}>
-                        {/* Hotel Information Card */}
-                        <div className="sa-card">
-                            <div style={{
-                                padding: '20px',
-                                borderBottom: '1px solid #e5e7eb',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '12px',
-                                background: 'linear-gradient(135deg, #fef2f2 0%, #fff 100%)'
-                            }}>
-                                <div style={{
-                                    width: '48px',
-                                    height: '48px',
-                                    borderRadius: '12px',
-                                    background: 'linear-gradient(135deg, #EF4444 0%, #E31E24 100%)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: 'white',
-                                    fontSize: '24px'
-                                }}>
-                                    <FaBuilding />
-                                </div>
-                                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1f2937', margin: 0 }}>
-                                    Hotel Information
-                                </h3>
-                            </div>
-                            <div style={{ padding: '24px' }}>
-                                <div style={{ marginBottom: '20px' }}>
-                                    <div style={{ 
-                                        fontSize: '12px', 
-                                        fontWeight: '600', 
-                                        color: '#6b7280', 
-                                        marginBottom: '6px',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px'
-                                    }}>
-                                        HOTEL NAME
-                                    </div>
-                                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>
-                                        {hotel.name}
-                                    </div>
-                                </div>
-                                <div style={{ marginBottom: '20px' }}>
-                                    <div style={{ 
-                                        fontSize: '12px', 
-                                        fontWeight: '600', 
-                                        color: '#6b7280', 
-                                        marginBottom: '6px',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px'
-                                    }}>
-                                        <FaMapMarkerAlt style={{ fontSize: '10px' }} /> ADDRESS
-                                    </div>
-                                    <div style={{ fontSize: '14px', color: '#4b5563', lineHeight: '1.6' }}>
-                                        {hotel.address}
-                                    </div>
-                                </div>
-                                {hotel.gstNumber && (
-                                    <div style={{ marginBottom: '20px' }}>
-                                        <div style={{ 
-                                            fontSize: '12px', 
-                                            fontWeight: '600', 
-                                            color: '#6b7280', 
-                                            marginBottom: '6px',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.5px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px'
-                                        }}>
-                                            <FaFileInvoice style={{ fontSize: '10px' }} /> GST NUMBER
-                                        </div>
-                                        <div style={{ fontSize: '14px', color: '#4b5563', fontFamily: 'monospace' }}>
-                                            {hotel.gstNumber}
-                                        </div>
-                                    </div>
-                                )}
-                                {hotel.phone && (
-                                    <div style={{ marginBottom: '20px' }}>
-                                        <div style={{ 
-                                            fontSize: '12px', 
-                                            fontWeight: '600', 
-                                            color: '#6b7280', 
-                                            marginBottom: '6px',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.5px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px'
-                                        }}>
-                                            <FaPhone style={{ fontSize: '10px' }} /> PHONE
-                                        </div>
-                                        <div style={{ fontSize: '14px', color: '#4b5563' }}>
-                                            {hotel.phone}
-                                        </div>
-                                    </div>
-                                )}
-                                <div>
-                                    <div style={{ 
-                                        fontSize: '12px', 
-                                        fontWeight: '600', 
-                                        color: '#6b7280', 
-                                        marginBottom: '6px',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px'
-                                    }}>
-                                        STATUS
-                                    </div>
-                                    <div style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        padding: '6px 12px',
-                                        borderRadius: '6px',
-                                        fontSize: '13px',
-                                        fontWeight: '600',
-                                        background: hotel.isActive ? '#d1fae5' : '#fee2e2',
-                                        color: hotel.isActive ? '#047857' : '#E31E24'
-                                    }}>
-                                        {hotel.isActive ? <FaCheckCircle /> : <FaTimesCircle />}
-                                        {hotel.isActive ? 'Active' : 'Suspended'}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Admin Information Card */}
-                        <div className="sa-card">
-                            <div style={{
-                                padding: '20px',
-                                borderBottom: '1px solid #e5e7eb',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '12px',
-                                background: 'linear-gradient(135deg, #fef2f2 0%, #fff 100%)'
-                            }}>
-                                <div style={{
-                                    width: '48px',
-                                    height: '48px',
-                                    borderRadius: '12px',
-                                    background: 'linear-gradient(135deg, #EF4444 0%, #E31E24 100%)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: 'white',
-                                    fontSize: '24px'
-                                }}>
-                                    <FaUser />
-                                </div>
-                                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1f2937', margin: 0 }}>
-                                    Admin Information
-                                </h3>
-                            </div>
-                            <div style={{ padding: '24px' }}>
-                                {hotel.adminId ? (
-                                    <>
-                                        <div style={{ marginBottom: '20px' }}>
-                                            <div style={{ 
-                                                fontSize: '12px', 
-                                                fontWeight: '600', 
-                                                color: '#6b7280', 
-                                                marginBottom: '6px',
-                                                textTransform: 'uppercase',
-                                                letterSpacing: '0.5px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px'
-                                            }}>
-                                                <FaUser style={{ fontSize: '10px' }} /> NAME
-                                            </div>
-                                            <div style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>
-                                                {hotel.adminId.name}
-                                            </div>
-                                        </div>
-                                        <div style={{ marginBottom: '20px' }}>
-                                            <div style={{ 
-                                                fontSize: '12px', 
-                                                fontWeight: '600', 
-                                                color: '#6b7280', 
-                                                marginBottom: '6px',
-                                                textTransform: 'uppercase',
-                                                letterSpacing: '0.5px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px'
-                                            }}>
-                                                <FaEnvelope style={{ fontSize: '10px' }} /> EMAIL
-                                            </div>
-                                            <div style={{ fontSize: '14px', color: '#4b5563' }}>
-                                                {hotel.adminId.email}
-                                            </div>
-                                        </div>
-                                        {hotel.adminId.phone && (
-                                            <div>
-                                                <div style={{ 
-                                                    fontSize: '12px', 
-                                                    fontWeight: '600', 
-                                                    color: '#6b7280', 
-                                                    marginBottom: '6px',
-                                                    textTransform: 'uppercase',
-                                                    letterSpacing: '0.5px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '6px'
-                                                }}>
-                                                    <FaPhone style={{ fontSize: '10px' }} /> PHONE
-                                                </div>
-                                                <div style={{ fontSize: '14px', color: '#4b5563' }}>
-                                                    {hotel.adminId.phone}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {Array.isArray(hotel.adminId.permissions) && hotel.adminId.permissions.length > 0 && (
-                                            <div style={{ marginTop: '20px' }}>
-                                                <div style={{
-                                                    fontSize: '12px',
-                                                    fontWeight: '600',
-                                                    color: '#6b7280',
-                                                    marginBottom: '10px',
-                                                    textTransform: 'uppercase',
-                                                    letterSpacing: '0.5px'
-                                                }}>
-                                                    ASSIGNED SCREENS
-                                                </div>
-                                                <div style={{
-                                                    display: 'flex',
-                                                    flexWrap: 'wrap',
-                                                    gap: '8px'
-                                                }}>
-                                                    {hotel.adminId.permissions.map((permission) => (
-                                                        <span
-                                                            key={permission}
-                                                            style={{
-                                                                fontSize: '12px',
-                                                                fontWeight: '600',
-                                                                color: '#9f1239',
-                                                                background: '#ffe4e6',
-                                                                border: '1px solid #fecdd3',
-                                                                padding: '6px 10px',
-                                                                borderRadius: '999px'
-                                                            }}
-                                                        >
-                                                            {permission}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div style={{ 
-                                        padding: '40px', 
-                                        textAlign: 'center', 
-                                        color: '#9ca3af',
-                                        fontSize: '14px'
-                                    }}>
-                                        No admin assigned
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Subscription Information Card - Full Width */}
-                    <div className="sa-card" style={{ marginBottom: '24px' }}>
-                        <div style={{
-                            padding: '20px',
-                            borderBottom: '1px solid #e5e7eb',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            background: 'linear-gradient(135deg, #fef2f2 0%, #fff 100%)'
-                        }}>
-                            <div style={{
-                                width: '48px',
-                                height: '48px',
-                                borderRadius: '12px',
-                                background: 'linear-gradient(135deg, #EF4444 0%, #E31E24 100%)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'white',
-                                fontSize: '24px'
-                            }}>
-                                <FaCalendarAlt />
-                            </div>
-                            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1f2937', margin: 0 }}>
-                                Subscription Information
-                            </h3>
-                        </div>
-                        <div style={{ padding: '24px' }}>
-                            <div style={{ 
-                                display: 'grid', 
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-                                gap: '24px' 
-                            }}>
-                                <div>
-                                    <div style={{ 
-                                        fontSize: '12px', 
-                                        fontWeight: '600', 
-                                        color: '#6b7280', 
-                                        marginBottom: '8px',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px'
-                                    }}>
-                                        PLAN
-                                    </div>
-                                    <div style={{
-                                        display: 'inline-flex',
-                                        padding: '8px 16px',
-                                        borderRadius: '8px',
-                                        fontSize: '14px',
-                                        fontWeight: '700',
-                                        textTransform: 'uppercase',
-                                        background: hotel.subscription.plan === 'premium' 
-                                            ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)'
-                                            : 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
-                                        color: 'white',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                                    }}>
-                                        {hotel.subscription.plan}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div style={{ 
-                                        fontSize: '12px', 
-                                        fontWeight: '600', 
-                                        color: '#6b7280', 
-                                        marginBottom: '8px',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px'
-                                    }}>
-                                        START DATE
-                                    </div>
-                                    <div style={{ fontSize: '15px', fontWeight: '600', color: '#1f2937' }}>
-                                        {formatDate(hotel.subscription.startDate)}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div style={{ 
-                                        fontSize: '12px', 
-                                        fontWeight: '600', 
-                                        color: '#6b7280', 
-                                        marginBottom: '8px',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px'
-                                    }}>
-                                        EXPIRY DATE
-                                    </div>
-                                    <div style={{ fontSize: '15px', fontWeight: '600', color: '#1f2937' }}>
-                                        {formatDate(hotel.subscription.expiryDate)}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div style={{ 
-                                        fontSize: '12px', 
-                                        fontWeight: '600', 
-                                        color: '#6b7280', 
-                                        marginBottom: '8px',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px'
-                                    }}>
-                                        DAYS REMAINING
-                                    </div>
-                                    <div style={{ 
-                                        fontSize: '20px', 
-                                        fontWeight: '700',
-                                        color: isExpired ? '#E31E24' : daysRemaining <= 7 ? '#f59e0b' : '#10b981'
-                                    }}>
-                                        {isExpired ? 'Expired' : `${daysRemaining} days`}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div style={{ 
-                        display: 'flex', 
-                        gap: '16px', 
-                        flexWrap: 'wrap',
-                        justifyContent: 'center',
-                        padding: '24px 0'
-                    }}>
-                        {hotel.isActive ? (
-                            <button 
-                                onClick={handleSuspend}
-                                disabled={actionLoading}
-                                style={{
-                                    padding: '12px 32px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '14px',
-                                    fontWeight: '600',
-                                    cursor: actionLoading ? 'not-allowed' : 'pointer',
-                                    transition: 'all 0.2s',
-                                    background: 'linear-gradient(135deg, #EF4444 0%, #E31E24 100%)',
-                                    color: 'white',
-                                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
-                                    opacity: actionLoading ? 0.7 : 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}
-                            >
-                                <FaTimesCircle />
-                                Suspend Hotel
-                            </button>
+                    <div className="hotel-detail-toolbar">
+                        {!editMode ? (
+                            <button type="button" className="action-btn primary hotel-toolbar-btn" onClick={() => setEditMode(true)}><FaEdit /> Edit All</button>
                         ) : (
-                            <button 
-                                onClick={handleActivate}
-                                disabled={actionLoading}
-                                style={{
-                                    padding: '12px 32px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '14px',
-                                    fontWeight: '600',
-                                    cursor: actionLoading ? 'not-allowed' : 'pointer',
-                                    transition: 'all 0.2s',
-                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                    color: 'white',
-                                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
-                                    opacity: actionLoading ? 0.7 : 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}
-                            >
-                                <FaCheckCircle />
-                                Activate Hotel
-                            </button>
+                            <>
+                                <button type="button" className="action-btn secondary hotel-toolbar-btn" onClick={() => { hydrateEditForm(hotel); setEditMode(false); }}>Cancel</button>
+                                <button type="button" className="action-btn primary hotel-toolbar-btn" disabled={saveLoading} onClick={handleSaveEdits}><FaSave /> {saveLoading ? 'Saving...' : 'Save Changes'}</button>
+                            </>
                         )}
+                    </div>
 
-                        <button 
-                            onClick={() => setShowRenewModal(true)}
-                            disabled={actionLoading}
-                            style={{
-                                padding: '12px 32px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '14px',
-                                fontWeight: '600',
-                                cursor: actionLoading ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s',
-                                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                                color: 'white',
-                                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
-                                opacity: actionLoading ? 0.7 : 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}
-                        >
-                            <FaCalendarAlt />
-                            Renew Subscription
-                        </button>
+                    {error && <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid #fecaca', background: '#fee2e2', color: '#991b1b', marginBottom: '12px' }}>{error}</div>}
+                    {success && <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid #86efac', background: '#dcfce7', color: '#166534', marginBottom: '12px' }}>{success}</div>}
 
-                        <button 
-                            onClick={() => setShowUpgradeModal(true)}
-                            disabled={actionLoading}
-                            style={{
-                                padding: '12px 32px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '14px',
-                                fontWeight: '600',
-                                cursor: actionLoading ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s',
-                                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                                color: 'white',
-                                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)',
-                                opacity: actionLoading ? 0.7 : 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}
-                        >
-                            <FaCheckCircle />
-                            Change Plan
-                        </button>
+                    {activeActionNote && (
+                        <div className="sa-card hotel-note-panel" style={{ marginBottom: '18px' }}>
+                            <div className="hotel-note-header">
+                                <h4>
+                                    {activeActionNote === 'renew' && 'Subscription Renewal Note'}
+                                    {activeActionNote === 'upgrade' && 'Subscription Plan Note'}
+                                    {activeActionNote === 'suspend' && 'Suspend Confirmation Note'}
+                                </h4>
+                                <button className="icon-btn" type="button" onClick={() => setActiveActionNote('')}>
+                                    <FaTimesCircle />
+                                </button>
+                            </div>
+
+                            {activeActionNote === 'renew' && (
+                                <div className="hotel-note-body">
+                                    <p>Duration select karke direct renew karein. Koi popup nahi aayega.</p>
+                                    <div className="hotel-note-controls">
+                                        <select value={renewDuration} onChange={(e) => setRenewDuration(e.target.value)} style={inputStyle}>
+                                            <option value="1">1 Month</option>
+                                            <option value="3">3 Months</option>
+                                            <option value="6">6 Months</option>
+                                            <option value="12">12 Months</option>
+                                            <option value="24">24 Months</option>
+                                        </select>
+                                        <button className="action-btn primary" type="button" disabled={actionLoading} onClick={handleRenew}>
+                                            <FaCalendarAlt /> {actionLoading ? 'Renewing...' : 'Confirm Renewal'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeActionNote === 'upgrade' && (
+                                <div className="hotel-note-body">
+                                    <p>Plan choose karke update karein.</p>
+                                    <div className="hotel-note-controls">
+                                        <select value={upgradePlan} onChange={(e) => setUpgradePlan(e.target.value)} style={inputStyle}>
+                                            <option value="basic">Basic</option>
+                                            <option value="premium">Premium</option>
+                                        </select>
+                                        <button className="action-btn primary" type="button" disabled={actionLoading} onClick={handleUpgrade}>
+                                            <FaCheckCircle /> {actionLoading ? 'Updating...' : 'Confirm Plan Change'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeActionNote === 'suspend' && (
+                                <div className="hotel-note-body">
+                                    <p>Suspended karne ke baad hotel access block ho jayega. Continue karein?</p>
+                                    <div className="hotel-note-controls">
+                                        <button className="action-btn secondary" type="button" onClick={() => setActiveActionNote('')}>Cancel</button>
+                                        <button className="action-btn danger" type="button" disabled={actionLoading} onClick={handleSuspend}>
+                                            <FaTimesCircle /> {actionLoading ? 'Suspending...' : 'Confirm Suspend'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '24px', marginBottom: '24px' }}>
+                        <div className="sa-card">
+                            <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fef2f2 0%, #fff 100%)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'linear-gradient(135deg, #EF4444 0%, #E31E24 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '24px' }}><FaBuilding /></div>
+                                    <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1f2937', margin: 0 }}>Hotel Information</h3>
+                                </div>
+                                <button type="button" className="icon-btn hotel-edit-icon" title="Edit" onClick={() => setEditMode(true)}><FaEdit /></button>
+                            </div>
+                            <div style={{ padding: '24px', display: 'grid', gap: '12px' }}>
+                                <div><div className="hotel-inline-label">HOTEL NAME</div>{editMode ? <input style={inputStyle} name="hotelName" value={editForm.hotelName} onChange={handleEditFieldChange} /> : <div className="hotel-inline-value-bold">{hotel.name}</div>}</div>
+                                <div><div className="hotel-inline-label">ADDRESS</div>{editMode ? <textarea style={inputStyle} rows={2} name="address" value={editForm.address} onChange={handleEditFieldChange} /> : <div className="hotel-inline-value">{hotel.address}</div>}</div>
+                                <div><div className="hotel-inline-label">GST NUMBER</div>{editMode ? <input style={inputStyle} name="gstNumber" value={editForm.gstNumber} onChange={handleEditFieldChange} /> : <div className="hotel-inline-value">{hotel.gstNumber || '-'}</div>}</div>
+                                <div><div className="hotel-inline-label">PHONE</div>{editMode ? <input style={inputStyle} name="phone" value={editForm.phone} onChange={handleEditFieldChange} /> : <div className="hotel-inline-value">{hotel.phone || '-'}</div>}</div>
+                            </div>
+                        </div>
+
+                        <div className="sa-card">
+                            <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fef2f2 0%, #fff 100%)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'linear-gradient(135deg, #EF4444 0%, #E31E24 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '24px' }}><FaUser /></div>
+                                    <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1f2937', margin: 0 }}>Admin Information</h3>
+                                </div>
+                                <button type="button" className="icon-btn hotel-edit-icon" title="Edit" onClick={() => setEditMode(true)}><FaEdit /></button>
+                            </div>
+                            <div style={{ padding: '24px', display: 'grid', gap: '12px' }}>
+                                <div><div className="hotel-inline-label">NAME</div>{editMode ? <input style={inputStyle} name="adminName" value={editForm.adminName} onChange={handleEditFieldChange} /> : <div className="hotel-inline-value-bold">{hotel.adminId?.name || '-'}</div>}</div>
+                                <div><div className="hotel-inline-label">EMAIL</div>{editMode ? <input style={inputStyle} name="adminEmail" value={editForm.adminEmail} onChange={handleEditFieldChange} /> : <div className="hotel-inline-value">{hotel.adminId?.email || hotel.adminId?.username || '-'}</div>}</div>
+                                <div><div className="hotel-inline-label">PHONE</div>{editMode ? <input style={inputStyle} name="adminPhone" value={editForm.adminPhone} onChange={handleEditFieldChange} /> : <div className="hotel-inline-value">{hotel.adminId?.phone || '-'}</div>}</div>
+
+                                <div>
+                                    <div className="hotel-inline-label">ASSIGNED SCREENS</div>
+                                    {!editMode ? (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
+                                            {(hotel.adminId?.permissions || []).map((permission) => (
+                                                <span key={permission} style={{ fontSize: '12px', fontWeight: '600', color: '#9f1239', background: '#ffe4e6', border: '1px solid #fecdd3', padding: '6px 10px', borderRadius: '999px' }}>{permission}</span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', padding: '10px', maxHeight: '220px', overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px', marginTop: '8px' }}>
+                                            {ADMIN_SCREEN_OPTIONS.map((permissionLabel) => {
+                                                const checked = editForm.adminPermissions.includes(permissionLabel);
+                                                return (
+                                                    <label key={permissionLabel} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', border: checked ? '1px solid #fb7185' : '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', background: checked ? '#fff1f2' : '#fff' }}>
+                                                        <input type="checkbox" checked={checked} onChange={() => toggleEditPermission(permissionLabel)} />
+                                                        <span>{permissionLabel}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="sa-card" style={{ marginBottom: '24px' }}>
+                        <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fef2f2 0%, #fff 100%)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'linear-gradient(135deg, #EF4444 0%, #E31E24 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '24px' }}><FaCalendarAlt /></div>
+                                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1f2937', margin: 0 }}>Subscription Information</h3>
+                            </div>
+                            <button type="button" className="icon-btn hotel-edit-icon" title="Edit" onClick={() => setEditMode(true)}><FaEdit /></button>
+                        </div>
+                        <div style={{ padding: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '18px' }}>
+                            <div>
+                                <div className="hotel-inline-label">PLAN</div>
+                                {editMode ? (
+                                    <select style={inputStyle} name="subscriptionPlan" value={editForm.subscriptionPlan} onChange={handleEditFieldChange}>
+                                        <option value="basic">Basic</option>
+                                        <option value="premium">Premium</option>
+                                    </select>
+                                ) : <div className="hotel-inline-value-bold">{hotel.subscription?.plan || '-'}</div>}
+                            </div>
+                            <div>
+                                <div className="hotel-inline-label">START DATE</div>
+                                {editMode ? <input style={inputStyle} type="date" name="subscriptionStartDate" value={editForm.subscriptionStartDate} onChange={handleEditFieldChange} /> : <div className="hotel-inline-value">{formatDate(hotel.subscription?.startDate)}</div>}
+                            </div>
+                            <div>
+                                <div className="hotel-inline-label">EXPIRY DATE</div>
+                                {editMode ? <input style={inputStyle} type="date" name="subscriptionExpiryDate" value={editForm.subscriptionExpiryDate} onChange={handleEditFieldChange} /> : <div className="hotel-inline-value">{formatDate(hotel.subscription?.expiryDate)}</div>}
+                            </div>
+                            <div>
+                                <div className="hotel-inline-label">DAYS REMAINING</div>
+                                <div style={{ fontWeight: 700, color: isExpired ? '#dc2626' : daysRemaining <= 7 ? '#b45309' : '#059669' }}>{isExpired ? 'Expired' : `${daysRemaining} days`}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        {hotel.isActive ? (
+                            <button className="action-btn danger" onClick={() => setActiveActionNote('suspend')} disabled={actionLoading}><FaTimesCircle /> Suspend Hotel</button>
+                        ) : (
+                            <button className="action-btn primary" onClick={handleActivate} disabled={actionLoading}><FaCheckCircle /> Activate Hotel</button>
+                        )}
+                        <button className="action-btn secondary" onClick={() => setActiveActionNote('renew')} disabled={actionLoading}><FaCalendarAlt /> Renew Subscription</button>
+                        <button className="action-btn secondary" onClick={() => setActiveActionNote('upgrade')} disabled={actionLoading}><FaCheckCircle /> Change Plan</button>
                     </div>
                 </div>
             </main>
         </div>
-
-        {/* Renew Subscription Modal */}
-        {showRenewModal && (
-            <div className="modal-overlay" onClick={() => setShowRenewModal(false)}>
-                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                    <div className="modal-header">
-                        <h3>Renew Subscription</h3>
-                        <button onClick={() => setShowRenewModal(false)} className="modal-close">
-                            ×
-                        </button>
-                    </div>
-                    
-                    <div className="modal-body">
-                        <div className="form-group">
-                            <label>Select Duration (Months)</label>
-                            <select
-                                value={renewDuration}
-                                onChange={(e) => setRenewDuration(e.target.value)}
-                            >
-                                <option value="1">1 Month</option>
-                                <option value="3">3 Months</option>
-                                <option value="6">6 Months</option>
-                                <option value="12">12 Months</option>
-                                <option value="24">24 Months</option>
-                            </select>
-                        </div>
-
-                        <div className="modal-actions">
-                            <button 
-                                onClick={() => setShowRenewModal(false)} 
-                                className="btn-cancel"
-                                disabled={actionLoading}
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={handleRenew} 
-                                className="btn-create"
-                                disabled={actionLoading}
-                            >
-                                {actionLoading ? 'Renewing...' : 'Renew'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {/* Upgrade Plan Modal */}
-        {showUpgradeModal && (
-            <div className="modal-overlay" onClick={() => setShowUpgradeModal(false)}>
-                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                    <div className="modal-header">
-                        <h3>Change Subscription Plan</h3>
-                        <button onClick={() => setShowUpgradeModal(false)} className="modal-close">
-                            ×
-                        </button>
-                    </div>
-                    
-                    <div className="modal-body">
-                        <div className="form-group">
-                            <label>Select Plan</label>
-                            <select
-                                value={upgradePlan}
-                                onChange={(e) => setUpgradePlan(e.target.value)}
-                            >
-                                <option value="basic">Basic</option>
-                                <option value="premium">Premium</option>
-                            </select>
-                        </div>
-
-                        <div className="modal-actions">
-                            <button 
-                                onClick={() => setShowUpgradeModal(false)} 
-                                className="btn-cancel"
-                                disabled={actionLoading}
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={handleUpgrade} 
-                                className="btn-create"
-                                disabled={actionLoading}
-                            >
-                                {actionLoading ? 'Updating...' : 'Update Plan'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )}
-    </>
     );
 };
 
