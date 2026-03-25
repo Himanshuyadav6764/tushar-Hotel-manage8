@@ -635,14 +635,13 @@ const PrintTemplates = ({ type, data, booking }) => {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <tbody>
                     <tr>
-<<<<<<< HEAD
                         <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>
                             Room Charges ({safeText(booking?.roomType || booking?.rooms?.[0]?.categoryId, 'Room')}) x {nights}
                         </td>
                         <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>
                             {amount(roomCharges)}
                         </td>
-                    </tr >
+                    </tr>
                     <tr>
                         <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Service Charges</td>
                         <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>
@@ -654,34 +653,34 @@ const PrintTemplates = ({ type, data, booking }) => {
                         <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', color: '#059669', fontWeight: 700 }}>
                             -{amount(effectiveDiscountAmount)}
                         </td>
-=======
+                    </tr>
+                    <tr>
                         <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>Sub Total</td>
-        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>{amount(fallbackSubTotal)}</td>
->>>>>>> origin/main
-    </tr>
-    <tr>
-        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>Grand Total</td>
-        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>{amount(fallbackGrandTotal)}</td>
-    </tr>
-    <tr>
-        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Paid</td>
-        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackPaid)}</td>
-    </tr>
-    <tr>
-        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Total Paid</td>
-        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackPaid)}</td>
-    </tr>
-    <tr>
-        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Current Balance</td>
-        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackBalance)}</td>
-    </tr>
-    <tr style={{ color: fallbackBalance > 0 ? '#b91c1c' : '#047857', fontWeight: 700 }}>
-        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Remaining</td>
-        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackBalance)}</td>
-    </tr>
-                </tbody >
-            </table >
-        </div >
+                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>{amount(fallbackSubTotal)}</td>
+                    </tr>
+                    <tr>
+                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>Grand Total</td>
+                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>{amount(fallbackGrandTotal)}</td>
+                    </tr>
+                    <tr>
+                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Paid</td>
+                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackPaid)}</td>
+                    </tr>
+                    <tr>
+                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Total Paid</td>
+                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackPaid)}</td>
+                    </tr>
+                    <tr>
+                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Current Balance</td>
+                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackBalance)}</td>
+                    </tr>
+                    <tr style={{ color: fallbackBalance > 0 ? '#b91c1c' : '#047857', fontWeight: 700 }}>
+                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Remaining</td>
+                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackBalance)}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     );
 
 const renderDocMeta = (title) => (
@@ -897,35 +896,22 @@ const renderFolioPrint = () => (
 
 const renderSummary = () => (
     <div className="print-summary">
-<<<<<<< HEAD
-<Header />
-{ renderDocMeta('Reservation Summary') }
-{ renderGuestAndStay() }
-{ renderBillBlock() }
-            <div style={{ fontSize: isNarrow ? '9px' : '11px' }}>
-                <p style={{ margin: '2px 0' }}><strong>Invoice Prefix:</strong> {safeText(settings.billingInvoicePrefix || settings.invoicePrefix, '-')}</p>
-                <p style={{ margin: '2px 0' }}><strong>Payment Mode:</strong> {paymentModeUsed}</p>
-                <p style={{ margin: '2px 0' }}><strong>Print Type:</strong> {format}</p>
-            </div>
-            <Footer />
-=======
-            {format === 'Thermal' || format === '3 inch' || format === '2 inch' ? renderFolioPrint() : (
-                <>
-                    <Header />
-                    {renderDocMeta('Reservation Summary')}
-                    {renderGuestAndStay()}
-                    {renderBillBlock()}
-                    <div style={{ fontSize: isNarrow ? '9px' : '11px' }}>
-                        <p style={{ margin: '2px 0' }}><strong>Invoice Prefix:</strong> {safeText(settings.billingInvoicePrefix || settings.invoicePrefix, '-')}</p>
-                        <p style={{ margin: '2px 0' }}><strong>Payment Modes:</strong> {paymentModes.length ? paymentModes.join(', ') : 'N/A'}</p>
-                        <p style={{ margin: '2px 0' }}><strong>Print Type:</strong> {format}</p>
-                    </div>
-                    <Footer />
-                </>
-            )}
->>>>>>> origin/main
-        </div >
-    );
+        {format === 'Thermal' || format === '3 inch' || format === '2 inch' ? renderFolioPrint() : (
+            <>
+                <Header />
+                {renderDocMeta('Reservation Summary')}
+                {renderGuestAndStay()}
+                {renderBillBlock()}
+                <div style={{ fontSize: isNarrow ? '9px' : '11px' }}>
+                    <p style={{ margin: '2px 0' }}><strong>Invoice Prefix:</strong> {safeText(settings.billingInvoicePrefix || settings.invoicePrefix, '-')}</p>
+                    <p style={{ margin: '2px 0' }}><strong>Payment Mode:</strong> {paymentModeUsed || (paymentModes?.length ? paymentModes.join(', ') : 'N/A')}</p>
+                    <p style={{ margin: '2px 0' }}><strong>Print Type:</strong> {format}</p>
+                </div>
+                <Footer />
+            </>
+        )}
+    </div>
+);
 
 const renderGRC = (person = null) => {
     const p = person || { name: booking?.guestName, phone: booking?.guestPhone || booking?.mobileNumber, type: 'Main Guest' };
