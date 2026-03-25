@@ -353,7 +353,7 @@ const PrintTemplates = ({ type, data, booking }) => {
             || extractAmountFromText(rawText, ['Discount']);
         let service = asPositive(meta.serviceChargeAmount ?? meta.serviceCharge ?? tx.serviceChargeAmount ?? tx.serviceCharge)
             || extractAmountFromText(rawText, ['Service Charge', 'Service']);
-        
+
         const taxes = getTaxBreakup(tx, meta);
         const particulars = safeText(tx.particulars || tx.particular || tx.label || tx.category || (type === 'payment' ? 'Payment' : 'Charge'));
 
@@ -635,13 +635,14 @@ const PrintTemplates = ({ type, data, booking }) => {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <tbody>
                     <tr>
+<<<<<<< HEAD
                         <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>
                             Room Charges ({safeText(booking?.roomType || booking?.rooms?.[0]?.categoryId, 'Room')}) x {nights}
                         </td>
                         <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>
                             {amount(roomCharges)}
                         </td>
-                    </tr>
+                    </tr >
                     <tr>
                         <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Service Charges</td>
                         <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>
@@ -653,129 +654,129 @@ const PrintTemplates = ({ type, data, booking }) => {
                         <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', color: '#059669', fontWeight: 700 }}>
                             -{amount(effectiveDiscountAmount)}
                         </td>
-                    </tr>
-                    <tr>
+=======
                         <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>Sub Total</td>
-                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>{amount(fallbackSubTotal)}</td>
-                    </tr>
-                    <tr>
-                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>Grand Total</td>
-                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>{amount(fallbackGrandTotal)}</td>
-                    </tr>
-                    <tr>
-                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Paid</td>
-                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackPaid)}</td>
-                    </tr>
-                    <tr>
-                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Total Paid</td>
-                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackPaid)}</td>
-                    </tr>
-                    <tr>
-                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Current Balance</td>
-                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackBalance)}</td>
-                    </tr>
-                    <tr style={{ color: fallbackBalance > 0 ? '#b91c1c' : '#047857', fontWeight: 700 }}>
-                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Remaining</td>
-                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackBalance)}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>{amount(fallbackSubTotal)}</td>
+>>>>>>> origin/main
+    </tr>
+    <tr>
+        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>Grand Total</td>
+        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>{amount(fallbackGrandTotal)}</td>
+    </tr>
+    <tr>
+        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Paid</td>
+        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackPaid)}</td>
+    </tr>
+    <tr>
+        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Total Paid</td>
+        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackPaid)}</td>
+    </tr>
+    <tr>
+        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Current Balance</td>
+        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackBalance)}</td>
+    </tr>
+    <tr style={{ color: fallbackBalance > 0 ? '#b91c1c' : '#047857', fontWeight: 700 }}>
+        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Remaining</td>
+        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackBalance)}</td>
+    </tr>
+                </tbody >
+            </table >
+        </div >
     );
 
-    const renderDocMeta = (title) => (
-        <div style={{ marginBottom: isNarrow ? '8px' : '14px' }}>
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                backgroundColor: '#f3f4f6',
-                border: '1px solid #ddd',
-                padding: isNarrow ? '6px' : '10px',
-                gap: '8px'
-            }}>
-                <h2 style={{ margin: 0, fontSize: isNarrow ? '11px' : '16px', textTransform: 'uppercase' }}>{title}</h2>
-                <div style={{ textAlign: 'right', fontSize: isNarrow ? '9px' : '12px' }}>
-                    <div><strong>Doc No:</strong> {safeText(booking?.invoiceId || booking?.invoiceNumber || `${safeText(settings.billingInvoicePrefix || settings.invoicePrefix, 'INV')}${bookingRef}`)}</div>
-                    <div><strong>Date:</strong> {formatDate(new Date())}</div>
-                </div>
-            </div>
-        </div>
-    );
-
-    const renderGuestAndStay = () => (
+const renderDocMeta = (title) => (
+    <div style={{ marginBottom: isNarrow ? '8px' : '14px' }}>
         <div style={{
-            display: 'grid',
-            gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr',
-            gap: isNarrow ? '8px' : '20px',
-            marginBottom: isNarrow ? '8px' : '16px'
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            backgroundColor: '#f3f4f6',
+            border: '1px solid #ddd',
+            padding: isNarrow ? '6px' : '10px',
+            gap: '8px'
         }}>
-            <div style={{ border: '1px solid #ddd', padding: isNarrow ? '6px' : '10px' }}>
-                <p style={{ margin: '0 0 6px 0', fontWeight: 700, textTransform: 'uppercase', fontSize: isNarrow ? '9px' : '11px' }}>Guest Details</p>
-                <p style={{ margin: '3px 0' }}><strong>Name:</strong> {safeText(booking?.guestName)}</p>
-                <p style={{ margin: '3px 0' }}><strong>Phone:</strong> {safeText(booking?.guestPhone || booking?.mobileNumber, '-')}</p>
-                <p style={{ margin: '3px 0' }}><strong>Email:</strong> {safeText(booking?.guestEmail || booking?.email, '-')}</p>
-            </div>
-            <div style={{ border: '1px solid #ddd', padding: isNarrow ? '6px' : '10px' }}>
-                <p style={{ margin: '0 0 6px 0', fontWeight: 700, textTransform: 'uppercase', fontSize: isNarrow ? '9px' : '11px' }}>Stay Details</p>
-                <p style={{ margin: '3px 0' }}><strong>Booking Ref:</strong> {bookingRef}</p>
-                <p style={{ margin: '3px 0' }}><strong>Room:</strong> {safeText(booking?.roomNumber, 'TBD')} ({safeText(booking?.roomType || booking?.rooms?.[0]?.categoryId, 'N/A')})</p>
-                <p style={{ margin: '3px 0' }}><strong>Check-in:</strong> {formatDate(booking?.checkInDate)}</p>
-                <p style={{ margin: '3px 0' }}><strong>Check-out:</strong> {formatDate(booking?.checkOutDate)}</p>
-                <p style={{ margin: '3px 0' }}><strong>Nights:</strong> {nights}</p>
+            <h2 style={{ margin: 0, fontSize: isNarrow ? '11px' : '16px', textTransform: 'uppercase' }}>{title}</h2>
+            <div style={{ textAlign: 'right', fontSize: isNarrow ? '9px' : '12px' }}>
+                <div><strong>Doc No:</strong> {safeText(booking?.invoiceId || booking?.invoiceNumber || `${safeText(settings.billingInvoicePrefix || settings.invoicePrefix, 'INV')}${bookingRef}`)}</div>
+                <div><strong>Date:</strong> {formatDate(new Date())}</div>
             </div>
         </div>
-    );
+    </div>
+);
 
-    const renderFolioPrint = () => (
-        <div className="thermal-print" style={{
-            fontFamily: '"Inter", sans-serif',
-            color: '#111',
-            margin: '0 auto',
-            width: '100%',
-            maxWidth: '300px',
-            fontSize: '11px',
-            lineHeight: '1.4'
-        }}>
-            {/* Header */}
-            <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-                {settings.displayLogoOnBill && settings.logoUrl && (
-                    <img src={settings.logoUrl} alt="Logo" style={{ maxHeight: '40px', objectFit: 'contain', marginBottom: '5px' }} />
-                )}
-                <h1 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 'bold' }}>{safeText(settings.name, 'Hotel Name')}</h1>
-                
-                <hr style={{ border: 'none', borderTop: '1px solid #000', margin: '4px 0' }} />
-                
-                <p style={{ margin: '2px 0' }}>{[settings.address, settings.city, `Pincode ${settings.pin}`].filter(Boolean).join(', ')}</p>
-                <p style={{ margin: '2px 0' }}>Phone: {safeText(settings.phone, '-')} | Email: {safeText(settings.email, 'info@hotelname.com')}</p>
-                
-                <hr style={{ border: 'none', borderTop: '1px solid #000', margin: '4px 0 8px 0' }} />
-                
-                <h2 style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>Guest Folio</h2>
-            </div>
+const renderGuestAndStay = () => (
+    <div style={{
+        display: 'grid',
+        gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr',
+        gap: isNarrow ? '8px' : '20px',
+        marginBottom: isNarrow ? '8px' : '16px'
+    }}>
+        <div style={{ border: '1px solid #ddd', padding: isNarrow ? '6px' : '10px' }}>
+            <p style={{ margin: '0 0 6px 0', fontWeight: 700, textTransform: 'uppercase', fontSize: isNarrow ? '9px' : '11px' }}>Guest Details</p>
+            <p style={{ margin: '3px 0' }}><strong>Name:</strong> {safeText(booking?.guestName)}</p>
+            <p style={{ margin: '3px 0' }}><strong>Phone:</strong> {safeText(booking?.guestPhone || booking?.mobileNumber, '-')}</p>
+            <p style={{ margin: '3px 0' }}><strong>Email:</strong> {safeText(booking?.guestEmail || booking?.email, '-')}</p>
+        </div>
+        <div style={{ border: '1px solid #ddd', padding: isNarrow ? '6px' : '10px' }}>
+            <p style={{ margin: '0 0 6px 0', fontWeight: 700, textTransform: 'uppercase', fontSize: isNarrow ? '9px' : '11px' }}>Stay Details</p>
+            <p style={{ margin: '3px 0' }}><strong>Booking Ref:</strong> {bookingRef}</p>
+            <p style={{ margin: '3px 0' }}><strong>Room:</strong> {safeText(booking?.roomNumber, 'TBD')} ({safeText(booking?.roomType || booking?.rooms?.[0]?.categoryId, 'N/A')})</p>
+            <p style={{ margin: '3px 0' }}><strong>Check-in:</strong> {formatDate(booking?.checkInDate)}</p>
+            <p style={{ margin: '3px 0' }}><strong>Check-out:</strong> {formatDate(booking?.checkOutDate)}</p>
+            <p style={{ margin: '3px 0' }}><strong>Nights:</strong> {nights}</p>
+        </div>
+    </div>
+);
 
-            {/* Meta Data */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginBottom: '10px' }}>
-                <div>Folio No: {bookingRef}</div>
-                <div style={{ textAlign: 'right' }}>Date: {formatDate(new Date())}</div>
-                <div>Room No: {safeText(booking?.roomNumber, 'TBD')}</div>
-                <div style={{ textAlign: 'right' }}>Room No: {safeText(booking?.roomNumber, 'TBD')}</div>
-                <div>Guest Name: {safeText(booking?.guestName, '-')}</div>
-                <div style={{ textAlign: 'right' }}>Guest Sprmas</div>
-            </div>
+const renderFolioPrint = () => (
+    <div className="thermal-print" style={{
+        fontFamily: '"Inter", sans-serif',
+        color: '#111',
+        margin: '0 auto',
+        width: '100%',
+        maxWidth: '300px',
+        fontSize: '11px',
+        lineHeight: '1.4'
+    }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+            {settings.displayLogoOnBill && settings.logoUrl && (
+                <img src={settings.logoUrl} alt="Logo" style={{ maxHeight: '40px', objectFit: 'contain', marginBottom: '5px' }} />
+            )}
+            <h1 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 'bold' }}>{safeText(settings.name, 'Hotel Name')}</h1>
 
-            {/* List Format per Particular */}
-            {chargeLines.map((line, idx) => {
-                const lineType = String(line.type || '').toLowerCase();
-                const particularText = String(line.particulars || '').toLowerCase();
-                const isFoodLine = lineType === 'food' || particularText.includes('restaurant') || particularText.includes('food');
-                const isLaundryLine = lineType === 'laundry' || particularText.includes('laundry');
-                const isRoomLine = lineType === 'room' || particularText.includes('room');
-                const combinedFoodGst = isFoodLine
-                    ? Number(((line.foodGst || 0) + (line.cgst || 0) + (line.sgst || 0)).toFixed(2))
-                    : 0;
+            <hr style={{ border: 'none', borderTop: '1px solid #000', margin: '4px 0' }} />
 
-                return (
+            <p style={{ margin: '2px 0' }}>{[settings.address, settings.city, `Pincode ${settings.pin}`].filter(Boolean).join(', ')}</p>
+            <p style={{ margin: '2px 0' }}>Phone: {safeText(settings.phone, '-')} | Email: {safeText(settings.email, 'info@hotelname.com')}</p>
+
+            <hr style={{ border: 'none', borderTop: '1px solid #000', margin: '4px 0 8px 0' }} />
+
+            <h2 style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>Guest Folio</h2>
+        </div>
+
+        {/* Meta Data */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginBottom: '10px' }}>
+            <div>Folio No: {bookingRef}</div>
+            <div style={{ textAlign: 'right' }}>Date: {formatDate(new Date())}</div>
+            <div>Room No: {safeText(booking?.roomNumber, 'TBD')}</div>
+            <div style={{ textAlign: 'right' }}>Room No: {safeText(booking?.roomNumber, 'TBD')}</div>
+            <div>Guest Name: {safeText(booking?.guestName, '-')}</div>
+            <div style={{ textAlign: 'right' }}>Guest Sprmas</div>
+        </div>
+
+        {/* List Format per Particular */}
+        {chargeLines.map((line, idx) => {
+            const lineType = String(line.type || '').toLowerCase();
+            const particularText = String(line.particulars || '').toLowerCase();
+            const isFoodLine = lineType === 'food' || particularText.includes('restaurant') || particularText.includes('food');
+            const isLaundryLine = lineType === 'laundry' || particularText.includes('laundry');
+            const isRoomLine = lineType === 'room' || particularText.includes('room');
+            const combinedFoodGst = isFoodLine
+                ? Number(((line.foodGst || 0) + (line.cgst || 0) + (line.sgst || 0)).toFixed(2))
+                : 0;
+
+            return (
                 <div key={line.id || idx} style={{ marginBottom: '8px' }}>
                     {/* Block Header */}
                     <div style={{
@@ -854,48 +855,60 @@ const PrintTemplates = ({ type, data, booking }) => {
                             </div>
                         )}
                     </div>
-                    
+
                     <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '2px 0' }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px', fontWeight: 'bold' }}>
                         <span>Total</span>
                         <span>Total: {amount(line.lineAmount)}</span>
                     </div>
                 </div>
-                );
-            })}
+            );
+        })}
 
-            <hr style={{ border: 'none', borderTop: '1px solid #d1d5db', margin: '10px 0' }} />
+        <hr style={{ border: 'none', borderTop: '1px solid #d1d5db', margin: '10px 0' }} />
 
-            {/* Summary Block */}
-            <div style={{ marginBottom: '15px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
-                    <span>Sub Total</span>
-                    <span style={{ fontWeight: 'bold', color: '#b91c1c' }}>Total: {amount(fallbackSubTotal)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0', fontSize: '10px' }}>
-                    <span>Grand Total</span>
-                    <span style={{ fontWeight: 'bold', color: '#b91c1c' }}>{amount(fallbackGrandTotal)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
-                    <span>Paid</span>
-                    <span style={{ fontWeight: 'bold', color: '#047857' }}>{amount(fallbackPaid)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
-                    <span>Remaining</span>
-                    <span style={{ fontWeight: 'bold', color: '#047857' }}>Current Balance: {amount(fallbackBalance)}</span>
-                </div>
+        {/* Summary Block */}
+        <div style={{ marginBottom: '15px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
+                <span>Sub Total</span>
+                <span style={{ fontWeight: 'bold', color: '#b91c1c' }}>Total: {amount(fallbackSubTotal)}</span>
             </div>
-
-            {/* Footer */}
-            <hr style={{ border: 'none', borderTop: '1px dashed #000', margin: '10px 0' }} />
-            <div style={{ textAlign: 'center', fontStyle: 'italic', fontWeight: 'bold' }}>
-                Thank You!
+            <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0', fontSize: '10px' }}>
+                <span>Grand Total</span>
+                <span style={{ fontWeight: 'bold', color: '#b91c1c' }}>{amount(fallbackGrandTotal)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
+                <span>Paid</span>
+                <span style={{ fontWeight: 'bold', color: '#047857' }}>{amount(fallbackPaid)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
+                <span>Remaining</span>
+                <span style={{ fontWeight: 'bold', color: '#047857' }}>Current Balance: {amount(fallbackBalance)}</span>
             </div>
         </div>
-    );
 
-    const renderSummary = () => (
-        <div className="print-summary">
+        {/* Footer */}
+        <hr style={{ border: 'none', borderTop: '1px dashed #000', margin: '10px 0' }} />
+        <div style={{ textAlign: 'center', fontStyle: 'italic', fontWeight: 'bold' }}>
+            Thank You!
+        </div>
+    </div>
+);
+
+const renderSummary = () => (
+    <div className="print-summary">
+<<<<<<< HEAD
+<Header />
+{ renderDocMeta('Reservation Summary') }
+{ renderGuestAndStay() }
+{ renderBillBlock() }
+            <div style={{ fontSize: isNarrow ? '9px' : '11px' }}>
+                <p style={{ margin: '2px 0' }}><strong>Invoice Prefix:</strong> {safeText(settings.billingInvoicePrefix || settings.invoicePrefix, '-')}</p>
+                <p style={{ margin: '2px 0' }}><strong>Payment Mode:</strong> {paymentModeUsed}</p>
+                <p style={{ margin: '2px 0' }}><strong>Print Type:</strong> {format}</p>
+            </div>
+            <Footer />
+=======
             {format === 'Thermal' || format === '3 inch' || format === '2 inch' ? renderFolioPrint() : (
                 <>
                     <Header />
@@ -904,111 +917,112 @@ const PrintTemplates = ({ type, data, booking }) => {
                     {renderBillBlock()}
                     <div style={{ fontSize: isNarrow ? '9px' : '11px' }}>
                         <p style={{ margin: '2px 0' }}><strong>Invoice Prefix:</strong> {safeText(settings.billingInvoicePrefix || settings.invoicePrefix, '-')}</p>
-                        <p style={{ margin: '2px 0' }}><strong>Payment Mode:</strong> {paymentModeUsed || (paymentModes.length ? paymentModes.join(', ') : 'N/A')}</p>
+                        <p style={{ margin: '2px 0' }}><strong>Payment Modes:</strong> {paymentModes.length ? paymentModes.join(', ') : 'N/A'}</p>
                         <p style={{ margin: '2px 0' }}><strong>Print Type:</strong> {format}</p>
                     </div>
                     <Footer />
                 </>
             )}
-        </div>
+>>>>>>> origin/main
+        </div >
     );
 
-    const renderGRC = (person = null) => {
-        const p = person || { name: booking?.guestName, phone: booking?.guestPhone || booking?.mobileNumber, type: 'Main Guest' };
-        return (
-            <div className="print-grc" style={{ pageBreakAfter: 'always' }}>
-                <Header />
-                <div style={{ textAlign: 'center', backgroundColor: '#f3f4f6', padding: isNarrow ? '6px' : '10px', marginBottom: isNarrow ? '10px' : '20px' }}>
-                    <h2 style={{ margin: 0, fontSize: isNarrow ? '11px' : '18px' }}>GUEST REGISTRATION CARD (GRC)</h2>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: isNarrow ? '10px' : '20px', marginBottom: isNarrow ? '10px' : '20px' }}>
-                    <div style={{ border: '1px solid #ddd', padding: isNarrow ? '8px' : '15px' }}>
-                        <p style={{ color: '#666', fontSize: '11px', margin: '0 0 5px 0' }}>GUEST DETAILS</p>
-                        <p style={{ fontSize: '16px', margin: '0 0 5px 0' }}><strong>{p.name}</strong></p>
-                        <p style={{ margin: '2px 0' }}>Type: {p.type}</p>
-                        <p style={{ margin: '2px 0' }}>Phone: {p.phone}</p>
-                        {p.email && <p style={{ margin: '2px 0' }}>Email: {p.email}</p>}
-                    </div>
-                    <div style={{ border: '1px solid #ddd', padding: isNarrow ? '8px' : '15px' }}>
-                        <p style={{ color: '#666', fontSize: '11px', margin: '0 0 5px 0' }}>STAY DETAILS</p>
-                        <p style={{ margin: '2px 0' }}><strong>Ref:</strong> {bookingRef}</p>
-                        <p style={{ margin: '2px 0' }}><strong>Room:</strong> {safeText(booking?.roomNumber, 'TBD')} ({safeText(booking?.roomType, 'N/A')})</p>
-                        <p style={{ margin: '2px 0' }}><strong>Check-in:</strong> {formatDate(booking?.checkInDate)}</p>
-                        <p style={{ margin: '2px 0' }}><strong>Check-out:</strong> {formatDate(booking?.checkOutDate)}</p>
-                    </div>
-                </div>
-
-                <div style={{ border: '1px solid #ddd', padding: isNarrow ? '8px' : '15px', marginBottom: isNarrow ? '10px' : '20px', minHeight: isNarrow ? '70px' : '100px' }}>
-                    <p style={{ color: '#666', fontSize: '11px', margin: '0 0 10px 0' }}>ID PROOF / ADDRESS</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: '20px' }}>
-                        <div>Type: ___________________</div>
-                        <div>Number: _________________</div>
-                    </div>
-                    <div style={{ marginTop: '20px' }}>
-                        Address: ___________________________________________________________
-                    </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: isNarrow ? '15px' : '50px', marginTop: isNarrow ? '24px' : '60px' }}>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ borderTop: '1px solid #000', paddingTop: '5px' }}>Guest Signature</div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ borderTop: '1px solid #000', paddingTop: '5px' }}>Front Office Executive</div>
-                    </div>
-                </div>
-                <Footer />
-            </div>
-        );
-    };
-
-    const renderGRCAll = () => (
-        <div className="print-grc-all">
-            {data?.selectedData?.map((p, idx) => (
-                <div key={p.id || idx}>
-                    {renderGRC(p)}
-                </div>
-            ))}
-        </div>
-    );
-
-    const renderInvoice = () => (
-        <div className="print-invoice">
-            {format === 'Thermal' || format === '3 inch' || format === '2 inch' || isNarrow ? renderFolioPrint() : (
-                <>
-                    <Header />
-                    {renderDocMeta('Tax Invoice')}
-                    {renderGuestAndStay()}
-                    {renderBillBlock()}
-                    <Footer />
-                </>
-            )}
-        </div>
-    );
-
-    const content = () => {
-        switch (type) {
-            case 'print-summary': return renderSummary();
-            case 'print-grc': return renderGRC();
-            case 'print-grc-all': return renderGRCAll();
-            case 'print-invoice': return renderInvoice();
-            default: return null;
-        }
-    };
-
+const renderGRC = (person = null) => {
+    const p = person || { name: booking?.guestName, phone: booking?.guestPhone || booking?.mobileNumber, type: 'Main Guest' };
     return (
-        <div style={{
-            width: cfg.bodyWidth,
-            margin: '0 auto',
-            fontSize: cfg.fontSize,
-            color: '#000',
-            fontFamily: 'Inter, system-ui, sans-serif'
-        }}>
-            <style>{pageStyle}</style>
-            {content()}
+        <div className="print-grc" style={{ pageBreakAfter: 'always' }}>
+            <Header />
+            <div style={{ textAlign: 'center', backgroundColor: '#f3f4f6', padding: isNarrow ? '6px' : '10px', marginBottom: isNarrow ? '10px' : '20px' }}>
+                <h2 style={{ margin: 0, fontSize: isNarrow ? '11px' : '18px' }}>GUEST REGISTRATION CARD (GRC)</h2>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: isNarrow ? '10px' : '20px', marginBottom: isNarrow ? '10px' : '20px' }}>
+                <div style={{ border: '1px solid #ddd', padding: isNarrow ? '8px' : '15px' }}>
+                    <p style={{ color: '#666', fontSize: '11px', margin: '0 0 5px 0' }}>GUEST DETAILS</p>
+                    <p style={{ fontSize: '16px', margin: '0 0 5px 0' }}><strong>{p.name}</strong></p>
+                    <p style={{ margin: '2px 0' }}>Type: {p.type}</p>
+                    <p style={{ margin: '2px 0' }}>Phone: {p.phone}</p>
+                    {p.email && <p style={{ margin: '2px 0' }}>Email: {p.email}</p>}
+                </div>
+                <div style={{ border: '1px solid #ddd', padding: isNarrow ? '8px' : '15px' }}>
+                    <p style={{ color: '#666', fontSize: '11px', margin: '0 0 5px 0' }}>STAY DETAILS</p>
+                    <p style={{ margin: '2px 0' }}><strong>Ref:</strong> {bookingRef}</p>
+                    <p style={{ margin: '2px 0' }}><strong>Room:</strong> {safeText(booking?.roomNumber, 'TBD')} ({safeText(booking?.roomType, 'N/A')})</p>
+                    <p style={{ margin: '2px 0' }}><strong>Check-in:</strong> {formatDate(booking?.checkInDate)}</p>
+                    <p style={{ margin: '2px 0' }}><strong>Check-out:</strong> {formatDate(booking?.checkOutDate)}</p>
+                </div>
+            </div>
+
+            <div style={{ border: '1px solid #ddd', padding: isNarrow ? '8px' : '15px', marginBottom: isNarrow ? '10px' : '20px', minHeight: isNarrow ? '70px' : '100px' }}>
+                <p style={{ color: '#666', fontSize: '11px', margin: '0 0 10px 0' }}>ID PROOF / ADDRESS</p>
+                <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: '20px' }}>
+                    <div>Type: ___________________</div>
+                    <div>Number: _________________</div>
+                </div>
+                <div style={{ marginTop: '20px' }}>
+                    Address: ___________________________________________________________
+                </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: isNarrow ? '15px' : '50px', marginTop: isNarrow ? '24px' : '60px' }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ borderTop: '1px solid #000', paddingTop: '5px' }}>Guest Signature</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ borderTop: '1px solid #000', paddingTop: '5px' }}>Front Office Executive</div>
+                </div>
+            </div>
+            <Footer />
         </div>
     );
+};
+
+const renderGRCAll = () => (
+    <div className="print-grc-all">
+        {data?.selectedData?.map((p, idx) => (
+            <div key={p.id || idx}>
+                {renderGRC(p)}
+            </div>
+        ))}
+    </div>
+);
+
+const renderInvoice = () => (
+    <div className="print-invoice">
+        {format === 'Thermal' || format === '3 inch' || format === '2 inch' || isNarrow ? renderFolioPrint() : (
+            <>
+                <Header />
+                {renderDocMeta('Tax Invoice')}
+                {renderGuestAndStay()}
+                {renderBillBlock()}
+                <Footer />
+            </>
+        )}
+    </div>
+);
+
+const content = () => {
+    switch (type) {
+        case 'print-summary': return renderSummary();
+        case 'print-grc': return renderGRC();
+        case 'print-grc-all': return renderGRCAll();
+        case 'print-invoice': return renderInvoice();
+        default: return null;
+    }
+};
+
+return (
+    <div style={{
+        width: cfg.bodyWidth,
+        margin: '0 auto',
+        fontSize: cfg.fontSize,
+        color: '#000',
+        fontFamily: 'Inter, system-ui, sans-serif'
+    }}>
+        <style>{pageStyle}</style>
+        {content()}
+    </div>
+);
 };
 
 export default PrintTemplates;
