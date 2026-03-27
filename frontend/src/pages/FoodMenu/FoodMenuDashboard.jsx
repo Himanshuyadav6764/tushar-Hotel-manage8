@@ -1,6 +1,6 @@
 // Simplified Food Menu Component for Dashboard Integration
 import React, { useState, useEffect } from 'react';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import { useSettings } from '../../context/SettingsContext';
 
 const DEFAULT_CATEGORIES = ['Starters', 'Main Course', 'Breakfast', 'Rice', 'Desserts', 'Beverages', 'Chinese', 'Continental'];
@@ -176,7 +176,7 @@ const FoodMenuDashboard = () => {
 
     const fetchMenuItems = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/menu/list`);
+            const response = await apiCall(`/api/menu/list`);
             const data = await response.json();
             if (data.success) {
                 setMenuItems(data.data);
@@ -204,7 +204,7 @@ const FoodMenuDashboard = () => {
         };
 
         try {
-            const response = await fetch(`${API_URL}/api/menu/add`, {
+            const response = await apiCall(`/api/menu/add`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newItem),
@@ -250,7 +250,7 @@ const FoodMenuDashboard = () => {
         };
 
         try {
-            const response = await fetch(`${API_URL}/api/menu/update/${editingItem._id}`, {
+            const response = await apiCall(`/api/menu/update/${editingItem._id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatedItem),
@@ -271,7 +271,7 @@ const FoodMenuDashboard = () => {
     const handleToggleStatus = async (item) => {
         const newStatus = item.status === 'Active' ? 'Inactive' : 'Active';
         try {
-            const response = await fetch(`${API_URL}/api/menu/update/${item._id}`, {
+            const response = await apiCall(`/api/menu/update/${item._id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus }),
@@ -289,7 +289,7 @@ const FoodMenuDashboard = () => {
 
     const handleDeleteItem = async (id) => {
         try {
-            const response = await fetch(`${API_URL}/api/menu/delete/${id}`, {
+            const response = await apiCall(`/api/menu/delete/${id}`, {
                 method: 'DELETE',
             });
             if (response.ok) {
@@ -775,7 +775,7 @@ const FoodMenuDashboard = () => {
                         overflow: 'hidden',
                         animation: 'slideInRight 0.5s cubic-bezier(0.19, 1, 0.22, 1)'
                     }}>
-                    <style>{`
+                        <style>{`
                         @keyframes fadeIn {
                             from { opacity: 0; }
                             to { opacity: 1; }

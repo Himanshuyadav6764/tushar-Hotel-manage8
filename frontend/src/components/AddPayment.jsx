@@ -215,10 +215,17 @@ const AddPayment = ({ onClose, onAdd, reservation, lockToFolio = false, fixedFol
     };
 
     const getDisplayAmount = (transaction) => {
+        const ledgerAmount = Math.abs(toNumber(transaction?.amount, 0));
+        if (ledgerAmount > 0) {
+            return ledgerAmount;
+        }
+
+        // Legacy fallback only when historical entries don't have amount stored.
         if (isRoomChargeTransaction(transaction)) {
             return toNumber(roomChargeFinal, 0);
         }
-        return Math.abs(toNumber(transaction?.amount, 0));
+
+        return 0;
     };
 
     const folioGuests = useMemo(() => {
@@ -285,8 +292,8 @@ const AddPayment = ({ onClose, onAdd, reservation, lockToFolio = false, fixedFol
         const expectedPrimary = Math.max(0, overall - otherFoliosTotal);
         const currentPrimary = Math.max(0, toNumber(balanceMap[0], 0));
 
-        // Keep primary folio in sync with the most reliable overall outstanding amount.
-        balanceMap[0] = Math.max(currentPrimary, expectedPrimary);
+        // Keep primary folio aligned with folio ledger. Only fallback to overall when ledger is empty.
+        balanceMap[0] = currentPrimary > 0 ? currentPrimary : expectedPrimary;
         return balanceMap;
     }, [reservation?.transactions, folioGuests, balance, roomChargeFinal]);
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import './RoomDetailsPanel.css';
 import { useSettings } from '../../context/SettingsContext';
 
@@ -25,8 +25,8 @@ const RoomDetailsPanel = ({ roomId, isOpen, onClose, onUpdateStatus, onEdit, onQ
         try {
             // Parallel fetch for room details and facility types
             const [roomRes, facilitiesRes] = await Promise.all([
-                fetch(`${API_URL}/api/rooms/${roomId}`),
-                fetch(`${API_URL}/api/facility-types/list`)
+                apiCall(`/api/rooms/${roomId}`),
+                apiCall(`/api/facility-types/list`)
             ]);
 
             const roomData = await roomRes.json();
@@ -67,7 +67,7 @@ const RoomDetailsPanel = ({ roomId, isOpen, onClose, onUpdateStatus, onEdit, onQ
 
     const fetchBookingsForRoom = async (roomNumber) => {
         try {
-            const response = await fetch(`${API_URL}/api/bookings/room/${roomNumber}`);
+            const response = await apiCall(`/api/bookings/room/${roomNumber}`);
             const data = await response.json();
             if (data.success) {
                 // Filter out checked out and cancelled to show only active/future bookings
@@ -84,7 +84,7 @@ const RoomDetailsPanel = ({ roomId, isOpen, onClose, onUpdateStatus, onEdit, onQ
     const handleBlockForMaintenance = async () => {
         if (!room) return;
         try {
-            const response = await fetch(`${API_URL}/api/rooms/status/${room._id}`, {
+            const response = await apiCall(`/api/rooms/status/${room._id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: 'Under Maintenance' })
@@ -154,7 +154,7 @@ const RoomDetailsPanel = ({ roomId, isOpen, onClose, onUpdateStatus, onEdit, onQ
                             </div>
                             <div className="header-text">
                                 <h2>ROOM DETAILS – Room {room?.roomNumber || '...'}</h2>
-                                <span style={{fontSize: '11px', opacity: 0.9, textTransform: 'uppercase'}}>Live Preview & Actions</span>
+                                <span style={{ fontSize: '11px', opacity: 0.9, textTransform: 'uppercase' }}>Live Preview & Actions</span>
                             </div>
                             <button className="panel-close-btn" onClick={onClose}>✕</button>
                         </div>

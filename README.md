@@ -32,3 +32,17 @@ A comprehensive MERN stack application for hotel management.
 
 The application will be available at `http://localhost:5173`.
 The backend API runs on `http://localhost:5000`.
+
+## Security Testing
+
+From `backend/` run:
+
+```bash
+npm run security:smoke
+```
+
+```bash
+npm run security:zap:baseline
+```
+
+Detailed Burp Suite and OWASP ZAP workflow is available in `backend/SECURITY_TESTING.md`.

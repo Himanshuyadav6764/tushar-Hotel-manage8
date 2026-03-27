@@ -18,7 +18,7 @@ import PrintGRCAllForm from './forms/PrintGRCAllForm';
 import SendInvoiceForm from './forms/SendInvoiceForm';
 import AddVisitorDrawer from './visitors/AddVisitorDrawer';
 import PrintTemplates from './PrintTemplates';
-import API_URL from '../config/api';
+import API_URL, { apiCall } from '../config/api';
 import soundManager from '../utils/soundManager';
 
 const ACTION_CONFIG = {
@@ -53,14 +53,29 @@ const BookingActionsManager = ({ isOpen, onClose, actionType, booking, onSuccess
             if (actionType === 'send-invoice') {
                 // Handle send invoice logic here
             } else {
+                let latestBooking = booking;
+                const bookingId = booking?._id || booking?.id;
+
+                if (bookingId) {
+                    try {
+                        const latestResp = await apiCall(`/api/bookings/${bookingId}`);
+                        const latestJson = await latestResp.json();
+                        if (latestResp.ok && latestJson?.success && latestJson?.data) {
+                            latestBooking = { ...booking, ...latestJson.data };
+                        }
+                    } catch (fetchErr) {
+                        console.warn('Unable to refresh latest booking before printing:', fetchErr);
+                    }
+                }
+
                 console.log(`🖨️ Printing ${actionType}...`, formData);
-                setPrintData({ type: actionType, data: formData });
+                setPrintData({ type: actionType, data: formData, booking: latestBooking });
 
                 // Use a short timeout to ensure the print template is rendered
                 setTimeout(() => {
                     window.print();
                     setPrintData(null);
-                    onSuccess?.(booking);
+                    onSuccess?.(latestBooking);
                     onClose();
                 }, 500);
             }
@@ -80,7 +95,7 @@ const BookingActionsManager = ({ isOpen, onClose, actionType, booking, onSuccess
 
         setIsSubmitting(true);
         try {
-            const response = await fetch(`${API_URL}${config.endpoint(bookingId)}`, {
+            const response = await apiCall(`${config.endpoint(bookingId)}`, {
                 method: config.method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
@@ -163,7 +178,7 @@ const BookingActionsManager = ({ isOpen, onClose, actionType, booking, onSuccess
             {/* Hidden Print Area */}
             {printData && (
                 <div className="print-only-container" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'white', zIndex: 99999 }}>
-                    <PrintTemplates type={printData.type} data={printData.data} booking={booking} />
+                    <PrintTemplates type={printData.type} data={printData.data} booking={printData.booking || booking} />
                 </div>
             )}
 

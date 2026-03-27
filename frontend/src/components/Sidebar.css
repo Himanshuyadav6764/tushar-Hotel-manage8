@@ -31,10 +31,12 @@
 }
 
 .sidebar-logo {
-    height: 44px;
+    height: 60px;
     width: auto;
     object-fit: contain;
     margin-right: 6px;
+    mix-blend-mode: multiply;
+    filter: brightness(1.2) contrast(1.1) saturate(1.8);
 }
 
 .sidebar-close-btn {

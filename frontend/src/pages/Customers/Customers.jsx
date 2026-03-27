@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import BookingActionsManager from '../../components/BookingActionsManager';
 import './Customers.css';
 
@@ -20,6 +20,59 @@ const pickNumber = (...values) => {
     return undefined;
 };
 
+const normalizeStatus = (value) => {
+    const rawStatus = String(value || '').toUpperCase();
+    if (rawStatus === 'CHECKED-IN' || rawStatus === 'IN_HOUSE' || rawStatus === 'CHECKED IN') return 'IN_HOUSE';
+    if (rawStatus === 'CHECKED-OUT' || rawStatus === 'CHECKED OUT') return 'CHECKED_OUT';
+    if (rawStatus === 'CANCELLED') return 'CANCELLED';
+    return 'RESERVED';
+};
+
+const mapBookingToCustomer = (booking) => {
+    const status = normalizeStatus(booking.status);
+    const roomNum = booking.rooms?.[0]?.roomNumber || booking.roomNumber || 'TBD';
+
+    return {
+        id: booking._id || booking.id,
+        name: booking.guestName || 'N/A',
+        email: booking.email || booking.guestEmail || 'N/A',
+        phone: booking.mobileNumber || booking.guestPhone || 'N/A',
+        room: roomNum,
+        checkIn: booking.checkInDate,
+        checkOut: booking.checkOutDate,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt,
+        status,
+        bookingNumber: booking.bookingNumber || booking.bookingId || booking.reservationNumber || booking.confirmationNo || booking._id || booking.id,
+        reservationType: booking.reservationType || booking.bookingType || booking.type || 'N/A',
+        bookingSource: booking.bookingSource || booking.businessSource || booking.source || 'Direct',
+        paymentMode: booking.paymentMode || booking.billing?.paymentMode || 'N/A',
+        adults: toNumber(booking.adults ?? booking.noOfAdults ?? booking.totalAdults ?? 1, 1),
+        children: toNumber(booking.children ?? booking.noOfChildren ?? booking.totalChildren ?? 0, 0),
+        roomCharges: toNumber(booking.roomCharge ?? booking.roomCharges ?? booking.roomTotal ?? booking.tariff ?? booking.billing?.roomCharges, 0),
+        extraCharges: toNumber(booking.extraCharges ?? booking.additionalCharges ?? booking.serviceCharges, 0),
+        discount: toNumber(booking.discountAmount ?? booking.discount, 0),
+        totalAmount: toNumber(booking.totalAmount ?? booking.grandTotal ?? booking.billing?.totalAmount, 0),
+        paidAmount: toNumber(booking.paidAmount ?? booking.totalPaid ?? booking.advanceAmount, 0),
+        balanceAmount: toNumber(
+            booking.folioRemainingAmount
+            ?? booking.remainingAmount
+            ?? booking.balanceDue
+            ?? booking.dueAmount
+            ?? booking.balanceAmount
+            ?? booking.billing?.balanceAmount,
+            0
+        ),
+        idType: booking.idType || booking.identityType || 'N/A',
+        idNumber: booking.idNumber || booking.identityNumber || booking.aadharNumber || 'N/A',
+        address: booking.address || booking.city || 'N/A',
+        nationality: booking.nationality || 'N/A',
+        rawBooking: booking,
+        isCurrent: status === 'IN_HOUSE',
+        isPast: status === 'CHECKED_OUT'
+    };
+};
+
 const Customers = () => {
     const [activeTab, setActiveTab] = useState('current');
     const [searchTerm, setSearchTerm] = useState('');
@@ -33,6 +86,7 @@ const Customers = () => {
     const [openPrintMenu, setOpenPrintMenu] = useState(null);
     const [activePrintAction, setActivePrintAction] = useState(null);
     const [activePrintBooking, setActivePrintBooking] = useState(null);
+    const [detailsLoadingId, setDetailsLoadingId] = useState(null);
 
     // Fetch bookings from API
     const fetchBookingsData = async () => {
@@ -41,8 +95,8 @@ const Customers = () => {
 
             // Fetch from both endpoints to get all data
             const [bookingsResponse, reservationsResponse] = await Promise.all([
-                fetch(`${API_URL}/api/bookings/list`).catch(err => ({ ok: false })),
-                fetch(`${API_URL}/api/reservations/list`).catch(err => ({ ok: false }))
+                apiCall(`/api/bookings/list`).catch(err => ({ ok: false })),
+                apiCall(`/api/reservations/list`).catch(err => ({ ok: false }))
             ]);
 
             let allBookings = [];
@@ -76,54 +130,9 @@ const Customers = () => {
             const uniqueBookings = Array.from(uniqueMap.values());
 
             // Transform booking data to customer format
-            const customers = uniqueBookings.map(booking => {
-                // Normalize status
-                let status = 'RESERVED';
-                const rawStatus = booking.status?.toUpperCase() || '';
-
-                if (rawStatus === 'CHECKED-IN' || rawStatus === 'IN_HOUSE' || rawStatus === 'CHECKED IN') {
-                    status = 'IN_HOUSE';
-                } else if (rawStatus === 'CHECKED-OUT' || rawStatus === 'CHECKED OUT') {
-                    status = 'CHECKED_OUT';
-                } else if (rawStatus === 'RESERVED' || rawStatus === 'CONFIRMED') {
-                    status = 'RESERVED';
-                } else if (rawStatus === 'CANCELLED') {
-                    status = 'CANCELLED';
-                }
-
-                // Get Room Number safely
-                const roomNum = booking.rooms?.[0]?.roomNumber || booking.roomNumber || 'TBD';
-
-                return {
-                    id: booking._id || booking.id,
-                    name: booking.guestName || 'N/A',
-                    email: booking.email || booking.guestEmail || 'N/A',
-                    phone: booking.mobileNumber || booking.guestPhone || 'N/A',
-                    room: roomNum,
-                    checkIn: booking.checkInDate,
-                    checkOut: booking.checkOutDate,
-                    createdAt: booking.createdAt,
-                    updatedAt: booking.updatedAt,
-                    status: status,
-                    bookingNumber: booking.bookingNumber || booking.bookingId || booking.reservationNumber || booking.confirmationNo || booking._id || booking.id,
-                    adults: toNumber(booking.adults ?? booking.noOfAdults ?? booking.totalAdults ?? 1, 1),
-                    children: toNumber(booking.children ?? booking.noOfChildren ?? booking.totalChildren ?? 0, 0),
-                    roomCharges: toNumber(booking.roomCharge ?? booking.roomCharges ?? booking.roomTotal ?? booking.tariff ?? booking.billing?.roomCharges, 0),
-                    extraCharges: toNumber(booking.extraCharges ?? booking.additionalCharges ?? booking.serviceCharges, 0),
-                    discount: toNumber(booking.discountAmount ?? booking.discount, 0),
-                    paidAmount: toNumber(booking.paidAmount ?? booking.totalPaid ?? booking.advanceAmount, 0),
-                    balanceAmount: toNumber(booking.remainingAmount ?? booking.dueAmount ?? booking.balanceAmount, 0),
-                    idType: booking.idType || booking.identityType || 'N/A',
-                    idNumber: booking.idNumber || booking.identityNumber || booking.aadharNumber || 'N/A',
-                    address: booking.address || booking.city || 'N/A',
-                    nationality: booking.nationality || 'N/A',
-                    rawBooking: booking,
-                    // Use normalized status for boolean flags. 
-                    // Current Guest = IN_HOUSE
-                    isCurrent: status === 'IN_HOUSE',
-                    isPast: status === 'CHECKED_OUT'
-                };
-            }).filter(c => c.status === 'IN_HOUSE' || c.status === 'CHECKED_OUT'); // Only show Active or Past guests
+            const customers = uniqueBookings
+                .map(mapBookingToCustomer)
+                .filter(c => c.status === 'IN_HOUSE' || c.status === 'CHECKED_OUT');
 
             setCustomersData(customers);
         } catch (error) {
@@ -260,8 +269,71 @@ const Customers = () => {
         return () => clearTimeout(timer);
     }, [pendingDeleteId]);
 
-    const handleViewDetails = (customerId) => {
+    const fetchLatestCustomerReservation = async (customerId) => {
+        const currentCustomer = customersData.find((item) => item.id === customerId);
+        if (!currentCustomer) return;
+
+        setDetailsLoadingId(customerId);
+        try {
+            const [bookingResult, reservationResult] = await Promise.allSettled([
+                apiCall(`/api/bookings/${customerId}`),
+                apiCall(`/api/reservations/${customerId}`)
+            ]);
+
+            const readPayload = async (result) => {
+                if (result.status !== 'fulfilled' || !result.value?.ok) return null;
+                const payload = await result.value.json();
+                return payload?.success ? payload.data : null;
+            };
+
+            const latestBooking = (await readPayload(bookingResult)) || (await readPayload(reservationResult));
+            if (!latestBooking) return;
+
+            const mergedBooking = { ...(currentCustomer.rawBooking || {}), ...latestBooking };
+            const mappedCustomer = mapBookingToCustomer(mergedBooking);
+
+            setCustomersData((prev) => prev.map((item) => (
+                item.id === customerId
+                    ? {
+                        ...mappedCustomer,
+                        id: item.id,
+                        isCurrent: mappedCustomer.status === 'IN_HOUSE',
+                        isPast: mappedCustomer.status === 'CHECKED_OUT'
+                    }
+                    : item
+            )));
+        } catch (error) {
+            console.error('Error fetching latest reservation details:', error);
+        } finally {
+            setDetailsLoadingId(null);
+        }
+    };
+
+    const getCustomerHistory = (customer) => {
+        const phoneKey = String(customer?.phone || '').trim();
+        const emailKey = String(customer?.email || '').trim().toLowerCase();
+        const nameKey = String(customer?.name || '').trim().toLowerCase();
+
+        return customersData
+            .filter((item) => {
+                const samePhone = phoneKey && phoneKey !== 'N/A' && String(item.phone || '').trim() === phoneKey;
+                const sameEmail = emailKey && emailKey !== 'n/a' && String(item.email || '').trim().toLowerCase() === emailKey;
+                const sameName = nameKey && nameKey !== 'n/a' && String(item.name || '').trim().toLowerCase() === nameKey;
+                return samePhone || sameEmail || sameName;
+            })
+            .sort((a, b) => {
+                const aTime = new Date(a.updatedAt || a.createdAt || a.checkIn || 0).getTime();
+                const bTime = new Date(b.updatedAt || b.createdAt || b.checkIn || 0).getTime();
+                return bTime - aTime;
+            });
+    };
+
+    const handleViewDetails = async (customerId) => {
+        const willOpen = selectedCustomerId !== customerId;
         setSelectedCustomerId((currentId) => (currentId === customerId ? null : customerId));
+        if (willOpen) {
+            await fetchLatestCustomerReservation(customerId);
+        }
     };
 
     const buildPrintBooking = (customer) => {
@@ -471,7 +543,7 @@ const Customers = () => {
 
     const handleCheckOut = async (id) => {
         try {
-            const response = await fetch(`${API_URL}/api/bookings/status/${id}`, {
+            const response = await apiCall(`/api/bookings/status/${id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -489,7 +561,7 @@ const Customers = () => {
 
     const handleDelete = async (id) => {
         try {
-            const response = await fetch(`${API_URL}/api/bookings/delete/${id}`, {
+            const response = await apiCall(`/api/bookings/delete/${id}`, {
                 method: 'DELETE',
             });
             const data = await response.json();
@@ -746,6 +818,60 @@ const Customers = () => {
                                                         <div className="selected-card-item">
                                                             <span>Check-out</span>
                                                             <strong>{formatDateTime(customer.checkOut)}</strong>
+                                                        </div>
+                                                    </div>
+
+                                                    {detailsLoadingId === customer.id && (
+                                                        <p className="customer-detail-loading">Refreshing latest reservation details...</p>
+                                                    )}
+
+                                                    <div className="selected-section">
+                                                        <p className="selected-section-title">Reservation Details</p>
+                                                        <div className="selected-card-grid">
+                                                            <div className="selected-card-item">
+                                                                <span>Booking Ref</span>
+                                                                <strong>{customer.bookingNumber || customer.id}</strong>
+                                                            </div>
+                                                            <div className="selected-card-item">
+                                                                <span>Reservation Type</span>
+                                                                <strong>{customer.reservationType || 'N/A'}</strong>
+                                                            </div>
+                                                            <div className="selected-card-item">
+                                                                <span>Booking Source</span>
+                                                                <strong>{customer.bookingSource || 'Direct'}</strong>
+                                                            </div>
+                                                            <div className="selected-card-item">
+                                                                <span>Total Amount</span>
+                                                                <strong>Rs {toNumber(customer.totalAmount, 0).toLocaleString('en-IN')}</strong>
+                                                            </div>
+                                                            <div className="selected-card-item">
+                                                                <span>Total Paid</span>
+                                                                <strong>Rs {toNumber(customer.paidAmount, 0).toLocaleString('en-IN')}</strong>
+                                                            </div>
+                                                            <div className="selected-card-item">
+                                                                <span>Remaining Due</span>
+                                                                <strong>Rs {Math.max(0, toNumber(customer.balanceAmount, 0)).toLocaleString('en-IN')}</strong>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="selected-section">
+                                                        <p className="selected-section-title">Past & Current Reservations</p>
+                                                        <div className="reservation-history-list">
+                                                            {getCustomerHistory(customer).slice(0, 6).map((item) => (
+                                                                <div key={`${customer.id}-${item.id}-${item.checkIn || item.createdAt}`} className="reservation-history-item">
+                                                                    <div className="reservation-history-main">
+                                                                        <strong>{item.status === 'IN_HOUSE' ? 'Current Stay' : 'Past Stay'}</strong>
+                                                                        <span>{formatDate(item.checkIn)} - {formatDate(item.checkOut)}</span>
+                                                                    </div>
+                                                                    <div className="reservation-history-meta">
+                                                                        <span>Room {item.room || 'TBD'}</span>
+                                                                        <span className={`history-chip ${item.status === 'IN_HOUSE' ? 'chip-current' : 'chip-past'}`}>
+                                                                            {item.status === 'IN_HOUSE' ? 'CURRENT' : 'PAST'}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
                                                         </div>
                                                     </div>
                                                 </div>

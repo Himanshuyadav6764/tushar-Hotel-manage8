@@ -54,35 +54,35 @@ import './SuperAdminDashboard.css';
 const HotelsManagement = () => {
     const { logout, user } = useAuth();
     const navigate = useNavigate();
-    
+
     // UI States
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionLoading, setActionLoading] = useState(null);
-    
+
     // Data States
     const [hotels, setHotels] = useState([]);
     const [selectedHotels, setSelectedHotels] = useState([]);
-    
+
     // Filter & Search States
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [filterPlan, setFilterPlan] = useState('all');
     const [filterExpiry, setFilterExpiry] = useState('all');
     const [showFilters, setShowFilters] = useState(false);
-    
+
     // Sorting States
     const [sortField, setSortField] = useState('createdAt');
     const [sortDirection, setSortDirection] = useState('desc');
-    
+
     // Pagination States
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
-    
+
     // View State
     const [viewMode, setViewMode] = useState('table'); // 'table' or 'grid'
-    
+
     // Modals
     const [showBulkActions, setShowBulkActions] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
@@ -179,21 +179,6 @@ const HotelsManagement = () => {
         });
     };
 
-    const getStatusBadge = (hotel) => {
-        const daysLeft = getDaysLeft(hotel.subscription?.expiryDate);
-        const isActive = hotel.isActive && hotel.subscription?.isActive;
-        
-        if (!isActive) {
-            return <span className="badge badge-danger">Suspended</span>;
-        } else if (daysLeft < 0) {
-            return <span className="badge badge-danger">Expired</span>;
-        } else if (daysLeft <= 7) {
-            return <span className="badge badge-warning">Expiring Soon</span>;
-        } else {
-            return <span className="badge badge-success">Active</span>;
-        }
-    };
-
     // Filter & Sort Logic
     const filteredAndSortedHotels = useMemo(() => {
         let filtered = [...hotels];
@@ -211,16 +196,16 @@ const HotelsManagement = () => {
         // Status filter
         if (filterStatus !== 'all') {
             filtered = filtered.filter(hotel => {
-                const isActive = hotel.isActive && hotel.subscription?.isActive;
+                const isActive = hotel.adminId?._id ? hotel.adminId?.isActive !== false : false;
                 const daysLeft = getDaysLeft(hotel.subscription?.expiryDate);
-                
-                switch(filterStatus) {
+
+                switch (filterStatus) {
                     case 'active':
-                        return isActive && daysLeft > 7;
+                        return isActive;
                     case 'suspended':
                         return !isActive;
                     case 'expiring':
-                        return isActive && daysLeft <= 7 && daysLeft >= 0;
+                        return daysLeft <= 7 && daysLeft >= 0;
                     case 'expired':
                         return daysLeft < 0;
                     default:
@@ -238,7 +223,7 @@ const HotelsManagement = () => {
         if (filterExpiry !== 'all') {
             filtered = filtered.filter(hotel => {
                 const daysLeft = getDaysLeft(hotel.subscription?.expiryDate);
-                switch(filterExpiry) {
+                switch (filterExpiry) {
                     case 'week':
                         return daysLeft <= 7 && daysLeft >= 0;
                     case 'month':
@@ -254,8 +239,8 @@ const HotelsManagement = () => {
         // Sorting
         filtered.sort((a, b) => {
             let aValue, bValue;
-            
-            switch(sortField) {
+
+            switch (sortField) {
                 case 'name':
                     aValue = a.name?.toLowerCase() || '';
                     bValue = b.name?.toLowerCase() || '';
@@ -348,14 +333,35 @@ const HotelsManagement = () => {
         setActionLoading(hotelId);
         try {
             const token = user?.token;
-            await axios.patch(
-                `/api/super-admin/suspend/${hotelId}`,
-                {},
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const targetHotel = hotels.find((item) => item._id === hotelId);
+            const adminId = targetHotel?.adminId?._id;
+
+            try {
+                await axios.patch(
+                    `/api/super-admin/hotel/${hotelId}/toggle-admin-account`,
+                    {},
+                    config
+                );
+            } catch (primaryError) {
+                try {
+                    await axios.patch(
+                        `/api/super-admin/hotels/${hotelId}/toggle-admin-account`,
+                        {},
+                        config
+                    );
+                } catch (secondaryError) {
+                    if (!adminId) {
+                        throw secondaryError;
+                    }
+
+                    // Compatibility fallback for older backend builds.
+                    await axios.put(`/api/staff/toggle/${adminId}`, {}, config);
+                }
+            }
 
             await fetchHotels();
-            setStatusNote({ type: 'success', message: 'Hotel status updated successfully.' });
+            setStatusNote({ type: 'success', message: 'Admin account status updated successfully.' });
         } catch (err) {
             setStatusNote({ type: 'error', message: 'Failed to update status: ' + (err.response?.data?.message || err.message) });
         } finally {
@@ -375,7 +381,7 @@ const HotelsManagement = () => {
         try {
             const token = user?.token;
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            
+
             await Promise.all(
                 selectedHotels.map(hotelId =>
                     axios.patch(`/api/super-admin/renew/${hotelId}`, { days }, config)
@@ -402,7 +408,7 @@ const HotelsManagement = () => {
         try {
             const token = user?.token;
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            
+
             await Promise.all(
                 selectedHotels.map(hotelId =>
                     axios.patch(`/api/super-admin/suspend/${hotelId}`, {}, config)
@@ -634,6 +640,13 @@ const HotelsManagement = () => {
                     </button>
                     <button
                         className="sa-nav-item"
+                        onClick={() => navigate('/super-admin/activity-monitoring')}
+                    >
+                        <FaClock />
+                        Activity Monitoring
+                    </button>
+                    <button
+                        className="sa-nav-item"
                         onClick={handleLogout}
                     >
                         <MdLogout />
@@ -759,7 +772,7 @@ const HotelsManagement = () => {
                                 className="search-input"
                             />
                         </div>
-                        
+
                         <div className="action-bar-buttons">
                             <button
                                 className="filter-toggle-btn"
@@ -767,7 +780,7 @@ const HotelsManagement = () => {
                             >
                                 <FaFilter /> Filters
                             </button>
-                            
+
                             {selectedHotels.length > 0 && (
                                 <>
                                     <button
@@ -786,14 +799,14 @@ const HotelsManagement = () => {
                                     </button>
                                 </>
                             )}
-                            
+
                             <button
                                 className="action-btn secondary"
                                 onClick={handleExportCSV}
                             >
                                 <FaDownload /> Export CSV
                             </button>
-                            
+
                             <button
                                 className="action-btn primary"
                                 onClick={() => navigate('/super-admin/hotels/create')}
@@ -821,7 +834,7 @@ const HotelsManagement = () => {
                                         <option value="expired">Expired</option>
                                     </select>
                                 </div>
-                                
+
                                 <div>
                                     <label>Plan</label>
                                     <select
@@ -834,7 +847,7 @@ const HotelsManagement = () => {
                                         <option value="premium">Premium</option>
                                     </select>
                                 </div>
-                                
+
                                 <div>
                                     <label>Expiry</label>
                                     <select
@@ -849,7 +862,7 @@ const HotelsManagement = () => {
                                     </select>
                                 </div>
                             </div>
-                            
+
                             <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
                                 <button onClick={clearFilters} className="action-btn secondary">
                                     Clear Filters
@@ -877,7 +890,7 @@ const HotelsManagement = () => {
                                                 onClick={toggleSelectAll}
                                                 className="checkbox-btn"
                                             >
-                                                {selectedHotels.length === paginatedHotels.length && paginatedHotels.length > 0 ? 
+                                                {selectedHotels.length === paginatedHotels.length && paginatedHotels.length > 0 ?
                                                     <FaCheckSquare /> : <FaSquare />}
                                             </button>
                                         </th>
@@ -899,8 +912,8 @@ const HotelsManagement = () => {
                                     {paginatedHotels.length > 0 ? (
                                         paginatedHotels.map((hotel) => {
                                             const daysLeft = getDaysLeft(hotel.subscription?.expiryDate);
-                                            const isActive = hotel.isActive && hotel.subscription?.isActive;
-                                            
+                                            const isAdminActive = hotel.adminId?._id ? hotel.adminId?.isActive !== false : false;
+
                                             return (
                                                 <tr key={hotel._id} className={selectedHotels.includes(hotel._id) ? 'selected' : ''}>
                                                     <td>
@@ -908,7 +921,7 @@ const HotelsManagement = () => {
                                                             onClick={() => toggleSelectHotel(hotel._id)}
                                                             className="checkbox-btn"
                                                         >
-                                                            {selectedHotels.includes(hotel._id) ? 
+                                                            {selectedHotels.includes(hotel._id) ?
                                                                 <FaCheckSquare /> : <FaSquare />}
                                                         </button>
                                                     </td>
@@ -921,6 +934,13 @@ const HotelsManagement = () => {
                                                         <div className="text-xs opacity-70">
                                                             {hotel.adminId?.email || hotel.adminId?.username || '-'}
                                                         </div>
+                                                        {hotel.adminId?._id && (
+                                                            <div style={{ marginTop: '6px' }}>
+                                                                <span className={`badge ${isAdminActive ? 'badge-success' : 'badge-danger'}`}>
+                                                                    {isAdminActive ? 'Admin Active' : 'Admin Disabled'}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                         {hotel.adminId?._id && (
                                                             <div className="permission-pill-row">
                                                                 <span className="permission-count-pill">
@@ -943,7 +963,19 @@ const HotelsManagement = () => {
                                                         </div>
                                                     </td>
                                                     <td>
-                                                        {getStatusBadge(hotel)}
+                                                        <button
+                                                            type="button"
+                                                            className={`badge ${isAdminActive ? 'badge-success' : 'badge-danger'}`}
+                                                            onClick={() => handleToggleStatus(hotel._id)}
+                                                            disabled={actionLoading === hotel._id || !hotel.adminId?._id}
+                                                            title={isAdminActive ? 'Click to suspend account' : 'Click to activate account'}
+                                                            style={{
+                                                                border: 'none',
+                                                                cursor: actionLoading === hotel._id || !hotel.adminId?._id ? 'not-allowed' : 'pointer'
+                                                            }}
+                                                        >
+                                                            {isAdminActive ? 'Active' : 'Suspended'}
+                                                        </button>
                                                     </td>
                                                     <td>
                                                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
@@ -956,8 +988,9 @@ const HotelsManagement = () => {
                                                             </button>
                                                             <button
                                                                 className="icon-btn permission-icon-btn"
-                                                                title="Assign Permissions"
-                                                                onClick={() => handleAssignPermissions(hotel)}
+                                                                title={isAdminActive ? 'Suspend Admin Account' : 'Activate Admin Account'}
+                                                                onClick={() => handleToggleStatus(hotel._id)}
+                                                                disabled={actionLoading === hotel._id || !hotel.adminId?._id}
                                                             >
                                                                 <FaUserShield />
                                                             </button>
@@ -978,11 +1011,11 @@ const HotelsManagement = () => {
                                                             </button>
                                                             <button
                                                                 className="icon-btn icon-btn-toggle"
-                                                                title={isActive ? 'Suspend' : 'Activate'}
+                                                                title={isAdminActive ? 'Disable Admin Account' : 'Activate Admin Account'}
                                                                 onClick={() => handleToggleStatus(hotel._id)}
-                                                                disabled={actionLoading === hotel._id}
+                                                                disabled={actionLoading === hotel._id || !hotel.adminId?._id}
                                                             >
-                                                                {isActive ? <FaBan /> : <FaCheck />}
+                                                                {isAdminActive ? <FaBan /> : <FaCheck />}
                                                             </button>
                                                         </div>
                                                     </td>
@@ -1013,11 +1046,11 @@ const HotelsManagement = () => {
                                 >
                                     Previous
                                 </button>
-                                
+
                                 <div className="pagination-info">
                                     Page {currentPage} of {totalPages}
                                 </div>
-                                
+
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                     disabled={currentPage === totalPages}

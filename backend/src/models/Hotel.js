@@ -37,6 +37,7 @@ const hotelSchema = new mongoose.Schema({
         lowercase: true
     },
     logoUrl: { type: String, default: null },
+    qrCodeUrl: { type: String, default: null },
 
     // Regional Settings
     currency: { type: String, default: 'INR (₹)' },
@@ -136,6 +137,23 @@ const hotelSchema = new mongoose.Schema({
     adminId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
+    },
+    adminCredentialSnapshot: {
+        email: {
+            type: String,
+            trim: true,
+            lowercase: true,
+            default: ''
+        },
+        passwordEncrypted: {
+            type: String,
+            default: '',
+            select: false
+        },
+        updatedAt: {
+            type: Date,
+            default: null
+        }
     }
 }, {
     timestamps: true

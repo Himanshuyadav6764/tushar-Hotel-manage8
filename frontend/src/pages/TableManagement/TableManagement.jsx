@@ -3,7 +3,7 @@ import './TableManagement.css';
 import ReservationModal from '../../components/ReservationModal';
 import ReservationListModal from '../../components/ReservationListModal';
 import { useSettings } from '../../context/SettingsContext';
-import API_URL_CONFIG from '../../config/api';
+import API_URL_CONFIG, { apiCall } from '../../config/api';
 
 const TableManagement = () => {
     const { getCurrencySymbol } = useSettings();
@@ -78,7 +78,7 @@ const TableManagement = () => {
     const fetchTables = async () => {
         try {
             // setLoading(true); // Don't show loading on every refresh to avoid flicker
-            const response = await fetch(`${API_URL_CONFIG}/api/tables/list`);
+            const response = await apiCall(`/api/tables/list`);
             const data = await response.json();
             if (data.success) {
                 console.log('📊 Fetched tables:', data.data.length, 'tables');
@@ -253,7 +253,7 @@ const TableManagement = () => {
     // Submit Reservation
     const handleReservationSubmit = async (formData) => {
         try {
-            const response = await fetch(`${API_URL_CONFIG}/api/tables/${selectedTableForReservation._id}/reserve`, {
+            const response = await apiCall(`/api/tables/${selectedTableForReservation._id}/reserve`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
@@ -283,7 +283,7 @@ const TableManagement = () => {
 
         try {
             const tableId = selectedTableForList._id;
-            const response = await fetch(`${API_URL_CONFIG}/api/tables/${tableId}/reserve/${reservationId}`, {
+            const response = await apiCall(`/api/tables/${tableId}/reserve/${reservationId}`, {
                 method: 'DELETE'
             });
 
@@ -380,7 +380,7 @@ const TableManagement = () => {
 
             console.log('Creating table with payload:', payload);
 
-            const response = await fetch(`${API_URL_CONFIG}/api/tables`, {
+            const response = await apiCall(`/api/tables`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -785,9 +785,9 @@ const TableManagement = () => {
                                 <label className="field-label-premium">SPLIT INTO</label>
                                 <div className="input-with-icon-premium">
                                     <span className="field-icon">🔗</span>
-                                    <select 
-                                        className="premium-input-field" 
-                                        value={splitParts} 
+                                    <select
+                                        className="premium-input-field"
+                                        value={splitParts}
                                         onChange={handleSplitPartsChange}
                                         style={{ appearance: 'none', paddingLeft: '40px' }}
                                     >

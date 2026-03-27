@@ -878,8 +878,8 @@ exports.sendToCashier = async (req, res) => {
         // Update table status to indicate billing phase
         const table = await Table.findById(order.tableId);
         if (table) {
-            console.log(`[sendToCashier] Updating table ${table.tableName} status to Billed`);
-            table.status = 'Billed'; // Table UI usually treats 'Billed' as yellow/attention needed
+            console.log(`[sendToCashier] Updating table ${table.tableName} status to Running`);
+            table.status = 'Running'; // Keeping it running until Cashier processes it
             await table.save();
         }
 
@@ -1514,15 +1514,12 @@ exports.settleOrder = async (req, res) => {
         order.$locals.skipFinancialRecalc = true;
         await order.save();
 
-        // 4. Release Table
+        // 4. Set to Billed (Custom User Flow: Billed means Payment Completed, waiting for table clear)
         const Table = require('../models/Table');
         const table = await Table.findById(order.tableId);
         if (table) {
-            table.status = 'Available';
-            table.currentOrderId = null;
-            table.runningOrderAmount = 0;
-            table.orderStartTime = null;
-            table.orderDuration = 0;
+            table.status = 'Billed';
+            // Keeping currentOrderId so the table continues to show the billed amount until manually cleared
             await table.save();
         }
 

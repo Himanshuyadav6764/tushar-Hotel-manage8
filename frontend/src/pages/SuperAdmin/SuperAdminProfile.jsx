@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { apiCall } from '../../config/api';
 import '../Profile/MyProfile.css';
 
 const SuperAdminProfile = () => {
-    const { user } = useAuth();
+    const { user, updateUser } = useAuth();
 
     // Form state
     const [formData, setFormData] = useState({
         fullName: user?.name || '',
         email: user?.username || user?.email || '',
-        role: 'Super Administrator'
+        role: 'Super Administrator',
+        image: user?.image || ''
     });
 
     const [passwordData, setPasswordData] = useState({
@@ -20,19 +23,51 @@ const SuperAdminProfile = () => {
 
     const [showPasswordError, setShowPasswordError] = useState('');
     const [showPasswordSuccess, setShowPasswordSuccess] = useState('');
+    const [loading, setLoading] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [photoPreview, setPhotoPreview] = useState(null);
+    const [updateError, setUpdateError] = useState('');
+    const [updateSuccess, setUpdateSuccess] = useState('');
+
+    // Fetch fresh profile data on mount
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const response = await apiCall('/api/super-admin/profile');
+                const data = await response.json();
+                if (data && updateUser) {
+                    updateUser(data);
+                }
+            } catch (error) {
+                console.error('Failed to sync profile:', error);
+            }
+        };
+        fetchProfile();
+    }, []);
+
+    // Keep form data in sync with AuthContext user
+    useEffect(() => {
+        if (user) {
+            setFormData({
+                fullName: user.name || '',
+                email: user.username || user.email || '',
+                role: 'Super Administrator',
+                image: user.image || ''
+            });
+            setPhotoPreview(user.image || null);
+        }
+    }, [user]);
 
     // Account activity data
     const accountActivity = {
         lastLogin: user?.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'N/A',
-        lastLoginIP: '192.168.1.100',
+        lastLoginIP: '192.168.1.100', // Mock IP or should come from user object if available
         accountCreated: user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'
     };
 
     // Get user initials
     const getUserInitials = (name) => {
-        const names = name?.split(' ') || [];
+        const names = name?.trim().split(' ') || [];
         if (names.length >= 2) {
             return (names[0][0] + names[names.length - 1][0]).toUpperCase();
         }
@@ -61,23 +96,72 @@ const SuperAdminProfile = () => {
     const handlePhotoUpload = (e) => {
         const file = e.target.files[0];
         if (file) {
+            // Check file size (limit to 2MB)
+            if (file.size > 2 * 1024 * 1024) {
+                alert('File is too large. Max size is 2MB.');
+                return;
+            }
+
+            // Check file type
+            if (!file.type.match('image.*')) {
+                alert('Please select an image file (PNG, JPG, etc).');
+                return;
+            }
+
             const reader = new FileReader();
             reader.onloadend = () => {
                 setPhotoPreview(reader.result);
+                // Trigger edit mode so the "Save Changes" button becomes visible
+                setEditMode(true);
             };
             reader.readAsDataURL(file);
         }
     };
 
-    // Handle save changes
-    const handleSaveChanges = () => {
-        console.log('Saving profile changes:', formData);
-        alert('Profile updated successfully!');
-        setEditMode(false);
+    // Handle save profile changes
+    const handleSaveChanges = async () => {
+        try {
+            setLoading(true);
+            setUpdateError('');
+            setUpdateSuccess('');
+
+            const response = await apiCall('/api/super-admin/profile', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: formData.fullName,
+                    image: photoPreview // Send the base64 string
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.user) {
+                setUpdateSuccess('Profile updated successfully!');
+                // Update the local auth context if possible
+                if (updateUser) {
+                    updateUser(data.user);
+                } else {
+                    // Fallback: manually update localStorage if updateUser is not available
+                    const savedUser = JSON.parse(localStorage.getItem('authUser') || '{}');
+                    const newUser = { ...savedUser, ...data.user };
+                    localStorage.setItem('authUser', JSON.stringify(newUser));
+                    // Note: This won't trigger re-render in other components unless AuthContext listens to LS
+                }
+                setEditMode(false);
+            } else {
+                setUpdateError(data.message || 'Failed to update profile');
+            }
+        } catch (error) {
+            console.error('Update profile error:', error);
+            setUpdateError('Network error. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Handle password update
-    const handlePasswordUpdate = (e) => {
+    const handlePasswordUpdate = async (e) => {
         e.preventDefault();
         setShowPasswordError('');
         setShowPasswordSuccess('');
@@ -98,17 +182,39 @@ const SuperAdminProfile = () => {
             return;
         }
 
-        // Success
-        setShowPasswordSuccess('Password changed successfully!');
-        setPasswordData({
-            currentPassword: '',
-            newPassword: '',
-            confirmPassword: ''
-        });
+        try {
+            setLoading(true);
+            const response = await apiCall('/api/super-admin/change-password', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    currentPassword: passwordData.currentPassword,
+                    newPassword: passwordData.newPassword
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.status === 200) {
+                setShowPasswordSuccess('Password changed successfully!');
+                setPasswordData({
+                    currentPassword: '',
+                    newPassword: '',
+                    confirmPassword: ''
+                });
+            } else {
+                setShowPasswordError(data.message || 'Failed to change password');
+            }
+        } catch (error) {
+            setShowPasswordError('Network error. Please try again.');
+        } finally {
+            setLoading(false);
+        }
 
         setTimeout(() => {
             setShowPasswordSuccess('');
-        }, 3000);
+            setShowPasswordError('');
+        }, 5000);
     };
 
     // Handle cancel
@@ -117,8 +223,12 @@ const SuperAdminProfile = () => {
         setFormData({
             fullName: user?.name || '',
             email: user?.username || user?.email || '',
-            role: 'Super Administrator'
+            role: 'Super Administrator',
+            image: user?.image || ''
         });
+        setPhotoPreview(user?.image || null);
+        setUpdateError('');
+        setUpdateSuccess('');
     };
 
     return (
@@ -173,7 +283,7 @@ const SuperAdminProfile = () => {
                             <input
                                 id="photo-upload"
                                 type="file"
-                                accept="image/*"
+                                accept="image/png, image/jpeg, image/jpg"
                                 onChange={handlePhotoUpload}
                                 style={{ display: 'none' }}
                             />
@@ -208,15 +318,35 @@ const SuperAdminProfile = () => {
                 >
                     <div className="card-header">
                         <h2>Personal Information</h2>
-                        <button
-                            className={`edit-btn ${editMode ? 'active' : ''}`}
-                            onClick={() => setEditMode(!editMode)}
-                        >
-                            {editMode ? '✕ Done Editing' : '✏️ Edit'}
-                        </button>
+                        {!editMode ? (
+                            <button
+                                className="edit-btn"
+                                onClick={() => setEditMode(true)}
+                            >
+                                ✏️ Edit
+                            </button>
+                        ) : (
+                            <button
+                                className="edit-btn active"
+                                onClick={handleCancel}
+                            >
+                                ✕ Cancel
+                            </button>
+                        )}
                     </div>
 
                     <div className="form-content">
+                        {updateError && (
+                            <div className="alert alert-error">
+                                ⚠️ {updateError}
+                            </div>
+                        )}
+
+                        {updateSuccess && (
+                            <div className="alert alert-success">
+                                ✓ {updateSuccess}
+                            </div>
+                        )}
                         <div className="form-grid">
                             {/* Full Name */}
                             <div className="form-group">
@@ -376,20 +506,33 @@ const SuperAdminProfile = () => {
                 </motion.div>
             </div>
 
-            {/* Action Buttons */}
+            {/* Action Buttons - Fixed at bottom for visibility */}
             {editMode && (
                 <motion.div 
-                    className="action-buttons"
-                    initial={{ opacity: 0, y: 20 }}
+                    className="action-buttons-sticky"
+                    initial={{ opacity: 0, y: 50 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
+                    exit={{ opacity: 0, y: 50 }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                 >
-                    <button className="btn btn-secondary" onClick={handleCancel}>
-                        Cancel
-                    </button>
-                    <button className="btn btn-primary" onClick={handleSaveChanges}>
-                        Save Changes
-                    </button>
+                    <div className="sticky-content">
+                        <div className="pending-indicator">
+                            <span className="dot"></span>
+                            You have unsaved changes
+                        </div>
+                        <div className="button-group">
+                            <button className="btn btn-secondary" onClick={handleCancel} disabled={loading}>
+                                Cancel
+                            </button>
+                            <button className="btn btn-primary btn-glow" onClick={handleSaveChanges} disabled={loading}>
+                                {loading ? (
+                                    <><span className="spinner"></span> Saving...</>
+                                ) : (
+                                    'Save Profile Changes'
+                                )}
+                            </button>
+                        </div>
+                    </div>
                 </motion.div>
             )}
         </div>

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import LogoNew from '../../assets/logo_new.jpg';
 import '../Login/Login.css'; // Import global Login styles
 import './SuperAdminLogin.css'; // Import specific overrides
 
@@ -10,11 +11,15 @@ const SuperAdminLogin = () => {
     const { login } = useAuth();
     const [formData, setFormData] = useState({
         email: '',
-        password: ''
+        password: '',
+        mfaCode: ''
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [infoMessage, setInfoMessage] = useState('');
+    const [mfaRequired, setMfaRequired] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const submitInFlightRef = useRef(false);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -23,24 +28,44 @@ const SuperAdminLogin = () => {
             [name]: value
         }));
         setError('');
+        setInfoMessage('');
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (loading || submitInFlightRef.current) {
+            return;
+        }
+
+        submitInFlightRef.current = true;
         setLoading(true);
         setError('');
+        setInfoMessage('');
 
-        const result = await login(formData.email, formData.password, 'admin');
+        try {
+            const result = await login(formData.email, formData.password, 'admin', {
+                mfaCode: mfaRequired ? formData.mfaCode : ''
+            });
 
-        if (result.success) {
-            if (result.user.role === 'super_admin') {
-                navigate('/super-admin/dashboard');
-            } else {
-                setError('Unauthorized access. Super Admins only.');
-                setLoading(false);
+            if (result.requiresMfa) {
+                setMfaRequired(true);
+                setInfoMessage(result.error || 'MFA code sent. Please verify to continue.');
+                return;
             }
-        } else {
-            setError(result.error || 'Login failed');
+
+            if (result.success) {
+                if (result.user.role === 'super_admin') {
+                    navigate('/super-admin/dashboard', { replace: true });
+                    return;
+                }
+
+                setError('Unauthorized access. Super Admins only.');
+            } else {
+                setError(result.error || 'Login failed');
+            }
+        } finally {
+            submitInFlightRef.current = false;
             setLoading(false);
         }
     };
@@ -57,8 +82,14 @@ const SuperAdminLogin = () => {
                 <div className="login-left">
                     <div className="branding-content">
                         <div className="logo-large">
-                            <h1>BIREENA ATITHI</h1>
-                            <div className="logo-subtitle super-admin-subtitle">Super Admin Portal</div>
+                            <img src={LogoNew} alt="BIREENA ATITHI" className="project-logo-large" style={{ mixBlendMode: 'multiply', height: '80px', width: 'auto' }} />
+                            <div className="sa-header-logo">
+                            <img src={LogoNew} alt="BIREENA ATITHI" className="project-logo-main" />
+                        </div>
+                        </div>
+
+                        <div className="sa-header-logo">
+                            <img src={LogoNew} alt="BIREENA ATITHI" className="project-logo-main" />
                         </div>
 
                         <div className="branding-text">
@@ -130,6 +161,41 @@ const SuperAdminLogin = () => {
                                 </div>
                             </div>
 
+                            {mfaRequired && (
+                                <div className="form-group">
+                                    <label htmlFor="mfaCode">MFA Code</label>
+                                    <div className="input-wrapper super-admin-input">
+                                        <input
+                                            type="text"
+                                            id="mfaCode"
+                                            name="mfaCode"
+                                            value={formData.mfaCode}
+                                            onChange={handleInputChange}
+                                            placeholder="Enter 6-digit code"
+                                            required={mfaRequired}
+                                            maxLength={6}
+                                            inputMode="numeric"
+                                            disabled={loading}
+                                        />
+                                        <span className="input-icon">#</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {infoMessage && (
+                                <div style={{
+                                    color: '#1e3a8a',
+                                    background: '#dbeafe',
+                                    padding: '10px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.9rem',
+                                    marginBottom: '1rem',
+                                    textAlign: 'center'
+                                }}>
+                                    {infoMessage}
+                                </div>
+                            )}
+
                             {error && (
                                 <div style={{
                                     color: '#E31E24',
@@ -149,7 +215,7 @@ const SuperAdminLogin = () => {
                                 className="login-btn super-admin-btn"
                                 disabled={loading}
                             >
-                                {loading ? 'Verifying...' : 'Access Dashboard'}
+                                {loading ? 'Verifying...' : (mfaRequired ? 'Verify MFA & Access' : 'Access Dashboard')}
                             </button>
                         </form>
                     </motion.div>

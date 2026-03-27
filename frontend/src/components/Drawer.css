@@ -22,8 +22,8 @@
     top: 16px;
     right: 16px;
     height: calc(100vh - 32px);
-    width: 460px;
-    max-width: calc(100vw - 40px);
+    width: 380px;
+    max-width: 90vw;
     background: #ffffff;
     box-shadow: -10px 10px 40px rgba(0, 0, 0, 0.15);
     z-index: 9999;
@@ -118,6 +118,7 @@
 /* Drawer Content - Scrollable */
 .drawer-content {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
     padding: 0;
@@ -131,13 +132,14 @@
 /* Responsive */
 @media (max-width: 768px) {
     .drawer-container {
-        top: 0;
-        right: 0;
-        height: 100dvh !important;
-        width: 100% !important;
-        max-width: 100vw;
-        border: none;
-        border-radius: 0;
+        top: 12px;
+        right: 12px;
+        height: calc(100dvh - 24px) !important;
+        max-height: calc(100vh - 24px);
+        width: 380px !important;
+        max-width: calc(100vw - 24px);
+        border: 1px solid #f1f5f9;
+        border-radius: 32px;
     }
 
     .drawer-header {

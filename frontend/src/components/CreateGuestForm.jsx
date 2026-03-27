@@ -1,7 +1,32 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import API_URL from '../config/api';
+import API_URL, { apiCall } from '../config/api';
 import { sanitizeIdProofInput, validateIdProofNumber } from '../utils/idProofValidation';
+
+const MAX_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024;
+const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png']);
+const BLOCKED_UPLOAD_EXTENSIONS = /\.(exe|js)$/i;
+
+const validateImageUploadFile = (file, fieldLabel) => {
+    if (!file) return `${fieldLabel}: file not found`;
+
+    const fileName = String(file.name || '').trim();
+    const mimeType = String(file.type || '').toLowerCase();
+
+    if (BLOCKED_UPLOAD_EXTENSIONS.test(fileName)) {
+        return `${fieldLabel}: executable files (.exe/.js) are not allowed`;
+    }
+
+    if (!ALLOWED_IMAGE_MIME_TYPES.has(mimeType)) {
+        return `${fieldLabel}: only JPG and PNG files are allowed`;
+    }
+
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+        return `${fieldLabel}: file size must be 2MB or less`;
+    }
+
+    return null;
+};
 
 const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest = null }) => {
     const [activeSection, setActiveSection] = useState('basic'); // basic, address, kyc, optional
@@ -94,19 +119,21 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
     // Pre-fill form when editing
     useEffect(() => {
         if (editingGuest) {
+            const guestAddress = typeof editingGuest.address === 'object' ? (editingGuest.address || {}) : {};
+            const guestIdProof = editingGuest.idProof || {};
             setFormData({
                 fullName: editingGuest.fullName || editingGuest.name || '',
                 mobile: editingGuest.mobile || editingGuest.phone || '',
                 email: editingGuest.email || '',
                 gender: editingGuest.gender || 'Male',
                 nationality: editingGuest.nationality || 'Indian',
-                address: (typeof editingGuest.address === 'object' ? editingGuest.address?.line : editingGuest.address) || '',
-                city: editingGuest.city || '',
-                state: editingGuest.state || '',
-                country: editingGuest.country || 'India',
-                pinCode: editingGuest.pinCode || '',
-                idType: editingGuest.idType || '',
-                idNumber: editingGuest.idNumber || '',
+                address: (typeof editingGuest.address === 'object' ? guestAddress.line : editingGuest.address) || '',
+                city: editingGuest.city || guestAddress.city || '',
+                state: editingGuest.state || guestAddress.state || '',
+                country: editingGuest.country || guestAddress.country || 'India',
+                pinCode: editingGuest.pinCode || guestAddress.pinCode || '',
+                idType: editingGuest.idType || guestIdProof.type || '',
+                idNumber: editingGuest.idNumber || editingGuest.idProofNumber || guestIdProof.number || '',
                 idFrontFile: null,
                 idBackFile: null,
                 dob: editingGuest.dob || '',
@@ -266,9 +293,34 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
         const { name, value, type, files } = e.target;
 
         if (type === 'file') {
+            const file = files?.[0];
+            if (!file) return;
+
+            const fieldLabelMap = {
+                idFrontFile: 'ID Front',
+                idBackFile: 'ID Back',
+                photoFile: 'Guest Photo'
+            };
+
+            const validationError = validateImageUploadFile(file, fieldLabelMap[name] || 'Image Upload');
+            if (validationError) {
+                setErrors(prev => ({
+                    ...prev,
+                    [name]: validationError
+                }));
+                window.alert(validationError);
+                e.target.value = '';
+                return;
+            }
+
             setFormData(prev => ({
                 ...prev,
-                [name]: files[0]
+                [name]: file
+            }));
+
+            setErrors(prev => ({
+                ...prev,
+                [name]: ''
             }));
         } else {
             let normalizedValue = value;
@@ -446,6 +498,19 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
         setErrors(prev => ({ ...prev, submit: '' }));
         setIsSubmitting(true);
 
+        const idProofPayload = {
+            ...(preparedData.idType ? { type: preparedData.idType } : {}),
+            ...(preparedData.idNumber ? { number: preparedData.idNumber } : {}),
+            ...(preparedData.idFrontFile || preparedData.idBackFile
+                ? {
+                    files: [
+                        ...(preparedData.idFrontFile ? [{ url: preparedData.idFrontFile, type: 'front' }] : []),
+                        ...(preparedData.idBackFile ? [{ url: preparedData.idBackFile, type: 'back' }] : [])
+                    ]
+                }
+                : {})
+        };
+
         const newGuest = {
             fullName: preparedData.fullName,
             mobile: preparedData.mobile,
@@ -459,12 +524,7 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
                 country: preparedData.country,
                 pinCode: preparedData.pinCode
             },
-            idProof: {
-                type: preparedData.idType,
-                number: preparedData.idNumber,
-                frontFile: preparedData.idFrontFile,
-                backFile: preparedData.idBackFile
-            },
+            ...(Object.keys(idProofPayload).length > 0 ? { idProof: idProofPayload } : {}),
             dob: preparedData.dob,
             anniversary: preparedData.anniversary,
             photoFile: preparedData.photoFile,
@@ -497,7 +557,7 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
                 const updateUrl = `${API_URL}/api/guests/${guestId}`;
                 console.log('📝 PUT Request URL:', updateUrl);
 
-                response = await fetch(updateUrl, {
+                response = await apiCall(updateUrl, {
                     method: 'PUT',
                     headers: getRequestHeaders(),
                     body: JSON.stringify(newGuest)
@@ -515,7 +575,7 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
                 for (const createUrl of createUrls) {
                     try {
                         console.log('➕ POST Request URL:', createUrl);
-                        const candidateResponse = await fetch(createUrl, {
+                        const candidateResponse = await apiCall(createUrl, {
                             method: 'POST',
                             headers: getRequestHeaders(),
                             body: JSON.stringify(newGuest)
@@ -856,7 +916,7 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
                                     type="file"
                                     id="idFrontUpload"
                                     name="idFrontFile"
-                                    accept="image/*"
+                                    accept="image/png,image/jpeg"
                                     onChange={handleChange}
                                     style={{ display: 'none' }}
                                 />
@@ -874,7 +934,7 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
                                     type="file"
                                     id="idBackUpload"
                                     name="idBackFile"
-                                    accept="image/*"
+                                    accept="image/png,image/jpeg"
                                     onChange={handleChange}
                                     style={{ display: 'none' }}
                                 />
@@ -968,7 +1028,7 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
                                 <input
                                     type="file"
                                     name="photoFile"
-                                    accept="image/*"
+                                    accept="image/png,image/jpeg"
                                     onChange={handleChange}
                                 />
                                 <span className="file-label">

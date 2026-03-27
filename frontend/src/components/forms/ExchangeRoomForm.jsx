@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import { useSettings } from '../../context/SettingsContext';
 
 const ExchangeRoomForm = ({ booking: initialBooking, onSubmit, onCancel }) => {
@@ -22,11 +22,11 @@ const ExchangeRoomForm = ({ booking: initialBooking, onSubmit, onCancel }) => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const resResponse = await fetch(`${API_URL}/api/reservations/${initialBooking._id || initialBooking.id}`);
+                const resResponse = await apiCall(`/api/reservations/${initialBooking._id || initialBooking.id}`);
                 const resResult = await resResponse.json();
                 if (resResult.success) {
                     setReservation(resResult.data);
-                    const roomsResponse = await fetch(`${API_URL}/api/rooms/available?from=${resResult.data.checkInDate}&to=${resResult.data.checkOutDate}`);
+                    const roomsResponse = await apiCall(`/api/rooms/available?from=${resResult.data.checkInDate}&to=${resResult.data.checkOutDate}`);
                     const roomsResult = await roomsResponse.json();
                     setAvailableRooms(roomsResult.data || []);
                 }

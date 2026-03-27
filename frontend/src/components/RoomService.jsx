@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Search, Plus, ArrowLeft, Utensils, CheckCircle } from 'lucide-react';
-import API_URL from '../config/api';
+import API_URL, { apiCall } from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import './RoomService.css';
@@ -10,6 +10,14 @@ const RoomService = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { settings } = useSettings();
+    const isSuperAdmin = user?.role === 'super_admin' || user?.role === 'superadmin';
+    const permissionLabels = Array.isArray(user?.permissions) ? user.permissions : [];
+    const hasExplicitAssignments = !isSuperAdmin && permissionLabels.length > 0;
+    const canOpenCashierRoomBilling = isSuperAdmin || (
+        hasExplicitAssignments
+            ? permissionLabels.includes('Cashier Section (Room Service)')
+            : user?.role !== 'staff'
+    );
 
     // Permission Check
     const hasAccess = user?.role !== 'staff' || (user?.permissions?.includes('Room Service') || user?.permissions?.includes('Rooms (Room Service)'));
@@ -38,9 +46,9 @@ const RoomService = () => {
         try {
             if (isFirstFetch.current) setLoading(true);
             const [roomsRes, allOrdersRes, bookingsRes] = await Promise.all([
-                fetch(`${API_URL}/api/rooms/list`),
-                fetch(`${API_URL}/api/guest-meal/orders`),
-                fetch(`${API_URL}/api/bookings/list`)
+                apiCall(`/api/rooms/list`),
+                apiCall(`/api/guest-meal/orders`),
+                apiCall(`/api/bookings/list`)
             ]);
 
             const roomsData = await roomsRes.json();
@@ -121,7 +129,7 @@ const RoomService = () => {
     const handleStatusUpdate = async (orderId, newStatus) => {
         if (!orderId) return;
         try {
-            const response = await fetch(`${API_URL}/api/guest-meal/orders/${orderId}/status`, {
+            const response = await apiCall(`/api/guest-meal/orders/${orderId}/status`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
@@ -147,11 +155,17 @@ const RoomService = () => {
             return;
         }
 
+        if (!canOpenCashierRoomBilling) {
+            alert('Role not assigned for Cashier Section (Room Service).');
+            return;
+        }
+
         // If already sent to cashier, open cashier directly.
         if (currentStatus === 'Pending Payment') {
             navigate('/admin/cashier-section', {
                 state: {
                     activeMenu: 'cashier-section',
+                    cashierMode: 'Room',
                     refresh: true,
                     room: { ...room, id: room._id, orderId }
                 }
@@ -161,7 +175,7 @@ const RoomService = () => {
 
         try {
             // First send to cashier (updates status to 'Pending Payment')
-            const response = await fetch(`${API_URL}/api/guest-meal/orders/${orderId}/send-to-cashier`, {
+            const response = await apiCall(`/api/guest-meal/orders/${orderId}/send-to-cashier`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -172,6 +186,7 @@ const RoomService = () => {
                 navigate('/admin/cashier-section', {
                     state: {
                         activeMenu: 'cashier-section',
+                        cashierMode: 'Room',
                         refresh: true,
                         room: { ...room, id: room._id, orderId: orderId }
                     }
@@ -380,6 +395,8 @@ const RoomService = () => {
                                         <button
                                             className={`rs-bill-details-btn ${roomOrder?.status === 'Pending Payment' ? 'pending' : ''}`}
                                             onClick={() => handleBillDetails(room, roomOrder?._id, roomOrder?.status)}
+                                            disabled={['Active', 'Pending', 'Preparing', 'Ready'].includes(roomOrder?.status)}
+                                            title={['Active', 'Pending', 'Preparing', 'Ready'].includes(roomOrder?.status) ? "Please click 'Send' from KOT View to enable Bill Details" : ""}
                                         >
                                             {roomOrder?.status === 'Pending Payment' ? 'Pending Payment' : 'Bill Details'}
                                         </button>

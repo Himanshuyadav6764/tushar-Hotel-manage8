@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Hotel = require('../models/Hotel');
 const { setTenantContextFromUser } = require('./tenantContext');
 
 const protect = async (req, res, next) => {
@@ -14,7 +15,18 @@ const protect = async (req, res, next) => {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             req.user = await User.findById(decoded.id).select('-password');
             if (req.user) {
-                setTenantContextFromUser(req.user);
+                let resolvedDbName = decoded.dbName || null;
+
+                if (req.user.role !== 'super_admin' && !resolvedDbName) {
+                    const hotelDoc = await Hotel.findById(req.user.hotelId).select('dbName');
+                    resolvedDbName = hotelDoc?.dbName || null;
+                }
+
+                setTenantContextFromUser(req.user, { dbName: resolvedDbName });
+
+                if (req.user.role !== 'super_admin' && !resolvedDbName) {
+                    return res.status(500).json({ message: 'Tenant database not configured for this admin account.' });
+                }
             }
             next();
         } catch (error) {

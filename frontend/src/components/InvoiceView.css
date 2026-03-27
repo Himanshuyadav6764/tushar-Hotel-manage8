@@ -13,6 +13,9 @@
 .invoice-modal {
     border: 1px solid #e8e8e8;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
 }
 
 /* Page View */
@@ -56,6 +59,12 @@
     padding: 2rem;
 }
 
+.invoice-modal .invoice-container {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
 /* Invoice Header */
 .invoice-header {
     display: grid;
@@ -71,6 +80,16 @@
     color: #dc3545;
     margin: 0 0 0.5rem 0;
     letter-spacing: -0.01em;
+}
+
+.invoice-logo {
+    max-height: 64px;
+    max-width: 200px;
+    object-fit: contain;
+    display: block;
+    margin-bottom: 0.6rem;
+    mix-blend-mode: multiply;
+    background: transparent;
 }
 
 .invoice-hotel-address,
@@ -291,6 +310,21 @@
     padding-top: 1.5rem;
     border-top: 1px solid #e8e8e8;
     text-align: center;
+}
+
+.invoice-footer-qr {
+    width: 126px;
+    height: 126px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto 0.6rem auto;
+}
+
+.invoice-footer-prefix {
+    font-size: 0.78rem;
+    color: #555;
+    margin: 0 0 0.45rem 0;
+    font-weight: 700;
 }
 
 .invoice-footer-text {

@@ -59,7 +59,9 @@ export const calculateRoomTaxBySlab = ({ rooms = [], nights = 1, taxExempt = fal
     const totalDiscount = rows.reduce((sum, room) => sum + toFiniteNumber(room?.discount, 0), 0);
     const subtotal = roomCharges - totalDiscount;
 
-    if (taxExempt || subtotal <= 0) {
+    const isTaxEnabled = Boolean(inclusiveTax);
+
+    if (taxExempt || !isTaxEnabled || subtotal <= 0) {
         return {
             roomCharges,
             totalDiscount,

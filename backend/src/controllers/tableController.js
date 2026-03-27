@@ -97,7 +97,12 @@ exports.addReservation = async (req, res) => {
         if (!guestPhone || guestPhone.length !== 10) {
             return res.status(400).json({ success: false, message: 'Phone number must be 10 digits' });
         }
-        if (endTime <= startTime) {
+        // Time Logic Fix for Midnight crossover
+        const isEndNextDay = endTime < startTime;
+        
+        // If it's the same day, end must be after start. 
+        // If it's next day, it's valid if they are different (00:00 vs 23:00 etc)
+        if (!isEndNextDay && endTime === startTime) {
             return res.status(400).json({ success: false, message: 'End time must be after start time' });
         }
 

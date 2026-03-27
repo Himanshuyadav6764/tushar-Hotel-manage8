@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import { useSettings } from '../../context/SettingsContext';
 import './QRScanPage.css';
 
@@ -32,7 +32,7 @@ const QRScanPage = () => {
     const fetchRoomDetails = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_URL}/api/qr/room-details/${roomId}`);
+            const response = await apiCall(`/api/qr/room-details/${roomId}`);
             const data = await response.json();
 
             if (data.success) {
@@ -59,7 +59,7 @@ const QRScanPage = () => {
         setOtpLoading(true);
 
         try {
-            const response = await fetch(`${API_URL}/api/qr/send-otp`, {
+            const response = await apiCall(`/api/qr/send-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -121,7 +121,7 @@ const QRScanPage = () => {
         setVerifyLoading(true);
 
         try {
-            const response = await fetch(`${API_URL}/api/qr/verify-otp`, {
+            const response = await apiCall(`/api/qr/verify-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

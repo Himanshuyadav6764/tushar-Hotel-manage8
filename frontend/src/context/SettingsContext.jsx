@@ -1,8 +1,19 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import API_URL from '../config/api';
+import API_URL, { apiCall } from '../config/api';
 import { DEFAULT_ROOM_GST_SLABS, normalizeRoomGstSlabs } from '../utils/roomTax';
 
 const SettingsContext = createContext(null);
+
+const toBoolean = (value, fallback = false) => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) return true;
+        if (['false', '0', 'no', 'n', 'off'].includes(normalized)) return false;
+    }
+    if (typeof value === 'number') return value === 1;
+    return fallback;
+};
 
 const defaultSettings = {
     name: 'Bireena Atithi',
@@ -13,6 +24,7 @@ const defaultSettings = {
     gstNumber: '22AAAAA0000A125',
     phone: '',
     logoUrl: null,
+    qrCodeUrl: null,
     currency: 'INR (₹)',
     timezone: '(GMT+05:30) Kolkata',
     dateFormat: 'DD/MM/YYYY',
@@ -192,19 +204,37 @@ export const SettingsProvider = ({ children }) => {
                 }
             }
 
+            const pathname = window.location.pathname || '';
+            const isPublicLoginPath = pathname === '/login' || pathname === '/secure-owner-login' || pathname === '/superadmin/login';
+
+            // Avoid noisy unauthorized calls while user is still on login/public pages.
+            if (!token && isPublicLoginPath) {
+                setLoaded(true);
+                return;
+            }
+
             const settingsUrl = hotelId
                 ? `${API_URL}/api/hotel/settings?hotelId=${encodeURIComponent(hotelId)}`
                 : `${API_URL}/api/hotel/settings`;
 
-            const res = await fetch(settingsUrl, {
+            const res = await apiCall(settingsUrl, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
+
+            if (res.status === 401) {
+                setLoaded(true);
+                return;
+            }
+
             const data = await res.json();
             if (data.success && data.data) {
                 setSettings(prev => {
                     const mergedBillingRules = { ...prev.billingRules, ...(data.data.billingRules || {}) };
                     const masterServiceCharge = data.data.roomServiceCharge ?? data.data.serviceCharge ?? prev.roomServiceCharge;
-                    const roomPostingEnabled = data.data.enableRoomPosting ?? mergedBillingRules.autoPost ?? prev.enableRoomPosting;
+                    const roomPostingEnabled = toBoolean(
+                        data.data.enableRoomPosting ?? mergedBillingRules.autoPost,
+                        prev.enableRoomPosting
+                    );
                     const roomGstSlabs = normalizeRoomGstSlabs(data.data.roomGstSlabs ?? prev.roomGstSlabs);
 
                     return {
@@ -213,6 +243,7 @@ export const SettingsProvider = ({ children }) => {
                         roomGstSlabs,
                         serviceCharge: masterServiceCharge,
                         roomServiceCharge: masterServiceCharge,
+                        inclusiveTax: toBoolean(data.data.inclusiveTax, prev.inclusiveTax),
                         enableRoomPosting: roomPostingEnabled,
                         billingRules: {
                             ...mergedBillingRules,

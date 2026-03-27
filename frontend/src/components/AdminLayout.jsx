@@ -6,11 +6,11 @@ import './AdminLayout.css';
 
 const AdminLayout = ({ children, activeMenu, onMenuClick, onLogout, noPadding = false }) => {
     const { sidebarOpen, setSidebarOpen } = useAuth();
+    const collapseBreakpoint = 1200;
 
     // Auto-close sidebar on mobile/tablet viewports
     useEffect(() => {
         let prevWidth = window.innerWidth;
-        const collapseBreakpoint = 1200;
         const handleResize = () => {
             const currWidth = window.innerWidth;
             if (currWidth <= collapseBreakpoint && prevWidth > collapseBreakpoint) {
@@ -28,6 +28,20 @@ const AdminLayout = ({ children, activeMenu, onMenuClick, onLogout, noPadding = 
         return () => window.removeEventListener('resize', handleResize);
     }, [setSidebarOpen]);
 
+    const handleSidebarMenuClick = (menuId) => {
+        onMenuClick?.(menuId);
+        if (window.innerWidth <= collapseBreakpoint) {
+            setSidebarOpen(false);
+        }
+    };
+
+    const handleSidebarLogout = () => {
+        onLogout?.();
+        if (window.innerWidth <= collapseBreakpoint) {
+            setSidebarOpen(false);
+        }
+    };
+
     return (
         <div className="admin-layout">
             <AdminNavbar
@@ -39,8 +53,8 @@ const AdminLayout = ({ children, activeMenu, onMenuClick, onLogout, noPadding = 
                 isOpen={sidebarOpen}
                 toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
                 activeMenu={activeMenu}
-                onMenuClick={onMenuClick}
-                onLogout={onLogout}
+                onMenuClick={handleSidebarMenuClick}
+                onLogout={handleSidebarLogout}
             />
 
             {sidebarOpen && (

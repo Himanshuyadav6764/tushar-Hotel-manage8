@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import { useSettings } from '../../context/SettingsContext';
 import './CashierReport.css';
 
@@ -18,7 +18,7 @@ const CashierReport = () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch(
+            const response = await apiCall(
                 `${API_URL}/api/cashier/report?startDate=${startDate}&endDate=${endDate}`
             );
             const result = await response.json();
@@ -99,7 +99,7 @@ const CashierReport = () => {
     // Initialize sample data (for testing)
     const initializeSampleData = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/cashier/initialize-sample`, {
+            const response = await apiCall(`/api/cashier/initialize-sample`, {
                 method: 'POST'
             });
             const result = await response.json();

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './RoomFacilityType.css';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 
 const RoomFacilityType = () => {
     const [facilityTypes, setFacilityTypes] = useState([]);
@@ -22,7 +22,7 @@ const RoomFacilityType = () => {
     const fetchFacilityTypes = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_URL}/api/facility-types/list`);
+            const response = await apiCall(`/api/facility-types/list`);
             const data = await response.json();
             if (data.success) {
                 setFacilityTypes(data.data);
@@ -54,13 +54,13 @@ const RoomFacilityType = () => {
         try {
             let response;
             if (modalMode === 'add') {
-                response = await fetch(`${API_URL}/api/facility-types/add`, {
+                response = await apiCall(`/api/facility-types/add`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
             } else {
-                response = await fetch(`${API_URL}/api/facility-types/update/${currentFacility._id}`, {
+                response = await apiCall(`/api/facility-types/update/${currentFacility._id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
@@ -86,7 +86,7 @@ const RoomFacilityType = () => {
     const confirmDelete = async (id) => {
         setDeletingId(id);
         try {
-            const response = await fetch(`${API_URL}/api/facility-types/delete/${id}`, {
+            const response = await apiCall(`/api/facility-types/delete/${id}`, {
                 method: 'DELETE'
             });
             const data = await response.json();

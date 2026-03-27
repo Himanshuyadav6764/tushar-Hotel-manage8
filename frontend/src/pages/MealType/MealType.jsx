@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './MealType.css';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import { useSettings } from '../../context/SettingsContext';
 
 const MealType = () => {
@@ -33,7 +33,7 @@ const MealType = () => {
     const fetchMealTypes = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_URL}/api/meal-types/list`);
+            const response = await apiCall(`/api/meal-types/list`);
             const data = await response.json();
             if (data.success) {
                 setMealTypes(data.data);
@@ -93,13 +93,13 @@ const MealType = () => {
         try {
             let response;
             if (modalMode === 'add') {
-                response = await fetch(`${API_URL}/api/meal-types/add`, {
+                response = await apiCall(`/api/meal-types/add`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
             } else {
-                response = await fetch(`${API_URL}/api/meal-types/update/${currentMealType._id}`, {
+                response = await apiCall(`/api/meal-types/update/${currentMealType._id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -125,7 +125,7 @@ const MealType = () => {
     const confirmDelete = async (id) => {
         setDeletingId(id);
         try {
-            const response = await fetch(`${API_URL}/api/meal-types/delete/${id}`, {
+            const response = await apiCall(`/api/meal-types/delete/${id}`, {
                 method: 'DELETE'
             });
             const data = await response.json();

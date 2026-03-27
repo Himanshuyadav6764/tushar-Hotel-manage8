@@ -6,7 +6,7 @@ import soundManager from '../../utils/soundManager';
 import axios from 'axios';
 import jsPDF from 'jspdf';
 import { io } from 'socket.io-client';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 
 const ROOM_SECTION_DEFAULT_STATUSES = ['Available', 'Booked', 'Occupied', 'Under Maintenance'];
 
@@ -74,7 +74,7 @@ const sortRowsLatestFirst = (rows) => {
 
 const UniversalReport = ({ type }) => {
     const { user } = useAuth();
-    const { getCurrencySymbol } = useSettings();
+    const { getCurrencySymbol, settings } = useSettings();
     const cs = getCurrencySymbol();
     const [dateRange, setDateRange] = useState({
         from: new Date().toISOString().split('T')[0],
@@ -103,7 +103,7 @@ const UniversalReport = ({ type }) => {
         'reports-rooms': {
             title: 'ROOM REPORTS',
             tabs: ['Room Occupancy', 'Check-In / Check-Out', 'Room Revenue', 'Reservation', 'Cancellation'],
-            filters: ['Room Type', 'Floor', 'Status'],
+            filters: ['Room Type', 'Floor', 'Status', 'Payment Mode'],
             columns: ['Room No', 'Guest', 'Check-In', 'Check-Out', 'Nights', 'Amount']
         },
         'reports-kitchen': {
@@ -329,6 +329,12 @@ const UniversalReport = ({ type }) => {
         }
     };
 
+    const shouldHideGstTaxOption = (option) => {
+        const value = typeof option === 'object' && option?.value !== undefined ? option.value : option;
+        const normalized = String(value || '').trim().toLowerCase();
+        return normalized === 'luxury tax' || normalized === 'gst';
+    };
+
     const isNoShowStatus = (statusValue) => {
         const normalized = String(statusValue || '')
             .trim()
@@ -412,10 +418,10 @@ const UniversalReport = ({ type }) => {
     const loadRoomFilterOptions = async () => {
         try {
             const [optionsData, facilityTypesData, floorsData, roomsData] = await Promise.all([
-                fetch(`${API_URL}/api/reports/rooms/options`).then(res => res.json()).catch(() => ({ success: false, data: {} })),
-                fetch(`${API_URL}/api/facility-types/list`).then(res => res.json()).catch(() => ({ success: false, data: [] })),
-                fetch(`${API_URL}/api/floors/list`).then(res => res.json()).catch(() => ({ success: false, data: [] })),
-                fetch(`${API_URL}/api/rooms/list`).then(res => res.json()).catch(() => ({ success: false, data: [] }))
+                apiCall(`/api/reports/rooms/options`).then(res => res.json()).catch(() => ({ success: false, data: {} })),
+                apiCall(`/api/facility-types/list`).then(res => res.json()).catch(() => ({ success: false, data: [] })),
+                apiCall(`/api/floors/list`).then(res => res.json()).catch(() => ({ success: false, data: [] })),
+                apiCall(`/api/rooms/list`).then(res => res.json()).catch(() => ({ success: false, data: [] }))
             ]);
 
             const roomTypeNames = dedupeTextList([
@@ -457,7 +463,7 @@ const UniversalReport = ({ type }) => {
     // Fetch dynamic options based on report type
     useEffect(() => {
         if (type === 'reports-sales') {
-            fetch(`${API_URL}/api/menu/list`)
+            apiCall(`/api/menu/list`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
@@ -482,7 +488,7 @@ const UniversalReport = ({ type }) => {
                 document.removeEventListener('visibilitychange', onVisible);
             };
         } else if (type === 'reports-reservations') {
-            fetch(`${API_URL}/api/guest-meal/tables`)
+            apiCall(`/api/guest-meal/tables`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
@@ -514,6 +520,15 @@ const UniversalReport = ({ type }) => {
                 if (roomStatusOptions.length > 0) return roomStatusOptions;
                 return createRoomStatusOptions(roomOptions.statuses || []);
             }
+            if (filterName === 'Payment Mode') {
+                return [
+                    'Cash',
+                    'UPI',
+                    'Card',
+                    'Bank Transfer',
+                    { value: 'Mixed', label: 'Multiple Transaction' }
+                ];
+            }
             return [];
         }
 
@@ -529,7 +544,16 @@ const UniversalReport = ({ type }) => {
         }
 
         if (type === 'reports-payments') {
-            if (filterName === 'Payment Mode') return ['Cash', 'UPI', 'Card', 'Bank Transfer'];
+            if (filterName === 'Payment Mode') {
+                return [
+                    'Cash',
+                    'UPI',
+                    'Card',
+                    'Bank Transfer',
+                    { value: 'Room Billing', label: 'Room Billing (Folio)' },
+                    { value: 'Mixed', label: 'Multiple Payment (Mixed)' }
+                ];
+            }
             if (filterName === 'Shift') return ['Morning', 'Evening', 'Night'];
             if (filterName === 'Cashier') return ['Dine-In', 'Room', 'Take Away', 'Online Order'];
             return [];
@@ -537,7 +561,16 @@ const UniversalReport = ({ type }) => {
 
         if (type === 'reports-billing') {
             if (filterName === 'Order Type') return ['Dine-In', 'Take Away', 'Room Service', 'Delivery', 'Online'];
-            if (filterName === 'Payment Method') return ['Cash', 'UPI', 'Card', 'Bank Transfer', 'Add to Room'];
+            if (filterName === 'Payment Method') {
+                return [
+                    'Cash',
+                    'UPI',
+                    'Card',
+                    'Bank Transfer',
+                    { value: 'Add to Room', label: 'Add to Room (Folio)' },
+                    { value: 'Mixed', label: 'Multiple Payment (Mixed)' }
+                ];
+            }
             if (filterName === 'Bill Status') return ['Paid', 'Pending', 'Cancelled'];
             return [];
         }
@@ -593,7 +626,7 @@ const UniversalReport = ({ type }) => {
                     val10: `${cs}${parseFloat(tx.subtotal || 0).toFixed(2)}`,
                     val11: `${cs}${parseFloat(tx.tax || 0).toFixed(2)}`,
                     val12: `${cs}${parseFloat(tx.net || 0).toFixed(2)}`,
-                    val13: `${tx.paymentMethod || '-'} (${tx.paymentStatus || '-'})`,
+                    val13: `${tx.paymentMethodDisplay || tx.paymentMethod || '-'} (${tx.paymentStatus || '-'})`,
                     val14: tx.status || '-',
                     rawSubtotal: tx.subtotal,
                     paymentMethod: tx.paymentMethod || 'Cash'
@@ -804,7 +837,8 @@ const UniversalReport = ({ type }) => {
 
             const res = await axios.get(`${API_URL}/api/reports/gst`, { params: queryParams });
             if (res.data.success) {
-                const options = ['All', 'Room GST', 'Food GST', 'Service Charge', ...(res.data.taxTypeOptions || [])];
+                const options = ['All', 'Room GST', 'Food GST', 'Service Charge', ...(res.data.taxTypeOptions || [])]
+                    .filter(option => !shouldHideGstTaxOption(option));
                 setGstInsights({
                     options: Array.from(new Set(options)),
                     totals: res.data.summaryTotals || { taxableValue: 0, totalTax: 0, cgst: 0, sgst: 0, igst: 0 },
@@ -887,6 +921,7 @@ const UniversalReport = ({ type }) => {
                 roomType: filters['Room Type'] || 'All',
                 floor: filters['Floor'] || 'All',
                 status: filters['Status'] || 'All',
+                paymentMode: filters['Payment Mode'] || 'All',
                 startDate: dateRange.from,
                 endDate: dateRange.to
             };
@@ -1104,7 +1139,7 @@ const UniversalReport = ({ type }) => {
                         val6: `${cs}${(item.tax || 0).toFixed(2)}`,
                         val7: `${cs}${item.discount.toFixed(2)}`,
                         val8: `${cs}${item.total.toFixed(2)}`,
-                        val9: item.payment,
+                        val9: item.payment || 'Pending',
                         val10: item.staff
                     }));
                 }
@@ -1435,6 +1470,9 @@ const UniversalReport = ({ type }) => {
         const fmt = rowPrintFormats.find(f => f.key === formatKey) || rowPrintFormats[0];
         const pageSize = fmt.pageSize;
         const printWidth = fmt.key === '2inch' ? '50mm' : (fmt.key === '3inch' ? '68mm' : (fmt.key === 'thermal' ? '72mm' : '190mm'));
+        const logoUrl = String(settings?.logoUrl || '').trim();
+        const qrUrl = String(settings?.qrCodeUrl || '').trim();
+        const hotelName = String(settings?.name || 'Hotel').trim();
 
         const clean = (value) => String(value ?? '')
             .replace(/&/g, '&amp;')
@@ -1442,6 +1480,14 @@ const UniversalReport = ({ type }) => {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
+
+        const logoBlock = logoUrl
+            ? `<img class="rp-brand-logo" src="${clean(logoUrl)}" alt="Hotel Logo" />`
+            : `<div class="rp-brand-name">${clean(hotelName)}</div>`;
+
+        const qrBlock = qrUrl
+            ? `<div class="rp-qr-wrap"><img class="rp-qr" src="${clean(qrUrl)}" alt="Payment QR" /></div>`
+            : '';
 
         const details = config.columns.map((label, idx) => ({
             label,
@@ -1470,6 +1516,9 @@ const UniversalReport = ({ type }) => {
                     @page { size: ${pageSize}; margin: 4mm; }
                     body { font-family: Arial, sans-serif; margin: 0 auto; width: ${printWidth}; color: #111827; }
                     .rp-wrap { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+                    .rp-brand { text-align: center; border-bottom: 1px dashed #d1d5db; margin-bottom: 8px; padding-bottom: 8px; }
+                    .rp-brand-logo { max-height: 58px; max-width: 180px; object-fit: contain; margin: 0 auto; display: block; }
+                    .rp-brand-name { font-size: 14px; font-weight: 800; color: #111827; }
                     .rp-head { border-bottom: 1px dashed #d1d5db; padding-bottom: 8px; margin-bottom: 8px; }
                     .rp-title { font-size: 14px; font-weight: 800; text-transform: uppercase; }
                     .rp-sub { font-size: 10px; color: #4b5563; margin-top: 2px; }
@@ -1478,15 +1527,19 @@ const UniversalReport = ({ type }) => {
                     .rp-label { font-size: 10px; color: #6b7280; font-weight: 700; text-transform: uppercase; }
                     .rp-value { font-size: 11px; color: #111827; font-weight: 700; text-align: right; max-width: 62%; word-break: break-word; }
                     .rp-foot { margin-top: 10px; text-align: center; font-size: 10px; color: #6b7280; }
+                    .rp-qr-wrap { text-align: center; margin-top: 10px; }
+                    .rp-qr { width: 96px; height: 96px; object-fit: contain; }
                 </style>
             </head>
             <body>
                 <div class="rp-wrap">
+                    <div class="rp-brand">${logoBlock}</div>
                     <div class="rp-head">
                         <div class="rp-title">${clean(config.title)}</div>
                         <div class="rp-sub">${clean(activeTab)} | Format: ${clean(fmt.label)} | Generated: ${clean(new Date().toLocaleString('en-GB'))}</div>
                     </div>
                     ${detailRows}
+                    ${qrBlock}
                 </div>
                 <div class="rp-foot">Printed via Action menu</div>
                 <script>window.onload=function(){window.print();setTimeout(function(){window.close();},500)}<\/script>
@@ -1932,11 +1985,11 @@ const UniversalReport = ({ type }) => {
                                     <span style={{ background: '#e0e7ff', borderRadius: '8px', padding: '4px 8px' }}>💳</span> Payment Method
                                 </h3>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0px' }}>
-                                    {['Cash', 'UPI', 'Card', 'Bank Transfer', 'Add to Room'].map(method => {
+                                    {['Cash', 'UPI', 'Card', 'Bank Transfer', 'Add to Room', 'Mixed'].map(method => {
                                         const val = billingSummary.breakdowns?.payment?.[method] || 0;
                                         const total = billingSummary.summary?.totalRevenue || 1;
                                         const pct = total > 0 ? ((val / total) * 100).toFixed(0) : 0;
-                                        const colors = { 'Cash': '#22c55e', 'UPI': '#3b82f6', 'Card': '#8b5cf6', 'Bank Transfer': '#f59e0b', 'Add to Room': '#ef4444' };
+                                        const colors = { 'Cash': '#22c55e', 'UPI': '#3b82f6', 'Card': '#8b5cf6', 'Bank Transfer': '#f59e0b', 'Add to Room': '#ef4444', 'Mixed': '#334155' };
                                         return (
                                             <div key={method} style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px', border: '1px solid #e2e8f0' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

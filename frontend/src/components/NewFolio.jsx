@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import API_URL from '../config/api';
+import API_URL, { apiCall } from '../config/api';
 import './NewFolio.css';
 
 const NewFolio = ({ onClose, onSave, reservation }) => {
@@ -47,7 +47,7 @@ const NewFolio = ({ onClose, onSave, reservation }) => {
     const fetchGuests = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_URL}/api/bookings/list`);
+            const response = await apiCall(`/api/bookings/list`);
             const data = await response.json();
 
             if (data.success && data.data) {

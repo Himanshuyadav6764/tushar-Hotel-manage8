@@ -10,6 +10,67 @@ const ORDER_TYPE_ALIASES = {
 
 const normalizeValue = (value) => String(value || '').trim().toLowerCase();
 
+const normalizePaymentMode = (mode) => {
+    const normalized = normalizeValue(mode);
+    if (!normalized) return 'Cash';
+    if (normalized.includes('mixed') || normalized.includes('multiple')) return 'Mixed';
+    if (normalized.includes('upi')) return 'UPI';
+    if (normalized.includes('card')) return 'Card';
+    if (normalized.includes('bank') || normalized.includes('transfer')) return 'Bank Transfer';
+    if (normalized.includes('room')) return 'Add to Room';
+    if (normalized.includes('cash')) return 'Cash';
+    return 'Cash';
+};
+
+const extractPaymentAllocations = (order, fallbackAmount = 0) => {
+    const splits = Array.isArray(order?.paymentSplits) ? order.paymentSplits : [];
+    const normalizedSplits = splits
+        .map(split => ({
+            mode: normalizePaymentMode(split?.mode || split?.method || split?.paymentMode),
+            amount: Number(split?.amount) || 0
+        }))
+        .filter(split => split.amount > 0);
+
+    if (normalizedSplits.length > 0) {
+        return normalizedSplits;
+    }
+
+    const normalizedMethod = normalizePaymentMode(order?.paymentMethod || 'Cash');
+    if (normalizedMethod === 'Mixed') {
+        return [{
+            mode: 'Mixed',
+            amount: Number(fallbackAmount) || 0
+        }];
+    }
+
+    return [{
+        mode: normalizedMethod,
+        amount: Number(fallbackAmount) || 0
+    }];
+};
+
+const formatPaymentDisplay = (order, fallbackAmount = 0) => {
+    const allocations = extractPaymentAllocations(order, fallbackAmount);
+    const splitModes = allocations.filter(entry => entry.mode !== 'Mixed' && entry.amount > 0);
+
+    if (splitModes.length > 1) {
+        const detail = splitModes
+            .map(entry => `${entry.mode} ${entry.amount.toFixed(2)}`)
+            .join(', ');
+        return `Mixed (${detail})`;
+    }
+
+    if (splitModes.length === 1 && normalizePaymentMode(order?.paymentMethod) === 'Mixed') {
+        return `Mixed (${splitModes[0].mode})`;
+    }
+
+    if (splitModes.length === 1) {
+        return splitModes[0].mode;
+    }
+
+    return normalizePaymentMode(order?.paymentMethod || 'Pending');
+};
+
 const getNormalizedOrderType = (orderType) => {
     const normalized = normalizeValue(orderType);
     if (!normalized) return null;
@@ -64,9 +125,6 @@ exports.getBillingReport = async (req, res) => {
                 ? { $in: typeFilters }
                 : orderType;
         }
-        if (paymentMethod && paymentMethod !== 'All') {
-            query.paymentMethod = paymentMethod;
-        }
         if (cashier && cashier !== 'All') {
             query.guestName = { $regex: cashier, $options: 'i' }; // In this schema, 'staff' isn't explicitly on Order, using guestName as a proxy for search or assuming search by staff name if available
         }
@@ -74,7 +132,20 @@ exports.getBillingReport = async (req, res) => {
             query.status = status;
         }
 
-        const orders = await Order.find(query).sort({ createdAt: -1 });
+        let orders = await Order.find(query).sort({ createdAt: -1 });
+
+        if (paymentMethod && paymentMethod !== 'All') {
+            const selectedMode = normalizePaymentMode(paymentMethod);
+            orders = orders.filter(order => {
+                const billTotal = order.finalAmount || order.totalAmount || 0;
+                const allocations = extractPaymentAllocations(order, billTotal);
+                if (selectedMode === 'Mixed') {
+                    const explicitSplits = allocations.filter(entry => entry.mode !== 'Mixed' && entry.amount > 0);
+                    return explicitSplits.length > 1 || normalizePaymentMode(order.paymentMethod) === 'Mixed';
+                }
+                return allocations.some(entry => entry.mode === selectedMode && entry.amount > 0);
+            });
+        }
 
         // Calculate Summaries
         let totalRevenue = 0;
@@ -88,7 +159,8 @@ exports.getBillingReport = async (req, res) => {
             UPI: 0,
             Card: 0,
             'Bank Transfer': 0,
-            'Add to Room': 0
+            'Add to Room': 0,
+            Mixed: 0
         };
 
         const typeBreakdown = {
@@ -120,12 +192,14 @@ exports.getBillingReport = async (req, res) => {
                 totalTaxes += billTax;
 
                 // Payment Breakdown
-                const method = order.paymentMethod || 'Cash';
-                if (paymentBreakdown[method] !== undefined) {
-                    paymentBreakdown[method] += billTotal;
-                } else {
-                    paymentBreakdown['Cash'] += billTotal;
-                }
+                const allocations = extractPaymentAllocations(order, billTotal);
+                allocations.forEach(({ mode, amount }) => {
+                    if (paymentBreakdown[mode] !== undefined) {
+                        paymentBreakdown[mode] += amount;
+                    } else {
+                        paymentBreakdown['Cash'] += amount;
+                    }
+                });
 
                 // Type Breakdown
                 const normalizedType = getNormalizedOrderType(order.orderType);
@@ -166,7 +240,7 @@ exports.getBillingReport = async (req, res) => {
             tax: order.tax || 0,
             discount: order.discountAmount || 0,
             total: order.finalAmount || order.totalAmount || 0,
-            payment: order.paymentMethod || 'Pending',
+            payment: formatPaymentDisplay(order, order.finalAmount || order.totalAmount || 0),
             staff: order.guestName || 'Staff'
         }));
 

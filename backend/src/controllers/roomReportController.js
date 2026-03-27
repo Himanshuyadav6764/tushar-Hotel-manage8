@@ -27,7 +27,18 @@ exports.getRoomOptions = async (req, res) => {
 
 exports.getRoomReport = async (req, res) => {
     try {
-        const { tab, roomType, floor, status, startDate, endDate } = req.query;
+        const { tab, roomType, floor, status, paymentMode, startDate, endDate } = req.query;
+
+        const normalizePaymentMode = (value) => {
+            const mode = String(value || '').trim().toLowerCase();
+            if (!mode) return '';
+            if (mode.includes('mixed') || mode.includes('multiple')) return 'Mixed';
+            if (mode.includes('upi')) return 'UPI';
+            if (mode.includes('card')) return 'Card';
+            if (mode.includes('bank') || mode.includes('transfer')) return 'Bank Transfer';
+            if (mode.includes('cash')) return 'Cash';
+            return String(value || '').trim();
+        };
 
         let start = new Date();
         start.setHours(0, 0, 0, 0);
@@ -123,6 +134,36 @@ exports.getRoomReport = async (req, res) => {
                 }
 
                 return matchesType && matchesFloor && matchesStatus;
+            });
+        }
+
+        // Optional payment mode filter for room reports.
+        if (paymentMode && paymentMode !== 'All') {
+            const selectedMode = normalizePaymentMode(paymentMode);
+            bookings = bookings.filter((b) => {
+                const bookingMode = normalizePaymentMode(b.paymentMode);
+
+                // Prefer explicit paymentMode on booking when present.
+                if (bookingMode) {
+                    return bookingMode === selectedMode;
+                }
+
+                // Fallback: infer from payment transactions.
+                const paymentTx = Array.isArray(b.transactions)
+                    ? b.transactions.filter(t => String(t?.type || '').toLowerCase() === 'payment')
+                    : [];
+
+                if (paymentTx.length === 0) return false;
+
+                const txModes = paymentTx
+                    .map(t => normalizePaymentMode(t?.method || t?.paymentMode || t?.mode))
+                    .filter(Boolean);
+
+                const uniqueModes = [...new Set(txModes)];
+                if (selectedMode === 'Mixed') {
+                    return uniqueModes.length > 1;
+                }
+                return uniqueModes.includes(selectedMode);
             });
         }
 

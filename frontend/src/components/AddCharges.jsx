@@ -23,7 +23,6 @@ const AddCharges = ({ onClose, onAdd, reservation }) => {
         chargeType: '',
         currency: 'INR',
         amount: '',
-        quantity: '1',
         description: '',
         comment: ''
     });
@@ -88,7 +87,7 @@ const AddCharges = ({ onClose, onAdd, reservation }) => {
         } catch { }
     }, [formData.chargeType]);
 
-    const totalAmount = (parseFloat(formData.amount) || 0) * (parseInt(formData.quantity) || 1);
+    const totalAmount = (parseFloat(formData.amount) || 0);
     const discAmt = discountValue
         ? discountType === 'PERCENTAGE'
             ? Math.round(totalAmount * (parseFloat(discountValue) || 0) / 100)
@@ -138,7 +137,6 @@ const AddCharges = ({ onClose, onAdd, reservation }) => {
         if (!formData.date) newErrors.date = 'Required';
         if (!formData.chargeType) newErrors.chargeType = 'Required';
         if (!formData.amount || parseFloat(formData.amount) <= 0) newErrors.amount = 'Invalid';
-        if (!formData.quantity || parseInt(formData.quantity) <= 0) newErrors.quantity = 'Invalid';
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -151,7 +149,7 @@ const AddCharges = ({ onClose, onAdd, reservation }) => {
                 id: Date.now(),
                 ...formData,
                 amount: parseFloat(formData.amount),
-                quantity: parseInt(formData.quantity),
+                quantity: 1,
                 totalAmount, discAmt, netAmount,
                 discountType: discountValue ? discountType : null,
                 discountValue: discountValue ? Number(discountValue) : 0,
@@ -332,27 +330,16 @@ const AddCharges = ({ onClose, onAdd, reservation }) => {
                         </div>
                     )}
 
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                        <div className="payment-field-group" style={{ flex: 2 }}>
-                            <label className="field-label-premium">Amount per unit</label>
-                            <div className="amount-input-container">
-                                <span className="currency-indicator">{cs}</span>
-                                <input
-                                    type="number"
-                                    className="amount-input-field"
-                                    value={formData.amount}
-                                    onChange={(e) => handleChange('amount', e.target.value)}
-                                    placeholder="0.00"
-                                />
-                            </div>
-                        </div>
-                        <div className="payment-field-group" style={{ flex: 1 }}>
-                            <label className="field-label-premium">Qty</label>
+                    <div className="payment-field-group">
+                        <label className="field-label-premium">Amount</label>
+                        <div className="amount-input-container">
+                            <span className="currency-indicator">{cs}</span>
                             <input
                                 type="number"
-                                value={formData.quantity}
-                                onChange={(e) => handleChange('quantity', e.target.value)}
-                                min="1"
+                                className="amount-input-field"
+                                value={formData.amount}
+                                onChange={(e) => handleChange('amount', e.target.value)}
+                                placeholder="0.00"
                             />
                         </div>
                     </div>

@@ -10,6 +10,80 @@ const DEFAULT_ROOM_GST_SLABS = [
     { min: 7501, max: 99999, rate: 18 }
 ];
 
+const MAX_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024;
+const ALLOWED_IMAGE_DATA_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg']);
+const ALLOWED_IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);
+const BLOCKED_FILE_EXTENSIONS_REGEX = /\.(?:exe|js)(?:$|[?#])/i;
+
+const estimateDataUrlBytes = (base64Payload = '') => {
+    const cleaned = String(base64Payload).replace(/\s+/g, '');
+    const padding = (cleaned.match(/=+$/) || [''])[0].length;
+    return Math.floor((cleaned.length * 3) / 4) - padding;
+};
+
+const validateImageField = (value, fieldName) => {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+
+    if (typeof value !== 'string') {
+        return `${fieldName} must be a valid image string`;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    if (BLOCKED_FILE_EXTENSIONS_REGEX.test(trimmed)) {
+        return `${fieldName} cannot include executable file extensions (.exe/.js)`;
+    }
+
+    if (/^blob:/i.test(trimmed)) {
+        return `${fieldName} blob URLs are not supported. Please upload JPG/PNG file.`;
+    }
+
+    if (/^data:/i.test(trimmed)) {
+        const match = trimmed.match(/^data:([^;,]+);base64,([A-Za-z0-9+/=\s]+)$/i);
+        if (!match) {
+            return `${fieldName} must be a valid base64 image payload`;
+        }
+
+        const mimeType = String(match[1] || '').toLowerCase();
+        if (!ALLOWED_IMAGE_DATA_MIME_TYPES.has(mimeType)) {
+            return `${fieldName} only JPG/PNG images are allowed`;
+        }
+
+        const sizeInBytes = estimateDataUrlBytes(match[2]);
+        if (sizeInBytes > MAX_IMAGE_UPLOAD_BYTES) {
+            return `${fieldName} must be 2MB or less`;
+        }
+
+        return null;
+    }
+
+    // URL or path-based image validation fallback.
+    let extension = '';
+    try {
+        if (/^https?:\/\//i.test(trimmed)) {
+            const parsed = new URL(trimmed);
+            const pathname = (parsed.pathname || '').toLowerCase();
+            extension = pathname.slice(pathname.lastIndexOf('.'));
+        } else {
+            const normalized = trimmed.toLowerCase().split('?')[0].split('#')[0];
+            extension = normalized.slice(normalized.lastIndexOf('.'));
+        }
+    } catch (error) {
+        return `${fieldName} must be a valid image URL/path`;
+    }
+
+    if (!ALLOWED_IMAGE_EXTENSIONS.has(extension)) {
+        return `${fieldName} only JPG/PNG images are allowed`;
+    }
+
+    return null;
+};
+
 const resolveHotelIdForRequest = (req) => {
     if (req.user?.role === 'super_admin') {
         return req.query.hotelId || req.body.hotelId || null;
@@ -118,6 +192,16 @@ router.put('/settings', protect, async (req, res) => {
             updates.roomGstSlabs = normalizeRoomGstSlabs(updates.roomGstSlabs);
         }
 
+        const logoValidationError = validateImageField(updates.logoUrl, 'logoUrl');
+        if (logoValidationError) {
+            return res.status(400).json({ success: false, message: logoValidationError });
+        }
+
+        const qrValidationError = validateImageField(updates.qrCodeUrl, 'qrCodeUrl');
+        if (qrValidationError) {
+            return res.status(400).json({ success: false, message: qrValidationError });
+        }
+
         let hotel = await Hotel.findById(targetHotelId);
         if (!hotel) {
             return res.status(404).json({
@@ -128,7 +212,7 @@ router.put('/settings', protect, async (req, res) => {
 
         // Update allowed fields
         const allowedFields = [
-            'name', 'address', 'city', 'state', 'pin', 'gstNumber', 'phone', 'logoUrl',
+            'name', 'address', 'city', 'state', 'pin', 'gstNumber', 'phone', 'logoUrl', 'qrCodeUrl',
             'currency', 'timezone', 'dateFormat', 'timeFormat',
             'taxType', 'cgst', 'sgst', 'serviceCharge', 'roomGst', 'roomGstSlabs', 'foodGst', 'roomServiceCharge', 'inclusiveTax',
             'invoicePrefix', 'billingInvoicePrefix', 'startingInvoiceNumber', 'panNumber',

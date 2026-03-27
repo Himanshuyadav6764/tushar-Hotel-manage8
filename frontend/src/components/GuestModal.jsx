@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import CreateGuestForm from './CreateGuestForm';
 import './GuestModal.css';
-import API_URL from '../config/api';
+import API_URL, { apiCall } from '../config/api';
 
 const ITEMS_PER_PAGE = 4;
 
@@ -125,7 +125,7 @@ const GuestModal = ({ isOpen, onClose, onSelectGuest, guests = [], onRefreshGues
 
     const handleDeleteGuest = async (guest) => {
         try {
-            const response = await fetch(`${API_URL}/api/guests/${guest.id || guest.guestId || guest._id}`, {
+            const response = await apiCall(`/api/guests/${guest.id || guest.guestId || guest._id}`, {
                 method: 'DELETE',
             });
 

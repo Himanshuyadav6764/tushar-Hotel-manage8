@@ -8,7 +8,7 @@ import BookingDetails from './BookingDetails';
 import GuestDetails from './GuestDetails';
 import RoomCharges from './RoomCharges';
 import AuditTrail from './AuditTrail';
-import API_URL from '../config/api';
+import API_URL, { apiCall } from '../config/api';
 import { useSettings } from '../context/SettingsContext';
 const EditReservationModal = ({ isOpen, onClose, reservation, onRefresh }) => {
     const [activeTab, setActiveTab] = useState('folio-operations');
@@ -77,7 +77,7 @@ const EditReservationModal = ({ isOpen, onClose, reservation, onRefresh }) => {
         try {
             setLoading(true);
             setActionMessage({ type: '', text: '' });
-            const response = await fetch(`${API_URL}/api/bookings/status/${reservation._id || reservation.id}`, {
+            const response = await apiCall(`/api/bookings/status/${reservation._id || reservation.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })

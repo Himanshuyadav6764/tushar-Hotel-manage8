@@ -423,8 +423,16 @@
     box-shadow: 0 8px 12px -3px rgba(99, 102, 241, 0.25);
 }
 
-.rs-bill-details-btn.pending:hover {
+.rs-bill-details-btn.pending:hover:not(:disabled) {
     box-shadow: 0 12px 20px -3px rgba(99, 102, 241, 0.4);
+}
+
+.rs-bill-details-btn:disabled {
+    background: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
 }
 
 /* --- Global Footer --- */

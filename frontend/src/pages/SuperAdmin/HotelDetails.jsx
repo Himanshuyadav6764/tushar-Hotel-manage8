@@ -16,7 +16,11 @@ import {
     FaHotel,
     FaPlus,
     FaEdit,
-    FaSave
+    FaSave,
+    FaEye,
+    FaEyeSlash,
+    FaLock,
+    FaClock
 } from 'react-icons/fa';
 import { MdDashboard, MdLogout } from 'react-icons/md';
 import './SuperAdminDashboard.css';
@@ -62,6 +66,10 @@ const HotelDetails = () => {
     const [upgradePlan, setUpgradePlan] = useState('premium');
 
     const [editMode, setEditMode] = useState(Boolean(location.state?.mode === 'edit'));
+    const [showEditAdminPassword, setShowEditAdminPassword] = useState(false);
+    const [revealedAdminPassword, setRevealedAdminPassword] = useState('');
+    const [showRevealedAdminPassword, setShowRevealedAdminPassword] = useState(false);
+    const [revealLoading, setRevealLoading] = useState(false);
     const [editForm, setEditForm] = useState({
         hotelName: '',
         address: '',
@@ -72,6 +80,7 @@ const HotelDetails = () => {
         subscriptionExpiryDate: '',
         adminName: '',
         adminEmail: '',
+        adminPassword: '',
         adminPhone: '',
         adminPermissions: []
     });
@@ -101,6 +110,7 @@ const HotelDetails = () => {
             subscriptionExpiryDate: toDateInput(payloadHotel.subscription?.expiryDate),
             adminName: payloadHotel.adminId?.name || '',
             adminEmail: payloadHotel.adminId?.username || payloadHotel.adminId?.email || '',
+            adminPassword: '',
             adminPhone: payloadHotel.adminId?.phone || '',
             adminPermissions: Array.isArray(payloadHotel.adminId?.permissions) ? payloadHotel.adminId.permissions : []
         });
@@ -137,6 +147,31 @@ const HotelDetails = () => {
                 ? prev.adminPermissions.filter((item) => item !== label)
                 : [...prev.adminPermissions, label]
         }));
+    };
+
+    const handleRevealAdminPassword = async () => {
+        setRevealLoading(true);
+        setError('');
+        setSuccess('');
+
+        try {
+            const token = user?.token;
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const response = await axios.get(`/api/super-admin/hotel/${id}/admin-credentials`, config);
+            const password = response?.data?.adminPassword || '';
+            if (!password) {
+                setError('Stored password not available for this hotel');
+                return;
+            }
+
+            setRevealedAdminPassword(password);
+            setShowRevealedAdminPassword(true);
+            setSuccess('Admin password loaded successfully');
+        } catch (err) {
+            setError(err.response?.data?.message || 'Unable to show admin password for this hotel');
+        } finally {
+            setRevealLoading(false);
+        }
     };
 
     const handleSaveEdits = async () => {
@@ -178,6 +213,7 @@ const HotelDetails = () => {
                 subscriptionExpiryDate: editForm.subscriptionExpiryDate,
                 adminName: trimmedAdminName,
                 adminEmail: trimmedAdminEmail,
+                adminPassword: editForm.adminPassword?.trim() || '',
                 adminPhone: editForm.adminPhone?.trim() || '',
                 adminPermissions: editForm.adminPermissions
             };
@@ -275,6 +311,9 @@ const HotelDetails = () => {
             }
 
             setSuccess('Hotel details updated successfully');
+            setShowEditAdminPassword(false);
+            setRevealedAdminPassword('');
+            setShowRevealedAdminPassword(false);
             setEditMode(false);
         } catch (err) {
             setError(
@@ -386,6 +425,7 @@ const HotelDetails = () => {
                     <button className="sa-nav-item" onClick={() => navigate('/super-admin/dashboard')}><MdDashboard />Dashboard</button>
                     <button className="sa-nav-item active" onClick={() => navigate('/super-admin/hotels')}><FaHotel />Hotels</button>
                     <button className="sa-nav-item" onClick={() => navigate('/super-admin/hotels/create')}><FaPlus />Create Hotel</button>
+                    <button className="sa-nav-item" onClick={() => navigate('/super-admin/activity-monitoring')}><FaClock />Activity Monitoring</button>
                     <button className="sa-nav-item" onClick={handleLogout}><MdLogout />Logout</button>
                 </nav>
             </aside>
@@ -511,6 +551,59 @@ const HotelDetails = () => {
                                 <div><div className="hotel-inline-label">NAME</div>{editMode ? <input style={inputStyle} name="adminName" value={editForm.adminName} onChange={handleEditFieldChange} /> : <div className="hotel-inline-value-bold">{hotel.adminId?.name || '-'}</div>}</div>
                                 <div><div className="hotel-inline-label">EMAIL</div>{editMode ? <input style={inputStyle} name="adminEmail" value={editForm.adminEmail} onChange={handleEditFieldChange} /> : <div className="hotel-inline-value">{hotel.adminId?.email || hotel.adminId?.username || '-'}</div>}</div>
                                 <div><div className="hotel-inline-label">PHONE</div>{editMode ? <input style={inputStyle} name="adminPhone" value={editForm.adminPhone} onChange={handleEditFieldChange} /> : <div className="hotel-inline-value">{hotel.adminId?.phone || '-'}</div>}</div>
+                                <div>
+                                    <div className="hotel-inline-label">PASSWORD</div>
+                                    {editMode ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <input
+                                                style={inputStyle}
+                                                type={showEditAdminPassword ? 'text' : 'password'}
+                                                name="adminPassword"
+                                                value={editForm.adminPassword}
+                                                onChange={handleEditFieldChange}
+                                                placeholder="Leave blank to keep existing password"
+                                            />
+                                            <button
+                                                type="button"
+                                                className="icon-btn"
+                                                onClick={() => setShowEditAdminPassword((prev) => !prev)}
+                                                title={showEditAdminPassword ? 'Hide password' : 'Show password'}
+                                            >
+                                                {showEditAdminPassword ? <FaEyeSlash /> : <FaEye />}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                            <div className="hotel-inline-value" style={{ minWidth: '140px' }}>
+                                                {revealedAdminPassword
+                                                    ? (showRevealedAdminPassword ? revealedAdminPassword : '••••••••••••')
+                                                    : '••••••••••••'}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="icon-btn"
+                                                disabled={revealLoading}
+                                                onClick={revealedAdminPassword ? () => setShowRevealedAdminPassword((prev) => !prev) : handleRevealAdminPassword}
+                                                title={revealedAdminPassword ? (showRevealedAdminPassword ? 'Hide password' : 'Show password') : 'Load stored password'}
+                                            >
+                                                {revealedAdminPassword
+                                                    ? (showRevealedAdminPassword ? <FaEyeSlash /> : <FaEye />)
+                                                    : <FaLock />}
+                                            </button>
+                                            {!revealedAdminPassword && (
+                                                <button
+                                                    type="button"
+                                                    className="action-btn secondary"
+                                                    disabled={revealLoading}
+                                                    onClick={handleRevealAdminPassword}
+                                                    style={{ padding: '6px 10px', fontSize: '12px' }}
+                                                >
+                                                    {revealLoading ? 'Loading...' : 'Show Password'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
 
                                 <div>
                                     <div className="hotel-inline-label">ASSIGNED SCREENS</div>

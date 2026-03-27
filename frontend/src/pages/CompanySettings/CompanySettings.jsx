@@ -1,9 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import './CompanySettings.css';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import { useSettings } from '../../context/SettingsContext';
 import { useAuth } from '../../context/AuthContext';
 import { DEFAULT_ROOM_GST_SLABS, normalizeRoomGstSlabs } from '../../utils/roomTax';
+
+const toBoolean = (value, fallback = false) => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) return true;
+        if (['false', '0', 'no', 'n', 'off'].includes(normalized)) return false;
+    }
+    if (typeof value === 'number') return value === 1;
+    return fallback;
+};
+
+const MAX_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024;
+const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png']);
+const BLOCKED_UPLOAD_EXTENSIONS = /\.(exe|js)$/i;
+
+const validateImageUploadFile = (file, fieldLabel) => {
+    if (!file) return `${fieldLabel}: File not found`;
+
+    const fileName = String(file.name || '').trim();
+    const mimeType = String(file.type || '').toLowerCase();
+
+    if (BLOCKED_UPLOAD_EXTENSIONS.test(fileName)) {
+        return `${fieldLabel}: Executable files (.exe/.js) are not allowed`;
+    }
+
+    if (!ALLOWED_IMAGE_MIME_TYPES.has(mimeType)) {
+        return `${fieldLabel}: Only JPG and PNG files are allowed`;
+    }
+
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+        return `${fieldLabel}: File size must be 2MB or less`;
+    }
+
+    return null;
+};
 
 const CompanySettings = () => {
     const { settings: globalSettings, fetchSettings: refreshGlobal, getCurrencySymbol } = useSettings();
@@ -14,6 +50,7 @@ const CompanySettings = () => {
         hotelName: '',
         gstNumber: '',
         logoUrl: null,
+        qrCodeUrl: null,
         address: '',
         city: '',
         state: '',
@@ -69,18 +106,22 @@ const CompanySettings = () => {
     useEffect(() => {
         const loadSettings = async () => {
             try {
-                const res = await fetch(`${API_URL}/api/hotel/settings`);
+                const res = await apiCall(`/api/hotel/settings`);
                 const data = await res.json();
                 if (data.success && data.data) {
                     const s = data.data;
                     setHotelData(prev => {
                         const normalizedServiceCharge = String(s.roomServiceCharge ?? s.serviceCharge ?? prev.roomServiceCharge);
-                        const normalizedRoomPosting = s.enableRoomPosting ?? s.billingRules?.autoPost ?? prev.enableRoomPosting;
+                        const normalizedRoomPosting = toBoolean(
+                            s.enableRoomPosting ?? s.billingRules?.autoPost,
+                            prev.enableRoomPosting
+                        );
                         return {
                             ...prev,
                             hotelName: s.name || prev.hotelName,
                             gstNumber: s.gstNumber || prev.gstNumber,
                             logoUrl: s.logoUrl || prev.logoUrl,
+                            qrCodeUrl: s.qrCodeUrl || prev.qrCodeUrl,
                             address: s.address || prev.address,
                             city: s.city || prev.city,
                             state: s.state || prev.state,
@@ -109,7 +150,7 @@ const CompanySettings = () => {
                             roomGstSlabs: normalizeRoomGstSlabs(s.roomGstSlabs ?? prev.roomGstSlabs),
                             foodGst: String(s.foodGst ?? prev.foodGst),
                             roomServiceCharge: normalizedServiceCharge,
-                            inclusiveTax: s.inclusiveTax ?? prev.inclusiveTax,
+                            inclusiveTax: toBoolean(s.inclusiveTax, prev.inclusiveTax),
                             paymentModes: s.paymentModes || prev.paymentModes,
                             billingRules: {
                                 ...prev.billingRules,
@@ -141,7 +182,7 @@ const CompanySettings = () => {
     const fetchRooms = async () => {
         try {
             setLoadingRooms(true);
-            const response = await fetch(`${API_URL}/api/rooms/list`);
+            const response = await apiCall(`/api/rooms/list`);
             const data = await response.json();
             if (data.success) {
                 setRooms(data.data);
@@ -156,7 +197,7 @@ const CompanySettings = () => {
     const handleDeleteRoom = async (id) => {
         if (window.confirm('Are you sure you want to delete this room?')) {
             try {
-                const response = await fetch(`${API_URL}/api/rooms/delete/${id}`, {
+                const response = await apiCall(`/api/rooms/delete/${id}`, {
                     method: 'DELETE'
                 });
                 const data = await response.json();
@@ -256,13 +297,38 @@ const CompanySettings = () => {
 
     const handleLogoChange = (e) => {
         const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setHotelData(prev => ({ ...prev, logoUrl: reader.result }));
-            };
-            reader.readAsDataURL(file);
+        if (!file) return;
+
+        const validationError = validateImageUploadFile(file, 'Logo');
+        if (validationError) {
+            alert(validationError);
+            e.target.value = '';
+            return;
         }
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setHotelData(prev => ({ ...prev, logoUrl: reader.result }));
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleQrCodeChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const validationError = validateImageUploadFile(file, 'QR Image');
+        if (validationError) {
+            alert(validationError);
+            e.target.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setHotelData(prev => ({ ...prev, qrCodeUrl: reader.result }));
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleRoomGstSlabChange = (index, field, rawValue) => {
@@ -293,6 +359,7 @@ const CompanySettings = () => {
                 pin: hotelData.pin,
                 gstNumber: hotelData.gstNumber,
                 logoUrl: hotelData.logoUrl,
+                qrCodeUrl: hotelData.qrCodeUrl,
                 currency: hotelData.currency,
                 timezone: hotelData.timezone,
                 dateFormat: hotelData.dateFormat,
@@ -330,7 +397,7 @@ const CompanySettings = () => {
                     couponEnabled: hotelData.discountRules.couponEnabled
                 }
             };
-            const res = await fetch(`${API_URL}/api/hotel/settings`, {
+            const res = await apiCall(`/api/hotel/settings`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(payload)
@@ -528,6 +595,11 @@ const CompanySettings = () => {
                             <div className="settings-card">
                                 <h3 className="card-header-icon"><span className="red-icon">💰</span> Tax Configuration</h3>
                                 <p className="tax-help-text">Room Rent GST is calculated based on the price of the room per night.</p>
+                                {!hotelData.inclusiveTax && (
+                                    <p className="tax-help-text" style={{ color: '#b45309', fontWeight: 700, marginTop: '-4px' }}>
+                                        Tax is disabled. Enable Inclusive Tax to apply room and food taxes.
+                                    </p>
+                                )}
                                 {(hotelData.roomGstSlabs || DEFAULT_ROOM_GST_SLABS).map((slab, index) => (
                                     <div className="billing-field-row tax-slab-row" key={`room-gst-slab-${index}`}>
                                         <div className="tax-slab-range-wrap">
@@ -536,6 +608,7 @@ const CompanySettings = () => {
                                                 value={slab.min}
                                                 onChange={(e) => handleRoomGstSlabChange(index, 'min', e.target.value)}
                                                 min="0"
+                                                disabled={!hotelData.inclusiveTax}
                                                 className="tax-slab-input"
                                             />
                                             <span className="tax-slab-separator">-</span>
@@ -544,6 +617,7 @@ const CompanySettings = () => {
                                                 value={slab.max}
                                                 onChange={(e) => handleRoomGstSlabChange(index, 'max', e.target.value)}
                                                 min="0"
+                                                disabled={!hotelData.inclusiveTax}
                                                 className="tax-slab-input"
                                             />
                                         </div>
@@ -554,6 +628,7 @@ const CompanySettings = () => {
                                                 onChange={(e) => handleRoomGstSlabChange(index, 'rate', e.target.value)}
                                                 min="0"
                                                 max="100"
+                                                disabled={!hotelData.inclusiveTax}
                                             />
                                             <span className="symbol-box">%</span>
                                         </div>
@@ -569,6 +644,7 @@ const CompanySettings = () => {
                                             onChange={handleInputChange}
                                             min="0"
                                             max="50"
+                                            disabled={!hotelData.inclusiveTax}
                                         />
                                         <span className="symbol-box">%</span>
                                     </div>
@@ -785,13 +861,13 @@ const CompanySettings = () => {
                                                     type="file"
                                                     id="logo-upload"
                                                     onChange={handleLogoChange}
-                                                    accept="image/*"
+                                                    accept="image/png,image/jpeg"
                                                     style={{ display: 'none' }}
                                                 />
                                                 <button className="browse-btn" onClick={() => document.getElementById('logo-upload').click()}>
                                                     Browse File
                                                 </button>
-                                                <span className="upload-hint">Upload your hotel's logo (recommended 200x60px)</span>
+                                                <span className="upload-hint">Only JPG/PNG, max 2MB (recommended 200x60px)</span>
                                             </div>
                                         </div>
                                     </div>
@@ -950,6 +1026,45 @@ const CompanySettings = () => {
                                             <span className={`toggle-status ${hotelData.posEnabled ? 'yes' : 'no'}`}>
                                                 {hotelData.posEnabled ? 'Yes' : 'No'}
                                             </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="qr-upload-block">
+                                        <label className="qr-upload-label">Bill QR Code (Manual Upload)</label>
+                                        <div className="qr-upload-row">
+                                            <div className="qr-preview-box">
+                                                {hotelData.qrCodeUrl ? (
+                                                    <img src={hotelData.qrCodeUrl} alt="Bill QR" className="qr-preview-img" />
+                                                ) : (
+                                                    <span className="qr-placeholder-text">No QR Added</span>
+                                                )}
+                                            </div>
+                                            <div className="qr-upload-actions">
+                                                <input
+                                                    type="file"
+                                                    id="qr-upload"
+                                                    onChange={handleQrCodeChange}
+                                                    accept="image/png,image/jpeg"
+                                                    style={{ display: 'none' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="browse-btn"
+                                                    onClick={() => document.getElementById('qr-upload').click()}
+                                                >
+                                                    Upload QR Image
+                                                </button>
+                                                {hotelData.qrCodeUrl && (
+                                                    <button
+                                                        type="button"
+                                                        className="remove-qr-btn"
+                                                        onClick={() => setHotelData(prev => ({ ...prev, qrCodeUrl: null }))}
+                                                    >
+                                                        Remove QR
+                                                    </button>
+                                                )}
+                                                <span className="upload-hint">Only JPG/PNG up to 2MB. Local browser se image select karke Save Changes karein.</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

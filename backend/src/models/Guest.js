@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { encryptText, decryptText, isEncrypted } = require('../utils/fieldEncryption');
 
 const guestSchema = new mongoose.Schema({
     // Core Identity
@@ -89,5 +90,30 @@ const guestSchema = new mongoose.Schema({
 // Index for search
 guestSchema.index({ fullName: 'text', mobile: 'text', email: 'text' });
 guestSchema.index({ hotelId: 1, mobile: 1 }, { unique: true });
+
+guestSchema.pre('save', function (next) {
+    if (this.idProof?.number && !isEncrypted(this.idProof.number)) {
+        this.idProof.number = encryptText(this.idProof.number);
+    }
+    next();
+});
+
+const decryptGuestSensitiveFields = (doc) => {
+    if (!doc) return doc;
+
+    if (doc.idProof?.number) {
+        doc.idProof.number = decryptText(doc.idProof.number);
+    }
+
+    return doc;
+};
+
+guestSchema.set('toJSON', {
+    transform: (_, ret) => decryptGuestSensitiveFields(ret)
+});
+
+guestSchema.set('toObject', {
+    transform: (_, ret) => decryptGuestSensitiveFields(ret)
+});
 
 module.exports = mongoose.model('Guest', guestSchema);

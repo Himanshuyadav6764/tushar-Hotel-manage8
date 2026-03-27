@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { encryptText, decryptText, isEncrypted } = require('../utils/fieldEncryption');
 
 const bookingSchema = new mongoose.Schema({
     // Core References
@@ -121,12 +122,26 @@ const bookingSchema = new mongoose.Schema({
         }]
     },
 
+    // Payment snapshot fields used by reservation and folio displays
+    paymentMode: { type: String, trim: true },
+    transactionId: { type: String, trim: true },
+    paymentSplits: [{
+        mode: { type: String, trim: true },
+        amount: { type: Number, default: 0 },
+        referenceId: { type: String, trim: true }
+    }],
+
     // Payment History (Embedded for transactional integrity within booking context)
     transactions: [{
         type: { type: String, enum: ['Payment', 'Refund', 'Adjustment', 'Charge', 'Discount', 'payment', 'charge', 'discount'], required: true },
         amount: { type: Number, required: true },
         method: { type: String, enum: ['Cash', 'Card', 'UPI', 'Transfer'], default: 'Cash' },
         referenceId: String, // Transaction ID from payment gateway
+        paymentSplits: [{
+            mode: { type: String, trim: true },
+            amount: { type: Number, default: 0 },
+            referenceId: { type: String, trim: true }
+        }],
         date: { type: Date, default: Date.now },
         day: String, // UI field
         particulars: String, // UI field
@@ -182,6 +197,18 @@ bookingSchema.pre('validate', function (next) {
 });
 
 bookingSchema.pre('save', function (next) {
+    if (this.idNumber && !isEncrypted(this.idNumber)) {
+        this.idNumber = encryptText(this.idNumber);
+    }
+
+    if (Array.isArray(this.additionalGuests) && this.additionalGuests.length > 0) {
+        this.additionalGuests.forEach((guest) => {
+            if (guest?.idProofNumber && !isEncrypted(guest.idProofNumber)) {
+                guest.idProofNumber = encryptText(guest.idProofNumber);
+            }
+        });
+    }
+
     if (!this.billing) {
         this.billing = { roomRate: 0, totalAmount: 0, paidAmount: 0, balanceAmount: 0 };
     }
@@ -217,5 +244,33 @@ bookingSchema.pre('save', function (next) {
 });
 
 bookingSchema.index({ hotelId: 1, bookingId: 1 }, { unique: true });
+
+const decryptBookingSensitiveFields = (doc) => {
+    if (!doc) return doc;
+
+    if (doc.idNumber) {
+        doc.idNumber = decryptText(doc.idNumber);
+    }
+
+    if (Array.isArray(doc.additionalGuests)) {
+        doc.additionalGuests = doc.additionalGuests.map((guest) => {
+            if (!guest || !guest.idProofNumber) return guest;
+            return {
+                ...guest,
+                idProofNumber: decryptText(guest.idProofNumber)
+            };
+        });
+    }
+
+    return doc;
+};
+
+bookingSchema.set('toJSON', {
+    transform: (_, ret) => decryptBookingSensitiveFields(ret)
+});
+
+bookingSchema.set('toObject', {
+    transform: (_, ret) => decryptBookingSensitiveFields(ret)
+});
 
 module.exports = mongoose.model('Booking', bookingSchema);

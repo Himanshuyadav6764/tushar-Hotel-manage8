@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import { useSettings } from '../../context/SettingsContext';
 import './GuestMealOrderPage.css';
 
@@ -80,7 +80,7 @@ const GuestMealOrderPage = () => {
     useEffect(() => {
         const fetchMenu = async () => {
             try {
-                const response = await fetch(`${API_URL}/api/menu/list`);
+                const response = await apiCall(`/api/menu/list`);
                 const data = await response.json();
                 if (data.success) {
                     const groups = {};
@@ -170,7 +170,7 @@ const GuestMealOrderPage = () => {
                     setCart(existingOrder.items || []);
                 } else {
                     // Fetch order from API
-                    const response = await fetch(`${API_URL}/api/guest-meal/orders/${orderId}`);
+                    const response = await apiCall(`/api/guest-meal/orders/${orderId}`);
                     const data = await response.json();
 
                     if (data.success) {
@@ -182,7 +182,7 @@ const GuestMealOrderPage = () => {
                 }
 
                 // Fetch table info
-                const tableResponse = await fetch(`${API_URL}/api/guest-meal/tables/${tableId}`);
+                const tableResponse = await apiCall(`/api/guest-meal/tables/${tableId}`);
                 const tableData = await tableResponse.json();
                 if (tableData.success) {
                     setTable(tableData.data);
@@ -243,7 +243,7 @@ const GuestMealOrderPage = () => {
             setIsProcessing(true);
             const { orderId } = location.state;
 
-            const response = await fetch(`${API_URL}/api/guest-meal/orders/${orderId}/items`, {
+            const response = await apiCall(`/api/guest-meal/orders/${orderId}/items`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ items: cart })
@@ -276,7 +276,7 @@ const GuestMealOrderPage = () => {
             const { orderId } = location.state;
 
             // First save items
-            let saveResponse = await fetch(`${API_URL}/api/guest-meal/orders/${orderId}/items`, {
+            let saveResponse = await apiCall(`/api/guest-meal/orders/${orderId}/items`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ items: cart })
@@ -285,7 +285,7 @@ const GuestMealOrderPage = () => {
             if (!saveResponse.ok) throw new Error('Failed to save items');
 
             // Then bill the order
-            const billResponse = await fetch(`${API_URL}/api/guest-meal/orders/${orderId}/bill`, {
+            const billResponse = await apiCall(`/api/guest-meal/orders/${orderId}/bill`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ paymentMethod })
@@ -316,7 +316,7 @@ const GuestMealOrderPage = () => {
         try {
             const { orderId } = location.state;
 
-            const response = await fetch(`${API_URL}/api/guest-meal/orders/${orderId}/close`, {
+            const response = await apiCall(`/api/guest-meal/orders/${orderId}/close`, {
                 method: 'POST'
             });
 

@@ -355,7 +355,7 @@ const getInstantReply = (text) => {
 const KB_SUMMARY = `Bireena Atithi is a Hotel & KOT Management Software. Features: reservations, KOT automation, billing, housekeeping, QR food ordering, analytics. Plans: Basic ₹19,999/mo, Professional ₹14,999/mo, Enterprise custom. Contact: support@bireenaatithi.com | +91 98765 43210.`;
 
 const callOpenRouter = async (text) => {
-    const res = await fetch(OR_URL, {
+    const res = await apiCall(OR_URL, {
         method: "POST",
         headers: {
             "Authorization": `Bearer ${OR_KEY}`,

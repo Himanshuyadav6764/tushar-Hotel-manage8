@@ -10,14 +10,50 @@ import {
     LogIn,
     LogOut
 } from 'lucide-react';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
+import { hasModuleAccess, MODULES } from '../../config/rbac';
 import './DashboardHome.css';
 
 const DashboardHome = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const isStaff = user?.role === 'staff';
+    const canViewRooms = hasModuleAccess(user, MODULES.ROOMS);
+    const canViewReservations = hasModuleAccess(user, MODULES.RESERVATIONS) || hasModuleAccess(user, MODULES.RESERVATION_CARD);
+    const canViewHousekeeping = hasModuleAccess(user, 'housekeeping');
+    const canViewFood = hasModuleAccess(user, MODULES.FOOD_ORDER)
+        || hasModuleAccess(user, MODULES.FOOD_MENU)
+        || hasModuleAccess(user, MODULES.GUEST_MEAL_SERVICE);
+    const canViewCashier = hasModuleAccess(user, MODULES.CASHIER_SECTION)
+        || hasModuleAccess(user, MODULES.CASHIER_LOGS)
+        || hasModuleAccess(user, MODULES.PAYMENT_LOGS);
+    const canViewRevenueAnalytics = canViewCashier || canViewFood || canViewReservations;
+
+    const showRoomStats = canViewRooms;
+    const showBookingStats = canViewReservations;
+    const showBasicCharts = canViewRooms;
+
+    const showArrivalCard = canViewReservations;
+    const showDepartureCard = canViewReservations;
+    const showGuestInHouseCard = canViewReservations;
+    const showRoomStatusCard = canViewRooms;
+    const showTopDonuts = showArrivalCard || showDepartureCard || showGuestInHouseCard || showRoomStatusCard;
+
+    const showOccupancyGauges = canViewRooms;
+    const showUpcomingReservations = canViewReservations;
+    const showMiddleSection = showOccupancyGauges || showUpcomingReservations;
+
+    const showRevenueSection = !isStaff && canViewRevenueAnalytics;
+    const showHousekeepingChart = showRevenueSection && canViewHousekeeping;
+    const showAvailabilityChart = showRevenueSection && canViewRooms;
+
+    const hasAnyVisibleSection = showRoomStats
+        || showBookingStats
+        || showBasicCharts
+        || showTopDonuts
+        || showMiddleSection
+        || showRevenueSection;
     const [roomStats, setRoomStats] = useState({
         total: 0,
         occupied: 0,
@@ -36,36 +72,36 @@ const DashboardHome = () => {
 
     // New state for advanced dashboard metrics
     const [arrivalStats, setArrivalStats] = useState({
-        total: 4,
-        pending: 3,
-        arrived: 1
+        total: 0,
+        pending: 0,
+        arrived: 0
     });
 
     const [departureStats, setDepartureStats] = useState({
-        total: 3,
-        pending: 2,
-        checkOut: 1
+        total: 0,
+        pending: 0,
+        checkOut: 0
     });
 
     const [guestInHouse, setGuestInHouse] = useState({
-        total: 3,
-        adults: 2,
-        children: 1
+        total: 0,
+        adults: 0,
+        children: 0
     });
 
     const [advancedOccupancy, setAdvancedOccupancy] = useState({
-        today: 75,
+        today: 0,
         tomorrow: 0,
-        thisMonth: 12.5,
-        todayOccupied: 9,
-        todayBooked: 9,
-        tomorrowBooked: 1,
-        monthBooked: 2,
-        monthAvailable: 2
+        thisMonth: 0,
+        todayOccupied: 0,
+        todayBooked: 0,
+        tomorrowBooked: 0,
+        monthBooked: 0,
+        monthAvailable: 0
     });
 
     const [upcomingReservations, setUpcomingReservations] = useState({
-        today: 1,
+        today: 0,
         tomorrow: 0,
         next7Days: 0
     });
@@ -154,10 +190,11 @@ const DashboardHome = () => {
         return () => clearInterval(interval);
     }, []);
 
-    // Helper: normalize booking statuses
-    const isCheckedIn = (status) => ['Checked-in', 'CheckedIn', 'IN_HOUSE'].includes(status);
-    const isCheckedOut = (status) => ['Checked-out', 'CheckedOut', 'CHECKED_OUT'].includes(status);
-    const isUpcoming = (status) => ['Upcoming', 'Confirmed', 'Pending', 'RESERVED'].includes(status);
+    const normalizeBookingStatus = (status) => String(status || '').trim().toUpperCase().replace(/-/g, '_').replace(/\s+/g, '_');
+    const isCheckedIn = (status) => ['CHECKED_IN', 'CHECKEDIN', 'IN_HOUSE'].includes(normalizeBookingStatus(status));
+    const isCheckedOut = (status) => ['CHECKED_OUT', 'CHECKEDOUT'].includes(normalizeBookingStatus(status));
+    const isUpcoming = (status) => ['UPCOMING', 'CONFIRMED', 'PENDING', 'RESERVED'].includes(normalizeBookingStatus(status));
+    const isCancelledLike = (status) => ['CANCELLED', 'CANCELED', 'NO_SHOW', 'NOSHOW', 'VOID', 'VOIDED'].includes(normalizeBookingStatus(status));
 
     const calculateStatistics = async () => {
         try {
@@ -167,18 +204,20 @@ const DashboardHome = () => {
             const yesterdayStr = getLocalDateKey(yesterday);
 
             // 1. Fetch all required data in parallel
-            const [roomsRes, bookingsRes, reportRes, ordersRes, transactionsRes, yesterdayReportRes] = await Promise.all([
-                fetch(`${API_URL}/api/rooms/list`),
-                fetch(`${API_URL}/api/bookings/list`),
-                fetch(`${API_URL}/api/cashier/report`),
-                fetch(`${API_URL}/api/guest-meal/orders`),
-                fetch(`${API_URL}/api/cashier/transactions`),
-                fetch(`${API_URL}/api/cashier/report?startDate=${encodeURIComponent(yesterdayStr)}&endDate=${encodeURIComponent(yesterdayStr)}`)
+            const [roomsRes, bookingsRes, reservationsRes, reportRes, ordersRes, transactionsRes, yesterdayReportRes] = await Promise.all([
+                apiCall(`/api/rooms/list`),
+                apiCall(`/api/bookings/list`),
+                apiCall(`/api/reservations/list`),
+                apiCall(`/api/cashier/report`),
+                apiCall(`/api/guest-meal/orders`),
+                apiCall(`/api/cashier/transactions`),
+                apiCall(`/api/cashier/report?startDate=${encodeURIComponent(yesterdayStr)}&endDate=${encodeURIComponent(yesterdayStr)}`)
             ]);
 
-            const [roomsData, bookingsData, reportData, ordersData, transactionsData, yesterdayReportData] = await Promise.all([
+            const [roomsData, bookingsData, reservationsData, reportData, ordersData, transactionsData, yesterdayReportData] = await Promise.all([
                 roomsRes.json(),
                 bookingsRes.json(),
+                reservationsRes.json(),
                 reportRes.json(),
                 ordersRes.json(),
                 transactionsRes.json(),
@@ -187,6 +226,38 @@ const DashboardHome = () => {
 
             const rooms = roomsData.success ? roomsData.data : [];
             const bookings = bookingsData.success ? bookingsData.data : [];
+            const reservations = reservationsData.success ? reservationsData.data : [];
+
+            // Merge booking + reservation records for dashboard counts to reflect actual operational data.
+            const mergedById = new Map();
+            bookings.forEach((b) => {
+                const key = String(b?._id || b?.id || '').trim();
+                if (!key) return;
+                mergedById.set(key, {
+                    _id: key,
+                    status: b?.status,
+                    checkInDate: b?.checkInDate,
+                    checkOutDate: b?.checkOutDate,
+                    adults: b?.adults ?? b?.duration?.adults,
+                    children: b?.children ?? b?.duration?.children,
+                    rooms: Array.isArray(b?.rooms) ? b.rooms : []
+                });
+            });
+            reservations.forEach((r) => {
+                const key = String(r?._id || r?.id || '').trim();
+                if (!key || mergedById.has(key)) return;
+                mergedById.set(key, {
+                    _id: key,
+                    status: r?.status,
+                    checkInDate: r?.checkInDate,
+                    checkOutDate: r?.checkOutDate,
+                    adults: r?.adults,
+                    children: r?.children,
+                    rooms: r?.roomNumber ? [{ roomNumber: r.roomNumber, adults: r?.adults, children: r?.children }] : []
+                });
+            });
+            const statsRecords = Array.from(mergedById.values());
+            const activeStatsRecords = statsRecords.filter((b) => !isCancelledLike(b?.status));
             const report = reportData.success ? reportData.data : null;
             const yesterdayReport = yesterdayReportData.success ? yesterdayReportData.data : null;
             const allOrders = ordersData.success ? ordersData.data : [];
@@ -219,20 +290,30 @@ const DashboardHome = () => {
             setOccupancyRate(rate);
 
             // ---- 4. Guest & Booking Statistics ----
-            const checkedInBookings = bookings.filter(b => isCheckedIn(b.status));
+            const checkedInBookings = activeStatsRecords.filter((b) => isCheckedIn(b.status));
             const currentGuests = checkedInBookings.length;
 
-            const todayCheckIns = bookings.filter(b => {
+            const pendingArrivals = activeStatsRecords.filter((b) => {
                 const cin = getBookingDayKey(b.checkInDate);
-                return cin === todayStr;
+                return cin === todayStr && isUpcoming(b.status);
             }).length;
+            const arrivedToday = activeStatsRecords.filter((b) => {
+                const cin = getBookingDayKey(b.checkInDate);
+                return cin === todayStr && isCheckedIn(b.status);
+            }).length;
+            const todayCheckIns = pendingArrivals + arrivedToday;
 
-            const todayCheckOuts = bookings.filter(b => {
+            const pendingDepartures = activeStatsRecords.filter((b) => {
                 const cout = getBookingDayKey(b.checkOutDate);
-                return cout === todayStr;
+                return cout && cout <= todayStr && isCheckedIn(b.status);
             }).length;
+            const departedToday = statsRecords.filter((b) => {
+                const cout = getBookingDayKey(b.checkOutDate);
+                return cout === todayStr && isCheckedOut(b.status);
+            }).length;
+            const todayCheckOuts = pendingDepartures + departedToday;
 
-            const upcomingBookings = bookings.filter(b => isUpcoming(b.status)).length;
+            const upcomingBookings = activeStatsRecords.filter((b) => isUpcoming(b.status)).length;
 
             setGuestStats({ currentGuests, todayCheckIns, todayCheckOuts, upcomingBookings });
 
@@ -253,21 +334,15 @@ const DashboardHome = () => {
             });
 
             // ---- 6. Arrival & Departure Split ----
-            const arrivedToday = bookings.filter(b =>
-                getBookingDayKey(b.checkInDate) === todayStr && isCheckedIn(b.status)
-            ).length;
             setArrivalStats({
-                total: todayCheckIns,
-                pending: Math.max(0, todayCheckIns - arrivedToday),
-                arrived: arrivedToday
+                total: pendingArrivals,
+                pending: pendingArrivals,
+                arrived: 0
             });
 
-            const departedToday = bookings.filter(b =>
-                getBookingDayKey(b.checkOutDate) === todayStr && isCheckedOut(b.status)
-            ).length;
             setDepartureStats({
-                total: todayCheckOuts,
-                pending: Math.max(0, todayCheckOuts - departedToday),
+                total: pendingDepartures + departedToday,
+                pending: pendingDepartures,
                 checkOut: departedToday
             });
 
@@ -276,13 +351,23 @@ const DashboardHome = () => {
                 if (b.duration?.adults) return sum + parseInt(b.duration.adults);
                 if (b.adults) return sum + parseInt(b.adults);
                 // Check multi-room bookings
-                if (b.rooms?.length) return sum + b.rooms.reduce((s, r) => s + (parseInt(r.adults) || 1), 0);
+                if (b.rooms?.length) {
+                    return sum + b.rooms.reduce((s, r) => {
+                        const roomAdults = parseInt(r.adults ?? r.adultsCount ?? r.numberOfAdults);
+                        return s + (Number.isFinite(roomAdults) ? roomAdults : 1);
+                    }, 0);
+                }
                 return sum + 1;
             }, 0);
             const childrenInHouse = checkedInBookings.reduce((sum, b) => {
                 if (b.duration?.children) return sum + parseInt(b.duration.children);
                 if (b.children) return sum + parseInt(b.children);
-                if (b.rooms?.length) return sum + b.rooms.reduce((s, r) => s + (parseInt(r.children) || 0), 0);
+                if (b.rooms?.length) {
+                    return sum + b.rooms.reduce((s, r) => {
+                        const roomChildren = parseInt(r.children ?? r.childrenCount ?? r.numberOfChildren);
+                        return s + (Number.isFinite(roomChildren) ? roomChildren : 0);
+                    }, 0);
+                }
                 return sum;
             }, 0);
             setGuestInHouse({
@@ -293,16 +378,15 @@ const DashboardHome = () => {
 
             // ---- 8. Advanced Occupancy (Today, Tomorrow, Month) ----
             // Tomorrow: count bookings whose stay period includes tomorrow
-            const tomorrowOccupied = bookings.filter(b => {
-                if (isCheckedOut(b.status) || b.status === 'Cancelled' || b.status === 'NoShow') return false;
+            const tomorrowOccupied = activeStatsRecords.filter(b => {
+                if (isCheckedOut(b.status)) return false;
                 const cin = getBookingDayKey(b.checkInDate);
                 const cout = getBookingDayKey(b.checkOutDate);
                 return cin && cout && tomorrowStr >= cin && tomorrowStr < cout;
             }).length;
 
             // Month: count unique room-nights booked this month
-            const monthRoomNights = bookings.reduce((count, b) => {
-                if (b.status === 'Cancelled' || b.status === 'NoShow') return count;
+            const monthRoomNights = activeStatsRecords.reduce((count, b) => {
                 const cin = getBookingDayKey(b.checkInDate);
                 const cout = getBookingDayKey(b.checkOutDate);
                 if (!cin || !cout) return count;
@@ -331,19 +415,19 @@ const DashboardHome = () => {
             });
 
             // ---- 9. Upcoming Reservations ----
-            const todayArrivals = bookings.filter(b =>
+            const todayArrivals = activeStatsRecords.filter(b =>
                 getBookingDayKey(b.checkInDate) === todayStr && isUpcoming(b.status)
             ).length;
-            const tomorrowArrivals = bookings.filter(b =>
+            const tomorrowArrivals = activeStatsRecords.filter(b =>
                 getBookingDayKey(b.checkInDate) === tomorrowStr
             ).length;
-            const next7Arrivals = bookings.filter(b => {
+            const next7Arrivals = activeStatsRecords.filter(b => {
                 const cin = getBookingDayKey(b.checkInDate);
                 return cin > todayStr && cin <= nextWeekStr;
             }).length;
 
             setUpcomingReservations({
-                today: todayArrivals || todayCheckIns,
+                today: todayArrivals,
                 tomorrow: tomorrowArrivals,
                 next7Days: next7Arrivals
             });
@@ -641,6 +725,7 @@ const DashboardHome = () => {
     return (
         <div className="dashboard-home">
             {/* Room Statistics Section */}
+            {showRoomStats && (
             <div className="statistics-section">
                 <h2 className="section-title">Room Statistics</h2>
                 <div className="stats-grid">
@@ -689,8 +774,10 @@ const DashboardHome = () => {
                     </div>
                 </div>
             </div>
+            )}
 
             {/* Guest Statistics Section */}
+            {showBookingStats && (
             <div className="statistics-section">
                 <h2 className="section-title">Booking Statistics</h2>
                 <div className="stats-grid">
@@ -739,8 +826,10 @@ const DashboardHome = () => {
                     </div>
                 </div>
             </div>
+            )}
 
             {/* Charts Section */}
+            {showBasicCharts && (
             <div className="charts-container">
                 {/* Occupancy Rate Chart */}
                 <div className="chart-card">
@@ -844,19 +933,25 @@ const DashboardHome = () => {
                     </div>
                 </div>
             </div>
+            )}
 
             {/* ========== SEPARATOR ========== */}
+            {(showTopDonuts || showMiddleSection || showRevenueSection) && (
             <div className="dashboard-separator">
                 <div className="separator-line"></div>
                 <div className="separator-line"></div>
             </div>
+            )}
 
             {/* ========== NEW ZOTAKI STYLE DASHBOARD ========== */}
+            {(showTopDonuts || showMiddleSection || showRevenueSection) && (
             <div className="zotaki-dashboard-wrapper">
 
                 {/* Top Stats Cards with Donut Charts */}
+                {showTopDonuts && (
                 <div className="donut-stats-grid">
                     {/* Arrival Card */}
+                    {showArrivalCard && (
                     <div className="donut-stat-card arrival-card">
                         <div className="donut-card-header">
                             <h3>Arrival</h3>
@@ -902,8 +997,10 @@ const DashboardHome = () => {
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* Departure Card */}
+                    {showDepartureCard && (
                     <div className="donut-stat-card departure-card">
                         <div className="donut-card-header">
                             <h3>Departure</h3>
@@ -949,8 +1046,10 @@ const DashboardHome = () => {
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* Guest In House Card */}
+                    {showGuestInHouseCard && (
                     <div className="donut-stat-card guest-house-card">
                         <div className="donut-card-header">
                             <h3>Guest In House</h3>
@@ -996,8 +1095,10 @@ const DashboardHome = () => {
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* Room Status Card */}
+                    {showRoomStatusCard && (
                     <div className="donut-stat-card room-status-card">
                         <div className="donut-card-header">
                             <h3>Room Status</h3>
@@ -1059,11 +1160,15 @@ const DashboardHome = () => {
                             </div>
                         </div>
                     </div>
+                    )}
                 </div>
+                )}
 
                 {/* Middle Section - Occupancy Rate & Upcoming Reservations */}
+                {showMiddleSection && (
                 <div className="middle-section-grid">
                     {/* Occupancy Rate Gauges */}
+                    {showOccupancyGauges && (
                     <div className="occupancy-gauges-card">
                         <div className="gauge-card-header">
                             <h3>Occupancy Rate</h3>
@@ -1175,8 +1280,10 @@ const DashboardHome = () => {
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* Upcoming Reservations */}
+                    {showUpcomingReservations && (
                     <div className="upcoming-reservations-card">
                         <div className="reservations-header">
                             <h3>Upcoming Reservations</h3>
@@ -1218,10 +1325,12 @@ const DashboardHome = () => {
                             </div>
                         </div>
                     </div>
+                    )}
                 </div>
+                )}
 
                 {/* Additional Revenue and Analytics Section - Hidden for Staff */}
-                {!isStaff && (
+                {showRevenueSection && (
                     <div className="revenue-analytics-section">
                         {/* Revenue Cards Row */}
                         <div className="revenue-stats-grid">
@@ -1311,8 +1420,10 @@ const DashboardHome = () => {
                         </div>
 
                         {/* Charts Row */}
+                        {(showHousekeepingChart || showAvailabilityChart) && (
                         <div className="analytics-charts-row">
                             {/* Housekeeping Status Chart */}
+                            {showHousekeepingChart && (
                             <div className="chart-card-analytics housekeeping-chart">
                                 <h3>Housekeeping Status</h3>
                                 <div className="bar-chart-container">
@@ -1356,8 +1467,10 @@ const DashboardHome = () => {
                                     </svg>
                                 </div>
                             </div>
+                            )}
 
                             {/* Rooms Availability Chart */}
+                            {showAvailabilityChart && (
                             <div className="chart-card-analytics availability-chart">
                                 <div className="chart-header-row">
                                     <h3>Rooms Availability</h3>
@@ -1397,10 +1510,23 @@ const DashboardHome = () => {
                                     </svg>
                                 </div>
                             </div>
+                            )}
                         </div>
+                        )}
                     </div>
                 )}
             </div>
+            )}
+
+            {!hasAnyVisibleSection && (
+                <div className="statistics-section">
+                    <h2 className="section-title">Dashboard</h2>
+                    <div className="chart-card" style={{ textAlign: 'center', padding: '40px 24px' }}>
+                        <h3 className="chart-title" style={{ marginBottom: '10px' }}>No dashboard widgets assigned</h3>
+                        <p style={{ margin: 0, color: '#64748b' }}>Please assign related permissions to view dashboard sections.</p>
+                    </div>
+                </div>
+            )}
             {/* End of Zotaki Dashboard */}
         </div>
     );

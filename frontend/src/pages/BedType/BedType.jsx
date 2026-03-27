@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './BedType.css';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 
 const BedType = () => {
     const [bedTypes, setBedTypes] = useState([]);
@@ -30,7 +30,7 @@ const BedType = () => {
     const fetchBedTypes = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_URL}/api/bed-types/list`);
+            const response = await apiCall(`/api/bed-types/list`);
             const data = await response.json();
             if (data.success) {
                 setBedTypes(data.data);
@@ -65,13 +65,13 @@ const BedType = () => {
         try {
             let response;
             if (modalMode === 'add') {
-                response = await fetch(`${API_URL}/api/bed-types/add`, {
+                response = await apiCall(`/api/bed-types/add`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
             } else {
-                response = await fetch(`${API_URL}/api/bed-types/update/${currentBedType._id}`, {
+                response = await apiCall(`/api/bed-types/update/${currentBedType._id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
@@ -97,7 +97,7 @@ const BedType = () => {
 
     const confirmDelete = async (id) => {
         try {
-            const response = await fetch(`${API_URL}/api/bed-types/delete/${id}`, {
+            const response = await apiCall(`/api/bed-types/delete/${id}`, {
                 method: 'DELETE'
             });
             const data = await response.json();

@@ -1,38 +1,14 @@
-import { useState } from 'react';
 import InvoiceGenerator from './InvoiceGenerator';
 import { useSettings } from '../context/SettingsContext';
 
-const InvoiceView = ({ invoice, onClose, onPrint, isModal = false }) => {
-    const [isDownloading, setIsDownloading] = useState(false);
-    const [isPrinting, setIsPrinting] = useState(false);
-    const { getCurrencySymbol } = useSettings();
+const InvoiceView = ({ invoice, onClose, isModal = false }) => {
+    const { settings, getCurrencySymbol } = useSettings();
     const cs = getCurrencySymbol();
 
     if (!invoice) return null;
 
     const formattedInvoice = InvoiceGenerator.formatInvoiceForDisplay(invoice);
     const serviceCharge = Number(invoice.serviceCharge || 0);
-
-    const handlePrint = () => {
-        setIsPrinting(true);
-        setTimeout(() => {
-            window.print();
-            setIsPrinting(false);
-            if (onPrint) onPrint();
-        }, 500);
-    };
-
-    const handleDownloadPDF = async () => {
-        setIsDownloading(true);
-        try {
-            const result = await InvoiceGenerator.downloadInvoicePDF(invoice.invoiceId);
-            if (result.success) {
-                alert(`PDF Downloaded: ${result.fileName}`);
-            }
-        } finally {
-            setIsDownloading(false);
-        }
-    };
 
     const roomDetailsText = invoice.rooms
         .map(room => `${room.categoryId.replace(/-/g, ' ')} (${cs}${room.ratePerNight}/night)`)
@@ -51,6 +27,9 @@ const InvoiceView = ({ invoice, onClose, onPrint, isModal = false }) => {
                 {/* Header */}
                 <div className="invoice-header">
                     <div className="invoice-hotel-info">
+                        {settings.displayLogoOnBill && settings.logoUrl && (
+                            <img src={settings.logoUrl} alt="Hotel Logo" className="invoice-logo" />
+                        )}
                         <h1 className="invoice-hotel-name">{invoice.hotelName}</h1>
                         <p className="invoice-hotel-address">{invoice.hotelAddress}</p>
                         <p className="invoice-hotel-contact">
@@ -175,8 +154,14 @@ const InvoiceView = ({ invoice, onClose, onPrint, isModal = false }) => {
 
                 {/* Footer */}
                 <div className="invoice-footer">
+                    {settings.qrCodeUrl && (
+                        <img src={settings.qrCodeUrl} alt="Payment QR" className="invoice-footer-qr" />
+                    )}
+                    <p className="invoice-footer-prefix">
+                        Invoice Prefix: {settings.billingInvoicePrefix || settings.invoicePrefix || 'INV'}
+                    </p>
                     <p className="invoice-footer-text">
-                        Thank you for staying with us! This is a computer-generated document.
+                        {settings.thankYouMessage || 'Thank you for staying with us!'} This is a computer-generated document.
                     </p>
                     <p className="invoice-footer-terms">
                         For billing disputes, please contact: {invoice.hotelEmail} within 7 days of checkout.
@@ -184,31 +169,7 @@ const InvoiceView = ({ invoice, onClose, onPrint, isModal = false }) => {
                 </div>
             </div>
 
-            {/* Action Buttons */}
-            {isModal && (
-                <div className="invoice-actions">
-                    <button
-                        className="btn btn-secondary"
-                        onClick={handlePrint}
-                        disabled={isPrinting}
-                    >
-                        {isPrinting ? '⏳ Printing...' : '🖨️ Print Invoice'}
-                    </button>
-                    <button
-                        className="btn btn-primary"
-                        onClick={handleDownloadPDF}
-                        disabled={isDownloading}
-                    >
-                        {isDownloading ? '⏳ Downloading...' : '⬇️ Download PDF'}
-                    </button>
-                    <button
-                        className="btn btn-outline"
-                        onClick={onClose}
-                    >
-                        ✕ Close
-                    </button>
-                </div>
-            )}
+
         </div>
     );
 };

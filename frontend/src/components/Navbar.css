@@ -42,11 +42,13 @@
 }
 
 .navbar-logo {
-  height: 50px;
+  height: 68px;
   width: auto;
   object-fit: contain;
   margin-right: 0;
   margin-left: 0;
+  mix-blend-mode: multiply;
+  filter: brightness(1.2) contrast(1.1) saturate(1.8);
 }
 
 /* ================= NAV MENU ================= */

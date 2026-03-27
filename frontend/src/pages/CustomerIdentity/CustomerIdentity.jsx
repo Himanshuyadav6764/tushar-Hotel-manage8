@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './CustomerIdentity.css';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 
 const CustomerIdentity = () => {
     const [identities, setIdentities] = useState([]);
@@ -29,7 +29,7 @@ const CustomerIdentity = () => {
     const fetchIdentities = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`${API_URL}/api/customer-identities/list`);
+            const res = await apiCall(`/api/customer-identities/list`);
             const data = await res.json();
             if (data.success) {
                 setIdentities(data.data);
@@ -63,7 +63,7 @@ const CustomerIdentity = () => {
         try {
             const url = modalMode === 'add' ? `${API_URL}/api/customer-identities/add` : `${API_URL}/api/customer-identities/update/${currentIdentity._id}`;
             const method = modalMode === 'add' ? 'POST' : 'PUT';
-            const res = await fetch(url, {
+            const res = await apiCall(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
@@ -87,7 +87,7 @@ const CustomerIdentity = () => {
 
     const confirmDelete = async (id) => {
         try {
-            const res = await fetch(`${API_URL}/api/customer-identities/delete/${id}`, { method: 'DELETE' });
+            const res = await apiCall(`/api/customer-identities/delete/${id}`, { method: 'DELETE' });
             const data = await res.json();
             if (data.success) {
                 showInlineNote('Identity Deleted', 'Identity type removed successfully.');

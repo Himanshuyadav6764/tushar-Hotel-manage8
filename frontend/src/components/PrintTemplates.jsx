@@ -3,7 +3,7 @@ import { useSettings } from '../context/SettingsContext';
 import { calculateRoomTaxBySlab } from '../utils/roomTax';
 
 const PrintTemplates = ({ type, data, booking }) => {
-    const { settings, getCurrencySymbol, formatDate } = useSettings();
+    const { settings, getCurrencySymbol, formatDate, getFullAddress } = useSettings();
     const cs = getCurrencySymbol();
     const format = data?.type || 'A4';
 
@@ -43,6 +43,8 @@ const PrintTemplates = ({ type, data, booking }) => {
         booking?.referenceNumber || booking?.bookingReferenceId || booking?.bookingId || booking?._id || booking?.id,
         '-'
     );
+    const invoicePrefixLabel = safeText(settings.billingInvoicePrefix || settings.invoicePrefix, 'INV');
+    const companyAddress = safeText(getFullAddress?.(), 'Address not set');
     const nights = toNumber(booking?.nights ?? booking?.numberOfNights, 1);
     const billing = booking?.billing || {};
     const roomCount = Math.max(1, Array.isArray(booking?.rooms) && booking.rooms.length > 0 ? booking.rooms.length : toNumber(booking?.numberOfRooms, 1));
@@ -165,7 +167,7 @@ const PrintTemplates = ({ type, data, booking }) => {
         'Cash'
     );
 
-    const balanceDue = pickNumber(
+    const ledgerBalanceDue = pickNumber(
         booking?.balanceDue,
         booking?.balanceAmount,
         billing?.balanceAmount
@@ -178,26 +180,33 @@ const PrintTemplates = ({ type, data, booking }) => {
             textAlign: 'center',
             marginBottom: isNarrow ? '8px' : '18px',
             borderBottom: '2px solid #000',
+            backgroundColor: '#fff',
             paddingBottom: isNarrow ? '5px' : '10px'
         }}>
             {settings.displayLogoOnBill && settings.logoUrl && (
                 <img
                     src={settings.logoUrl}
                     alt="Hotel Logo"
-                    style={{ maxHeight: isNarrow ? '34px' : '52px', objectFit: 'contain', marginBottom: '4px' }}
+                    style={{
+                        maxHeight: isNarrow ? '40px' : '64px',
+                        objectFit: 'contain',
+                        marginBottom: '6px',
+                        background: 'transparent',
+                        mixBlendMode: 'multiply'
+                    }}
                 />
             )}
-            <h1 style={{ margin: '0 0 5px 0', fontSize: isNarrow ? '14px' : '22px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {safeText(settings.name, 'Hotel')}
-            </h1>
-            <p style={{ margin: '2px 0', fontSize: isNarrow ? '9px' : '12px' }}>
-                {[settings.address, settings.city, settings.state, settings.pin].filter(Boolean).join(', ') || 'Address not set'}
-            </p>
+            {!hasLogo && (
+                <h1 style={{ margin: '0 0 5px 0', fontSize: isNarrow ? '14px' : '22px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    {safeText(settings.name, 'Hotel')}
+                </h1>
+            )}
+            <p style={{ margin: '2px 0', fontSize: isNarrow ? '9px' : '12px' }}>{companyAddress}</p>
             <p style={{ margin: '2px 0', fontSize: isNarrow ? '9px' : '12px' }}>
                 Phone: {safeText(settings.phone, '-')} | GSTIN: {safeText(settings.gstNumber, '-')}
             </p>
             <p style={{ margin: '2px 0', fontSize: isNarrow ? '9px' : '12px' }}>
-                PAN: {safeText(settings.panNumber, '-')} | Format: {safeText(settings.billPrintFormat, 'Hotel Invoice')}
+                Email: {safeText(settings.email, '-')} | PAN: {safeText(settings.panNumber, '-')}
             </p>
         </div>
     );
@@ -210,12 +219,27 @@ const PrintTemplates = ({ type, data, booking }) => {
             borderTop: '1px solid #eee',
             paddingTop: isNarrow ? '6px' : '10px'
         }}>
+            {settings.qrCodeUrl && (
+                <img
+                    src={settings.qrCodeUrl}
+                    alt="Payment QR"
+                    style={{
+                        width: isNarrow ? '84px' : '124px',
+                        height: isNarrow ? '84px' : '124px',
+                        objectFit: 'contain',
+                        margin: '2px auto 6px auto',
+                        display: 'block'
+                    }}
+                />
+            )}
+            <p style={{ margin: '2px 0', fontWeight: 700 }}>Invoice Prefix: {invoicePrefixLabel}</p>
             <p style={{ margin: '4px 0' }}>{safeText(settings.thankYouMessage, 'Thank you for choosing us!')}</p>
             <p style={{ margin: '2px 0', color: '#666' }}>This is a computer-generated document.</p>
         </div>
     );
 
     const amount = (value) => `${cs}${toNumber(value, 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const hasLogo = settings.displayLogoOnBill && settings.logoUrl;
 
     const foodGstPercent = toNumber(settings?.cgst, 0) + toNumber(settings?.sgst, 0) || toNumber(settings?.foodGst, 0);
     const foodServicePercent = toNumber(settings?.serviceCharge ?? settings?.roomServiceCharge, 0);
@@ -389,11 +413,13 @@ const PrintTemplates = ({ type, data, booking }) => {
         }
 
         if (isRoom && taxes.totalTax === 0 && taxAmount > 0) {
-            const halfTax = Number((taxAmount / 2).toFixed(2));
-            taxes.cgst = halfTax;
-            taxes.sgst = halfTax;
-            taxes.totalTax = taxAmount;
+            taxes.roomGst = Number(taxAmount.toFixed(2));
+            taxes.totalTax = Number(taxAmount.toFixed(2));
             if (discount === 0) discount = toNumber(booking?.discount ?? booking?.billing?.discount, 0);
+        }
+
+        if (isRoom && taxes.totalTax > 0 && taxes.roomGst === 0) {
+            taxes.roomGst = Number(taxes.totalTax.toFixed(2));
         }
 
         if (baseAmount > 0) {
@@ -489,6 +515,16 @@ const PrintTemplates = ({ type, data, booking }) => {
     const fallbackSubTotal = totals.subTotal > 0 ? totals.subTotal : subtotal;
     const fallbackPaid = totals.paid > 0 ? totals.paid : paidAmount;
     const fallbackBalance = Math.max(0, fallbackSubTotal - fallbackPaid);
+    const dueTotal = Math.max(0, fallbackSubTotal);
+    const resolvedBalanceDue = Math.max(0, pickNumber(
+        booking?.folioRemainingAmount,
+        booking?.remainingAmount,
+        billing?.remainingAmount,
+        billing?.balanceDue,
+        fallbackBalance,
+        booking?.balanceDue,
+        ledgerBalanceDue
+    ) ?? fallbackBalance);
     const fallbackGrandTotal = fallbackSubTotal;
 
     const renderBillBlock = () => (
@@ -513,7 +549,13 @@ const PrintTemplates = ({ type, data, booking }) => {
                         </tr>
                     )}
 
-                    {chargeLines.map((line) => (
+                    {chargeLines.map((line) => {
+                        const displayTax = line.type === 'room'
+                            ? Number((line.roomGst || line.totalTax || 0).toFixed(2))
+                            : Number((line.totalTax || 0).toFixed(2));
+                        const taxLabel = line.type === 'room' ? 'Room GST (Tax avg slab)' : 'Tax';
+
+                        return (
                         <React.Fragment key={line.id}>
                             <tr style={{ backgroundColor: '#f7f7f7' }}>
                                 <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>
@@ -531,7 +573,7 @@ const PrintTemplates = ({ type, data, booking }) => {
                             {line.discount > 0 && (
                                 <tr>
                                     <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Discount</td>
-                                    <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(line.discount)}</td>
+                                    <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', color: '#059669', fontWeight: 700 }}>-{amount(line.discount)}</td>
                                 </tr>
                             )}
                             {line.service > 0 && (
@@ -540,40 +582,10 @@ const PrintTemplates = ({ type, data, booking }) => {
                                     <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(line.service)}</td>
                                 </tr>
                             )}
-                            {line.cgst > 0 && (
+                            {displayTax > 0 && (
                                 <tr>
-                                    <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>CGST</td>
-                                    <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(line.cgst)}</td>
-                                </tr>
-                            )}
-                            {line.sgst > 0 && (
-                                <tr>
-                                    <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>SGST</td>
-                                    <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(line.sgst)}</td>
-                                </tr>
-                            )}
-                            {line.igst > 0 && (
-                                <tr>
-                                    <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>IGST</td>
-                                    <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(line.igst)}</td>
-                                </tr>
-                            )}
-                            {line.foodGst > 0 && (
-                                <tr>
-                                    <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Food GST</td>
-                                    <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(line.foodGst)}</td>
-                                </tr>
-                            )}
-                            {line.roomGst > 0 && (
-                                <tr>
-                                    <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Room GST</td>
-                                    <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(line.roomGst)}</td>
-                                </tr>
-                            )}
-                            {line.otherTax > 0 && (
-                                <tr>
-                                    <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Other Tax</td>
-                                    <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(line.otherTax)}</td>
+                                    <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{taxLabel}</td>
+                                    <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(displayTax)}</td>
                                 </tr>
                             )}
                             <tr>
@@ -581,7 +593,7 @@ const PrintTemplates = ({ type, data, booking }) => {
                                 <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>{amount(line.lineAmount)}</td>
                             </tr>
                         </React.Fragment>
-                    ))}
+                    )})}
                 </tbody>
             </table>
 
@@ -593,16 +605,11 @@ const PrintTemplates = ({ type, data, booking }) => {
             }}>
                 <div style={{ border: '1px solid #ddd', padding: isNarrow ? '6px' : '10px' }}>
                     <div style={{ fontWeight: 700, marginBottom: '6px', textTransform: 'uppercase', fontSize: isNarrow ? '9px' : '11px' }}>Charges Breakup</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Base Amount</span><strong>{amount(totals.base)}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Discount</span><strong>{amount(totals.discount)}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Service</span><strong>{amount(totals.service)}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>CGST</span><strong>{amount(totals.cgst)}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>SGST</span><strong>{amount(totals.sgst)}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>IGST</span><strong>{amount(totals.igst)}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Food GST</span><strong>{amount(totals.foodGst)}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Room GST</span><strong>{amount(totals.roomGst)}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Other Tax</span><strong>{amount(totals.otherTax)}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #ddd', marginTop: '4px', paddingTop: '4px' }}><span>Total Taxes</span><strong>{amount(totals.taxTotal)}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Base Amount</span><strong>{amount(roomCharges)}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Discount</span><strong style={{ color: '#059669' }}>-{amount(effectiveDiscountAmount)}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Service</span><strong>{amount(serviceCharge)}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Room GST (Tax avg slab)</span><strong>{amount(taxAmount)}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #ddd', marginTop: '4px', paddingTop: '4px' }}><span>Total Taxes</span><strong>{amount(taxAmount)}</strong></div>
                 </div>
 
                 <div style={{ border: '1px solid #ddd', padding: isNarrow ? '6px' : '10px' }}>
@@ -659,8 +666,8 @@ const PrintTemplates = ({ type, data, booking }) => {
                         <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>{amount(fallbackSubTotal)}</td>
                     </tr>
                     <tr>
-                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>Grand Total</td>
-                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>{amount(fallbackGrandTotal)}</td>
+                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>Due Total</td>
+                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', fontWeight: 700 }}>{amount(dueTotal)}</td>
                     </tr>
                     <tr>
                         <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Paid</td>
@@ -671,12 +678,12 @@ const PrintTemplates = ({ type, data, booking }) => {
                         <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackPaid)}</td>
                     </tr>
                     <tr>
-                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Current Balance</td>
-                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackBalance)}</td>
+                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Due Balance</td>
+                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(resolvedBalanceDue)}</td>
                     </tr>
-                    <tr style={{ color: fallbackBalance > 0 ? '#b91c1c' : '#047857', fontWeight: 700 }}>
-                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Remaining</td>
-                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(fallbackBalance)}</td>
+                    <tr style={{ color: resolvedBalanceDue > 0 ? '#b91c1c' : '#047857', fontWeight: 700 }}>
+                        <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Remaining Due</td>
+                        <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(resolvedBalanceDue)}</td>
                     </tr>
                 </tbody>
             </table>
@@ -689,7 +696,7 @@ const renderDocMeta = (title) => (
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            backgroundColor: '#f3f4f6',
+            backgroundColor: '#fff',
             border: '1px solid #ddd',
             padding: isNarrow ? '6px' : '10px',
             gap: '8px'
@@ -731,6 +738,7 @@ const renderFolioPrint = () => (
     <div className="thermal-print" style={{
         fontFamily: '"Inter", sans-serif',
         color: '#111',
+        backgroundColor: '#fff',
         margin: '0 auto',
         width: '100%',
         maxWidth: '300px',
@@ -740,9 +748,21 @@ const renderFolioPrint = () => (
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '10px' }}>
             {settings.displayLogoOnBill && settings.logoUrl && (
-                <img src={settings.logoUrl} alt="Logo" style={{ maxHeight: '40px', objectFit: 'contain', marginBottom: '5px' }} />
+                <img
+                    src={settings.logoUrl}
+                    alt="Hotel Logo"
+                    style={{
+                        maxHeight: '52px',
+                        objectFit: 'contain',
+                        marginBottom: '6px',
+                        background: 'transparent',
+                        mixBlendMode: 'multiply'
+                    }}
+                />
             )}
-            <h1 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 'bold' }}>{safeText(settings.name, 'Hotel Name')}</h1>
+            {!hasLogo && (
+                <h1 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 'bold' }}>{safeText(settings.name, 'Hotel Name')}</h1>
+            )}
 
             <hr style={{ border: 'none', borderTop: '1px solid #000', margin: '4px 0' }} />
 
@@ -779,7 +799,7 @@ const renderFolioPrint = () => (
                 <div key={line.id || idx} style={{ marginBottom: '8px' }}>
                     {/* Block Header */}
                     <div style={{
-                        display: 'flex', justifyContent: 'space-between', backgroundColor: '#e5e7eb', padding: '3px 4px', fontWeight: 'bold'
+                        display: 'flex', justifyContent: 'space-between', backgroundColor: '#fff', padding: '3px 4px', fontWeight: 'bold', border: '1px solid #d1d5db'
                     }}>
                         <span>{line.particulars}</span>
                         <span>{amount(line.lineAmount)}</span>
@@ -802,7 +822,7 @@ const renderFolioPrint = () => (
                         {line.discount > 0 && (
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span>Discount</span>
-                                <span>{amount(line.discount)}</span>
+                                <span style={{ color: '#059669', fontWeight: 700 }}>-{amount(line.discount)}</span>
                             </div>
                         )}
                         {isFoodLine && combinedFoodGst > 0 && (
@@ -811,46 +831,16 @@ const renderFolioPrint = () => (
                                 <span>{amount(combinedFoodGst)}</span>
                             </div>
                         )}
-                        {!isFoodLine && line.cgst > 0 && (
+                        {(line.type === 'room' ? (line.roomGst || line.totalTax) : line.totalTax) > 0 && (
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>{isLaundryLine ? 'Laundry GST (CGST)' : 'CGST'}</span>
-                                <span>{amount(line.cgst)}</span>
-                            </div>
-                        )}
-                        {!isFoodLine && line.sgst > 0 && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>{isLaundryLine ? 'Laundry GST (SGST)' : 'SGST'}</span>
-                                <span>{amount(line.sgst)}</span>
-                            </div>
-                        )}
-                        {line.igst > 0 && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>IGST</span>
-                                <span>{amount(line.igst)}</span>
-                            </div>
-                        )}
-                        {!isFoodLine && line.foodGst > 0 && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>Food GST</span>
-                                <span>{amount(line.foodGst)}</span>
-                            </div>
-                        )}
-                        {line.roomGst > 0 && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>Room GST</span>
-                                <span>{amount(line.roomGst)}</span>
+                                <span>{line.type === 'room' ? 'Room GST (Tax avg slab)' : 'Tax'}</span>
+                                <span>{amount(line.type === 'room' ? (line.roomGst || line.totalTax) : line.totalTax)}</span>
                             </div>
                         )}
                         {(isFoodLine || line.service > 0) && (
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span>Service Charge</span>
                                 <span>{amount(line.service)}</span>
-                            </div>
-                        )}
-                        {line.otherTax > 0 && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>Other Tax</span>
-                                <span>{amount(line.otherTax)}</span>
                             </div>
                         )}
                     </div>
@@ -873,23 +863,33 @@ const renderFolioPrint = () => (
                 <span style={{ fontWeight: 'bold', color: '#b91c1c' }}>Total: {amount(fallbackSubTotal)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0', fontSize: '10px' }}>
-                <span>Grand Total</span>
-                <span style={{ fontWeight: 'bold', color: '#b91c1c' }}>{amount(fallbackGrandTotal)}</span>
+                <span>Due Total</span>
+                <span style={{ fontWeight: 'bold', color: '#b91c1c' }}>{amount(dueTotal)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
                 <span>Paid</span>
                 <span style={{ fontWeight: 'bold', color: '#047857' }}>{amount(fallbackPaid)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
-                <span>Remaining</span>
-                <span style={{ fontWeight: 'bold', color: '#047857' }}>Current Balance: {amount(fallbackBalance)}</span>
+                <span>Remaining Due</span>
+                <span style={{ fontWeight: 'bold', color: resolvedBalanceDue > 0 ? '#b91c1c' : '#047857' }}>Due Balance: {amount(resolvedBalanceDue)}</span>
             </div>
         </div>
 
         {/* Footer */}
         <hr style={{ border: 'none', borderTop: '1px dashed #000', margin: '10px 0' }} />
-        <div style={{ textAlign: 'center', fontStyle: 'italic', fontWeight: 'bold' }}>
-            Thank You!
+        <div style={{ textAlign: 'center' }}>
+            {settings.qrCodeUrl && (
+                <img
+                    src={settings.qrCodeUrl}
+                    alt="Payment QR"
+                    style={{ width: '104px', height: '104px', objectFit: 'contain', display: 'block', margin: '0 auto 6px auto' }}
+                />
+            )}
+            <div style={{ fontSize: '10px', fontWeight: 700 }}>Invoice Prefix: {invoicePrefixLabel}</div>
+            <div style={{ marginTop: '4px', fontStyle: 'italic', fontWeight: 'bold' }}>
+                {safeText(settings.thankYouMessage, 'Thank you for choosing us!')}
+            </div>
         </div>
     </div>
 );
@@ -903,7 +903,7 @@ const renderSummary = () => (
                 {renderGuestAndStay()}
                 {renderBillBlock()}
                 <div style={{ fontSize: isNarrow ? '9px' : '11px' }}>
-                    <p style={{ margin: '2px 0' }}><strong>Invoice Prefix:</strong> {safeText(settings.billingInvoicePrefix || settings.invoicePrefix, '-')}</p>
+                    <p style={{ margin: '2px 0' }}><strong>Invoice Prefix:</strong> {invoicePrefixLabel}</p>
                     <p style={{ margin: '2px 0' }}><strong>Payment Mode:</strong> {paymentModeUsed || (paymentModes?.length ? paymentModes.join(', ') : 'N/A')}</p>
                     <p style={{ margin: '2px 0' }}><strong>Print Type:</strong> {format}</p>
                 </div>

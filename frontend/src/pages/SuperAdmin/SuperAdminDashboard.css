@@ -132,12 +132,15 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    font-size: 20px;
-    font-weight: 700;
-    color: #374151;
-    letter-spacing: 0.5px;
 }
 
+.project-logo-main {
+    height: 52px;
+    width: auto;
+    object-fit: contain;
+    mix-blend-mode: multiply;
+    filter: brightness(1.2) contrast(1.1) saturate(1.8);
+}
 .sa-header-logo svg {
     flex-shrink: 0;
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import API_URL from '../config/api';
+import API_URL, { apiCall } from '../config/api';
 import soundManager from '../utils/soundManager';
 import { useSettings } from '../context/SettingsContext';
 import { sanitizeIdProofInput, validateIdProofNumber } from '../utils/idProofValidation';
@@ -86,7 +86,7 @@ const AddBooking = () => {
 
     const fetchFacilityTypes = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/facility-types/list`);
+            const response = await apiCall(`/api/facility-types/list`);
             const data = await response.json();
             if (data.success) {
                 setFacilityTypes(data.data);
@@ -98,7 +98,7 @@ const AddBooking = () => {
 
     const fetchMealTypes = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/meal-types/list`);
+            const response = await apiCall(`/api/meal-types/list`);
             const data = await response.json();
             if (data.success) {
                 setMealTypes(data.data);
@@ -110,7 +110,7 @@ const AddBooking = () => {
 
     const fetchAvailableRooms = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/rooms/list`);
+            const response = await apiCall(`/api/rooms/list`);
             const data = await response.json();
 
             if (data.success) {
@@ -276,7 +276,7 @@ const AddBooking = () => {
         };
 
         try {
-            const response = await fetch(`${API_URL}/api/bookings/add`, {
+            const response = await apiCall(`/api/bookings/add`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -349,7 +349,7 @@ const AddBooking = () => {
         };
 
         try {
-            const response = await fetch(`${API_URL}/api/bookings/add`, {
+            const response = await apiCall(`/api/bookings/add`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

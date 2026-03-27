@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'framer-motion';
-import API_URL_CONFIG from '../config/api';
+import API_URL_CONFIG, { apiCall } from '../config/api';
 import { useSettings } from '../context/SettingsContext';
 import './FoodOrderPage.css';
 
@@ -162,7 +162,7 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
     const fetchMenuItems = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_URL_CONFIG}/api/menu/list`);
+            const response = await apiCall(`/api/menu/list`);
             const data = await response.json();
 
             if (data.success && data.data) {
@@ -404,7 +404,7 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
 
     const fetchOrderById = async (id) => {
         try {
-            const response = await fetch(`${API_URL_CONFIG}/api/guest-meal/orders/${id}`);
+            const response = await apiCall(`/api/guest-meal/orders/${id}`);
             const data = await response.json();
             if (data.success && data.data) {
                 setOrderId(data.data._id);
@@ -430,7 +430,7 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
 
     const fetchExistingOrder = async () => {
         try {
-            const response = await fetch(`${API_URL_CONFIG}/api/guest-meal/orders/table/${room.id}`);
+            const response = await apiCall(`/api/guest-meal/orders/table/${room.id}`);
             const data = await response.json();
             if (data.success && data.data) {
                 setOrderId(data.data._id);
@@ -470,7 +470,7 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
     useEffect(() => {
         const fetchPosStats = async () => {
             try {
-                const response = await fetch(`${API_URL_CONFIG}/api/guest-meal/analytics/pos-stats`);
+                const response = await apiCall(`/api/guest-meal/analytics/pos-stats`);
                 const data = await response.json();
                 if (data.success) setPosStats(data.data);
             } catch (err) {
@@ -510,6 +510,10 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
                 return false;
             }
 
+            const foodTaxRate = Boolean(settings.inclusiveTax)
+                ? (((parseFloat(settings.cgst) || 0) + (parseFloat(settings.sgst) || 0)) || (parseFloat(settings.foodGst) || 0))
+                : 0;
+
             const orderData = {
                 tableId: (activeOrderType === 'takeaway' || activeOrderType === 'roomservice' || activeOrderType === 'room') ? null : tId,
                 tableNumber: activeOrderType === 'takeaway' ? 0 : tNum,
@@ -519,7 +523,7 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
                 orderType: (activeOrderType === 'roomservice' || activeOrderType === 'room') ? 'Post to Room' :
                     activeOrderType === 'takeaway' ? 'Take Away' :
                     activeOrderType === 'online' ? 'Online' : 'Direct Payment',
-                taxRate: 0,
+                taxRate: foodTaxRate,
                 notes: billComment, // Bill Wise Comment
                 kotNote: kotNote, // Special Note (KOT Only)
                 guest: selectedCustomer?.id || null, // Link to Guest model
@@ -535,7 +539,7 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
 
             let response;
             if (orderId) {
-                response = await fetch(`${API_URL_CONFIG}/api/guest-meal/orders/${orderId}/items`, {
+                response = await apiCall(`/api/guest-meal/orders/${orderId}/items`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -549,7 +553,7 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
                     })
                 });
             } else {
-                response = await fetch(`${API_URL_CONFIG}/api/guest-meal/orders/create`, {
+                response = await apiCall(`/api/guest-meal/orders/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(orderData)
@@ -693,7 +697,7 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
             }
 
             // Realistic API call (triggering backend notification service)
-            const response = await fetch(`${API_URL_CONFIG}/api/notifications/send-sms`, {
+            const response = await apiCall(`/api/notifications/send-sms`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1220,7 +1224,7 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
                                         onChange={async (e) => {
                                             if (e.target.value.length >= 10) {
                                                 try {
-                                                    const res = await fetch(`${API_URL_CONFIG}/api/guests/search?query=${e.target.value}`);
+                                                    const res = await apiCall(`/api/guests/search?query=${e.target.value}`);
                                                     const data = await res.json();
                                                     if (data.success && data.data && data.data.length > 0) {
                                                         const g = data.data[0];

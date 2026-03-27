@@ -854,6 +854,8 @@
         display: flex;
         flex-wrap: nowrap;
         overflow-x: auto;
+        overflow-y: hidden;
+        justify-content: flex-start;
         gap: 8px;
         padding-bottom: 4px;
     }
@@ -863,6 +865,10 @@
         flex: 0 0 auto;
         padding: 8px 12px;
         font-size: 0.76rem;
+    }
+
+    .modal-content-area .btn-print-folio {
+        margin-left: 0;
     }
 
     .modal-content-area .folio-table-container {
@@ -886,13 +892,16 @@
 
 @media (max-width: 576px) {
     .edit-modal-overlay {
-        padding: 0;
+        padding: 10px;
+        align-items: flex-start;
     }
 
     .edit-modal-card {
-        border-radius: 0;
-        max-height: 100vh;
-        min-height: 100vh;
+        width: 100%;
+        max-width: 100%;
+        border-radius: 12px;
+        max-height: calc(100vh - 20px);
+        min-height: auto;
     }
 
     .edit-modal-close {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './FoodPaymentReport.css';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import { useSettings } from '../../context/SettingsContext';
 
 const FoodPaymentReport = () => {
@@ -66,7 +66,7 @@ const FoodPaymentReport = () => {
 
             console.log(`[FoodPaymentReport] Fetching data from ${apiStartDate} to ${apiEndDate}`);
 
-            const response = await fetch(
+            const response = await apiCall(
                 `${API_URL}/api/cashier/food-payment-report?startDate=${apiStartDate}&endDate=${apiEndDate}`
             );
 

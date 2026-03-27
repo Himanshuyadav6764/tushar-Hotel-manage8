@@ -50,7 +50,7 @@ const PrintInvoiceForm = ({ booking, onSubmit, onCancel }) => {
         rooms: roomRows,
         nights,
         taxExempt: false,
-        inclusiveTax: settings.inclusiveTax,
+        inclusiveTax: Boolean(settings.inclusiveTax),
         roomGstSlabs: settings.roomGstSlabs,
         fallbackRoomGst: settings.roomGst
     });
@@ -81,7 +81,8 @@ const PrintInvoiceForm = ({ booking, onSubmit, onCancel }) => {
     ) ?? 0;
     const derivedServiceCharge = Math.max(0, roomCharges - discount) * ((parseFloat(settings.roomServiceCharge ?? settings.serviceCharge) || 0) / 100);
     const serviceCharge = explicitServiceCharge > 0 ? explicitServiceCharge : derivedServiceCharge;
-    const tax = pickNum(b.tax, b.taxAmount, billing.tax, billing.taxAmount) ?? slabTax.taxAmount;
+    const taxEnabled = Boolean(settings.inclusiveTax);
+    const tax = taxEnabled ? (pickNum(b.tax, b.taxAmount, billing.tax, billing.taxAmount) ?? slabTax.taxAmount) : 0;
     const storedTotal = pickNum(billing.totalAmount, b.totalAmount, b.grandTotal, b.amount);
     const grossBeforeDiscount = Math.max(0, roomCharges + serviceCharge + tax);
     const derivedDiscountFromTotal = storedTotal !== undefined ? Math.max(0, grossBeforeDiscount - Number(storedTotal || 0)) : 0;
@@ -127,7 +128,7 @@ const PrintInvoiceForm = ({ booking, onSubmit, onCancel }) => {
                                 <span>{cs}{finalSubtotal.toLocaleString('en-IN')}</span>
                             </div>
                             <div className="summary-item">
-                                <label>{settings.taxType || 'GST'} ({taxRateLabel}% slab avg.)</label>
+                                <label>{taxEnabled ? `${settings.taxType || 'GST'} (${taxRateLabel}% slab avg.)` : `${settings.taxType || 'GST'} (disabled)`}</label>
                                 <span>{cs}{tax.toLocaleString('en-IN')}</span>
                             </div>
                             <div className="summary-item">

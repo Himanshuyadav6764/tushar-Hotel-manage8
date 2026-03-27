@@ -77,6 +77,26 @@ const userSchema = new mongoose.Schema({
         default: 0,
         min: 0,
         max: 5
+    },
+    loginAttempts: {
+        type: Number,
+        default: 0
+    },
+    lockUntil: {
+        type: Date,
+        default: null
+    },
+    suspendedBySystem: {
+        type: Boolean,
+        default: false
+    },
+    suspendedAt: {
+        type: Date,
+        default: null
+    },
+    suspensionReason: {
+        type: String,
+        default: ''
     }
 }, {
     timestamps: true
@@ -92,6 +112,10 @@ userSchema.pre('save', async function (next) {
 // Method to compare password
 userSchema.methods.comparePassword = async function (candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
+};
+
+userSchema.methods.isAccountLocked = function () {
+    return !!(this.lockUntil && this.lockUntil.getTime() > Date.now());
 };
 
 module.exports = mongoose.model('User', userSchema);

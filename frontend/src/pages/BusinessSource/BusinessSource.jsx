@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './BusinessSource.css';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 
 const BusinessSource = () => {
     const [sources, setSources] = useState([]);
@@ -29,7 +29,7 @@ const BusinessSource = () => {
     const fetchSources = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`${API_URL}/api/business-sources/list`);
+            const res = await apiCall(`/api/business-sources/list`);
             const data = await res.json();
             if (data.success) {
                 setSources(data.data);
@@ -59,7 +59,7 @@ const BusinessSource = () => {
         try {
             const url = modalMode === 'add' ? `${API_URL}/api/business-sources/add` : `${API_URL}/api/business-sources/update/${currentSource._id}`;
             const method = modalMode === 'add' ? 'POST' : 'PUT';
-            const res = await fetch(url, {
+            const res = await apiCall(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
@@ -83,7 +83,7 @@ const BusinessSource = () => {
 
     const confirmDelete = async (id) => {
         try {
-            const res = await fetch(`${API_URL}/api/business-sources/delete/${id}`, { method: 'DELETE' });
+            const res = await apiCall(`/api/business-sources/delete/${id}`, { method: 'DELETE' });
             const data = await res.json();
             if (data.success) {
                 showInlineNote('Source Deleted', 'Business source removed successfully.');

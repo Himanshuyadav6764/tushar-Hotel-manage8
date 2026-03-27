@@ -1,8 +1,13 @@
+const mongoose = require('mongoose');
 const Hotel = require('../models/Hotel');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
+const ActivityLog = require('../models/ActivityLog');
 const bcrypt = require('bcryptjs');
 const { getTenantConnection, normalizeDbName } = require('../utils/tenantConnectionManager');
+const { encryptText, decryptText, isEncrypted } = require('../utils/fieldEncryption');
+const { isDetectionPaused, setPauseDetection } = require('../middleware/activityMonitoring');
+const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
 
 const slugifyForDb = (value) => {
     return String(value || 'hotel')
@@ -31,22 +36,23 @@ const generateTenantDbName = async (hotelName) => {
 const getDashboardStats = async (req, res) => {
     try {
         const totalHotels = await Hotel.countDocuments();
-        const activeHotels = await Hotel.countDocuments({ 
-            isActive: true, 
-            'subscription.isActive': true 
+        const suspendedUserAccounts = await User.countDocuments({ suspendedBySystem: true, isActive: false });
+        const activeHotels = await Hotel.countDocuments({
+            isActive: true,
+            'subscription.isActive': true
         });
-        const suspendedHotels = await Hotel.countDocuments({ 
+        const suspendedHotels = await Hotel.countDocuments({
             $or: [
                 { isActive: false },
                 { 'subscription.isActive': false }
             ]
         });
-        
+
         // Get hotels expiring within 7 days
         const sevenDaysFromNow = new Date();
         sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
         const now = new Date();
-        
+
         const expiringSoon = await Hotel.countDocuments({
             'subscription.expiryDate': {
                 $gte: now,
@@ -59,13 +65,14 @@ const getDashboardStats = async (req, res) => {
             totalHotels,
             activeHotels,
             suspended: suspendedHotels,
+            suspendedUserAccounts,
             expiringSoon
         });
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);
-        res.status(500).json({ 
-            message: 'Error fetching dashboard statistics', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Error fetching dashboard statistics',
+            error: error.message
         });
     }
 };
@@ -76,14 +83,14 @@ const getDashboardStats = async (req, res) => {
 const getAllHotels = async (req, res) => {
     try {
         const { search, status } = req.query;
-        
+
         let query = {};
-        
+
         // Search filter
         if (search) {
             query.name = { $regex: search, $options: 'i' };
         }
-        
+
         // Status filter
         if (status === 'active') {
             query.isActive = true;
@@ -91,17 +98,17 @@ const getAllHotels = async (req, res) => {
         } else if (status === 'suspended') {
             query.isActive = false;
         }
-        
+
         const hotels = await Hotel.find(query)
-            .populate('adminId', 'name username phone permissions')
+            .populate('adminId', 'name username phone permissions isActive suspendedBySystem suspendedAt suspensionReason')
             .sort({ createdAt: -1 });
-        
+
         res.status(200).json(hotels);
     } catch (error) {
         console.error('Error fetching hotels:', error);
-        res.status(500).json({ 
-            message: 'Error fetching hotels', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Error fetching hotels',
+            error: error.message
         });
     }
 };
@@ -112,18 +119,18 @@ const getAllHotels = async (req, res) => {
 const getHotelById = async (req, res) => {
     try {
         const hotel = await Hotel.findById(req.params.id)
-            .populate('adminId', 'name username phone permissions');
-        
+            .populate('adminId', 'name username phone permissions isActive suspendedBySystem suspendedAt suspensionReason');
+
         if (!hotel) {
             return res.status(404).json({ message: 'Hotel not found' });
         }
-        
+
         res.status(200).json(hotel);
     } catch (error) {
         console.error('Error fetching hotel:', error);
-        res.status(500).json({ 
-            message: 'Error fetching hotel details', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Error fetching hotel details',
+            error: error.message
         });
     }
 };
@@ -148,18 +155,26 @@ const createHotel = async (req, res) => {
         } = req.body;
 
         // Validation
-        if (!hotelName || !address || !subscriptionPlan || !subscriptionDuration || 
+        if (!hotelName || !address || !subscriptionPlan || !subscriptionDuration ||
             !adminName || !adminEmail || !adminPassword) {
-            return res.status(400).json({ 
-                message: 'Please provide all required fields' 
+            return res.status(400).json({
+                message: 'Please provide all required fields'
             });
         }
 
+        if (!STRONG_PASSWORD_REGEX.test(adminPassword)) {
+            return res.status(400).json({
+                message: 'Admin password must be at least 8 characters and include uppercase, lowercase, number, and special character.'
+            });
+        }
+
+        const normalizedAdminEmail = String(adminEmail).trim().toLowerCase();
+
         // Check if admin email already exists
-        const existingUser = await User.findOne({ username: adminEmail });
+        const existingUser = await User.findOne({ username: normalizedAdminEmail });
         if (existingUser) {
-            return res.status(400).json({ 
-                message: 'Admin email already exists' 
+            return res.status(400).json({
+                message: 'Admin email already exists'
             });
         }
 
@@ -201,7 +216,7 @@ const createHotel = async (req, res) => {
         // Create admin user (password will be hashed by pre-save hook)
         const admin = await User.create({
             name: adminName,
-            username: adminEmail, // Using adminEmail as username
+            username: normalizedAdminEmail, // Using adminEmail as username
             password: adminPassword, // Will be hashed automatically by the User model's pre-save hook
             phone: adminPhone,
             role: 'admin',
@@ -211,6 +226,11 @@ const createHotel = async (req, res) => {
 
         // Update hotel with adminId
         hotel.adminId = admin._id;
+        hotel.adminCredentialSnapshot = {
+            email: normalizedAdminEmail,
+            passwordEncrypted: encryptText(adminPassword),
+            updatedAt: new Date()
+        };
         await hotel.save();
 
         // Ensure tenant database exists and is warm in connection cache.
@@ -233,9 +253,9 @@ const createHotel = async (req, res) => {
         });
     } catch (error) {
         console.error('Error creating hotel:', error);
-        res.status(500).json({ 
-            message: 'Error creating hotel', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Error creating hotel',
+            error: error.message
         });
     }
 };
@@ -256,13 +276,21 @@ const updateHotelDetails = async (req, res) => {
             subscriptionExpiryDate,
             adminName,
             adminEmail,
+            adminPassword,
             adminPhone,
             adminPermissions
         } = req.body;
 
-        const hotel = await Hotel.findById(id);
+        const hotel = await Hotel.findById(id).select('+adminCredentialSnapshot.passwordEncrypted');
         if (!hotel) {
             return res.status(404).json({ message: 'Hotel not found' });
+        }
+
+        const nextAdminPassword = typeof adminPassword === 'string' ? adminPassword.trim() : '';
+        if (nextAdminPassword && !STRONG_PASSWORD_REGEX.test(nextAdminPassword)) {
+            return res.status(400).json({
+                message: 'Admin password must be at least 8 characters and include uppercase, lowercase, number, and special character.'
+            });
         }
 
         if (typeof hotelName === 'string' && hotelName.trim()) hotel.name = hotelName.trim();
@@ -326,6 +354,10 @@ const updateHotelDetails = async (req, res) => {
                     admin.phone = adminPhone.trim();
                 }
 
+                if (nextAdminPassword) {
+                    admin.password = nextAdminPassword;
+                }
+
                 if (Array.isArray(adminPermissions)) {
                     const sanitizedPermissions = [...new Set(adminPermissions
                         .filter((item) => typeof item === 'string')
@@ -335,10 +367,29 @@ const updateHotelDetails = async (req, res) => {
                     admin.permissions = sanitizedPermissions;
                 }
 
-                if (admin.isModified('name') || admin.isModified('username') || admin.isModified('phone') || admin.isModified('permissions')) {
+                if (admin.isModified('name') || admin.isModified('username') || admin.isModified('phone') || admin.isModified('permissions') || admin.isModified('password')) {
                     await admin.save();
                 }
             }
+        }
+
+        if (hotel.adminId) {
+            const currentSnapshot = hotel.adminCredentialSnapshot || {};
+            const snapshotEmail = (typeof adminEmail === 'string' && adminEmail.trim())
+                ? adminEmail.trim().toLowerCase()
+                : (currentSnapshot.email || '');
+
+            const snapshotPassword = nextAdminPassword
+                ? encryptText(nextAdminPassword)
+                : (currentSnapshot.passwordEncrypted || '');
+
+            hotel.adminCredentialSnapshot = {
+                email: snapshotEmail,
+                passwordEncrypted: snapshotPassword,
+                updatedAt: nextAdminPassword ? new Date() : (currentSnapshot.updatedAt || null)
+            };
+
+            await hotel.save();
         }
 
         const updatedHotel = await Hotel.findById(id).populate('adminId', 'name username phone permissions');
@@ -351,6 +402,50 @@ const updateHotelDetails = async (req, res) => {
         console.error('Error updating hotel details:', error);
         return res.status(500).json({
             message: 'Error updating hotel details',
+            error: error.message
+        });
+    }
+};
+
+// @desc    Get hotel admin credentials (super admin only)
+// @route   GET /api/super-admin/hotel/:id/admin-credentials
+// @access  Private (Super Admin only)
+const getHotelAdminCredentials = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const hotel = await Hotel.findById(id)
+            .select('+adminCredentialSnapshot.passwordEncrypted')
+            .populate('adminId', 'name username');
+
+        if (!hotel) {
+            return res.status(404).json({ message: 'Hotel not found' });
+        }
+
+        const snapshot = hotel.adminCredentialSnapshot || {};
+        if (!snapshot.passwordEncrypted) {
+            return res.status(404).json({
+                message: 'No stored admin password found for this hotel. Set a new password from Edit mode.'
+            });
+        }
+
+        const decryptedPassword = decryptText(snapshot.passwordEncrypted);
+        if (isEncrypted(decryptedPassword)) {
+            return res.status(500).json({
+                message: 'Stored password cannot be decrypted with current encryption key.'
+            });
+        }
+
+        return res.status(200).json({
+            hotelId: hotel._id,
+            hotelName: hotel.name,
+            adminEmail: hotel.adminId?.username || snapshot.email || '',
+            adminPassword: decryptedPassword,
+            updatedAt: snapshot.updatedAt || null
+        });
+    } catch (error) {
+        console.error('Error fetching hotel admin credentials:', error);
+        return res.status(500).json({
+            message: 'Error fetching hotel admin credentials',
             error: error.message
         });
     }
@@ -412,13 +507,71 @@ const updateHotelAdminPermissions = async (req, res) => {
     }
 };
 
+// @desc    Toggle hotel admin account status (enable/disable)
+// @route   PATCH /api/super-admin/hotel/:id/toggle-admin-account
+// @access  Private (Super Admin only)
+const toggleHotelAdminAccountStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const hotel = await Hotel.findById(id);
+
+        if (!hotel) {
+            return res.status(404).json({ message: 'Hotel not found' });
+        }
+
+        if (!hotel.adminId) {
+            return res.status(400).json({ message: 'No admin assigned to this hotel' });
+        }
+
+        const adminUser = await User.findById(hotel.adminId);
+        if (!adminUser) {
+            return res.status(404).json({ message: 'Admin user not found' });
+        }
+
+        const shouldActivate = !adminUser.isActive;
+        adminUser.isActive = shouldActivate;
+
+        if (shouldActivate) {
+            adminUser.loginAttempts = 0;
+            adminUser.lockUntil = null;
+            adminUser.suspendedBySystem = false;
+            adminUser.suspendedAt = null;
+            adminUser.suspensionReason = '';
+        } else {
+            adminUser.lockUntil = null;
+            adminUser.suspensionReason = 'Account disabled by super admin';
+        }
+
+        await adminUser.save();
+
+        return res.status(200).json({
+            message: `Admin account ${shouldActivate ? 'activated' : 'disabled'} successfully`,
+            admin: {
+                id: adminUser._id,
+                name: adminUser.name,
+                username: adminUser.username,
+                isActive: adminUser.isActive,
+                suspendedBySystem: adminUser.suspendedBySystem,
+                suspendedAt: adminUser.suspendedAt,
+                suspensionReason: adminUser.suspensionReason
+            }
+        });
+    } catch (error) {
+        console.error('Error toggling admin account status:', error);
+        return res.status(500).json({
+            message: 'Error toggling admin account status',
+            error: error.message
+        });
+    }
+};
+
 // @desc    Suspend hotel
 // @route   PATCH /api/super-admin/suspend/:id
 // @access  Private (Super Admin only)
 const suspendHotel = async (req, res) => {
     try {
         const hotel = await Hotel.findById(req.params.id);
-        
+
         if (!hotel) {
             return res.status(404).json({ message: 'Hotel not found' });
         }
@@ -435,9 +588,9 @@ const suspendHotel = async (req, res) => {
         });
     } catch (error) {
         console.error('Error toggling hotel status:', error);
-        res.status(500).json({ 
-            message: 'Error toggling hotel status', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Error toggling hotel status',
+            error: error.message
         });
     }
 };
@@ -448,7 +601,7 @@ const suspendHotel = async (req, res) => {
 const activateHotel = async (req, res) => {
     try {
         const hotel = await Hotel.findById(req.params.id);
-        
+
         if (!hotel) {
             return res.status(404).json({ message: 'Hotel not found' });
         }
@@ -463,9 +616,9 @@ const activateHotel = async (req, res) => {
         });
     } catch (error) {
         console.error('Error activating hotel:', error);
-        res.status(500).json({ 
-            message: 'Error activating hotel', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Error activating hotel',
+            error: error.message
         });
     }
 };
@@ -476,18 +629,18 @@ const activateHotel = async (req, res) => {
 const renewSubscription = async (req, res) => {
     try {
         const { duration, days } = req.body; // duration in months OR days in days
-        
+
         // Support both duration (months) and days parameters
         const daysToAdd = days || (duration ? duration * 30 : 0);
-        
+
         if (!daysToAdd || daysToAdd < 1) {
-            return res.status(400).json({ 
-                message: 'Please provide valid subscription duration (days or months)' 
+            return res.status(400).json({
+                message: 'Please provide valid subscription duration (days or months)'
             });
         }
 
         const hotel = await Hotel.findById(req.params.id);
-        
+
         if (!hotel) {
             return res.status(404).json({ message: 'Hotel not found' });
         }
@@ -496,7 +649,7 @@ const renewSubscription = async (req, res) => {
         const today = new Date();
         const currentExpiry = new Date(hotel.subscription.expiryDate);
         const startFrom = currentExpiry > today ? currentExpiry : today;
-        
+
         const newExpiryDate = new Date(startFrom);
         newExpiryDate.setDate(newExpiryDate.getDate() + parseInt(daysToAdd));
 
@@ -511,9 +664,9 @@ const renewSubscription = async (req, res) => {
         });
     } catch (error) {
         console.error('Error renewing subscription:', error);
-        res.status(500).json({ 
-            message: 'Error renewing subscription', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Error renewing subscription',
+            error: error.message
         });
     }
 };
@@ -524,15 +677,15 @@ const renewSubscription = async (req, res) => {
 const upgradePlan = async (req, res) => {
     try {
         const { plan } = req.body;
-        
+
         if (!plan || !['basic', 'premium'].includes(plan)) {
-            return res.status(400).json({ 
-                message: 'Please provide valid subscription plan (basic or premium)' 
+            return res.status(400).json({
+                message: 'Please provide valid subscription plan (basic or premium)'
             });
         }
 
         const hotel = await Hotel.findById(req.params.id);
-        
+
         if (!hotel) {
             return res.status(404).json({ message: 'Hotel not found' });
         }
@@ -546,9 +699,9 @@ const upgradePlan = async (req, res) => {
         });
     } catch (error) {
         console.error('Error upgrading plan:', error);
-        res.status(500).json({ 
-            message: 'Error upgrading subscription plan', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Error upgrading subscription plan',
+            error: error.message
         });
     }
 };
@@ -559,7 +712,7 @@ const upgradePlan = async (req, res) => {
 const getProfile = async (req, res) => {
     try {
         const user = await User.findById(req.user._id).select('-password');
-        
+
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -567,9 +720,9 @@ const getProfile = async (req, res) => {
         res.status(200).json(user);
     } catch (error) {
         console.error('Error fetching profile:', error);
-        res.status(500).json({ 
-            message: 'Error fetching profile', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Error fetching profile',
+            error: error.message
         });
     }
 };
@@ -580,9 +733,9 @@ const getProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
     try {
         const { name, username, phone } = req.body;
-        
+
         const user = await User.findById(req.user._id);
-        
+
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -591,8 +744,8 @@ const updateProfile = async (req, res) => {
         if (username && username !== user.username) {
             const existingUser = await User.findOne({ username });
             if (existingUser) {
-                return res.status(400).json({ 
-                    message: 'Username/Email already exists' 
+                return res.status(400).json({
+                    message: 'Username/Email already exists'
                 });
             }
         }
@@ -601,6 +754,7 @@ const updateProfile = async (req, res) => {
         if (name) user.name = name;
         if (username) user.username = username;
         if (phone !== undefined) user.phone = phone;
+        if (req.body.image !== undefined) user.image = req.body.image;
 
         await user.save();
 
@@ -611,14 +765,15 @@ const updateProfile = async (req, res) => {
                 name: user.name,
                 username: user.username,
                 phone: user.phone,
-                role: user.role
+                role: user.role,
+                image: user.image
             }
         });
     } catch (error) {
         console.error('Error updating profile:', error);
-        res.status(500).json({ 
-            message: 'Error updating profile', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Error updating profile',
+            error: error.message
         });
     }
 };
@@ -629,21 +784,21 @@ const updateProfile = async (req, res) => {
 const changePassword = async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
-        
+
         if (!currentPassword || !newPassword) {
-            return res.status(400).json({ 
-                message: 'Please provide both current and new password' 
+            return res.status(400).json({
+                message: 'Please provide both current and new password'
             });
         }
 
-        if (newPassword.length < 6) {
-            return res.status(400).json({ 
-                message: 'New password must be at least 6 characters long' 
+        if (!STRONG_PASSWORD_REGEX.test(newPassword)) {
+            return res.status(400).json({
+                message: 'New password must be at least 8 characters and include uppercase, lowercase, number, and special character'
             });
         }
 
         const user = await User.findById(req.user._id);
-        
+
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -651,8 +806,15 @@ const changePassword = async (req, res) => {
         // Verify current password
         const isMatch = await bcrypt.compare(currentPassword, user.password);
         if (!isMatch) {
-            return res.status(401).json({ 
-                message: 'Current password is incorrect' 
+            return res.status(401).json({
+                message: 'Current password is incorrect'
+            });
+        }
+
+        const isSameAsCurrent = await bcrypt.compare(newPassword, user.password);
+        if (isSameAsCurrent) {
+            return res.status(400).json({
+                message: 'New password must be different from current password'
             });
         }
 
@@ -665,9 +827,9 @@ const changePassword = async (req, res) => {
         });
     } catch (error) {
         console.error('Error changing password:', error);
-        res.status(500).json({ 
-            message: 'Error changing password', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Error changing password',
+            error: error.message
         });
     }
 };
@@ -678,12 +840,12 @@ const changePassword = async (req, res) => {
 const getAnalytics = async (req, res) => {
     try {
         const { period = 'month' } = req.query;
-        
+
         // Calculate date range
         const now = new Date();
         let startDate;
-        
-        switch(period) {
+
+        switch (period) {
             case 'week':
                 startDate = new Date(now.setDate(now.getDate() - 7));
                 break;
@@ -699,7 +861,7 @@ const getAnalytics = async (req, res) => {
 
         // Get all hotels
         const allHotels = await Hotel.find();
-        
+
         // Get new hotels in period
         const newHotels = await Hotel.countDocuments({
             createdAt: { $gte: startDate }
@@ -727,14 +889,14 @@ const getAnalytics = async (req, res) => {
         for (let i = 5; i >= 0; i--) {
             const monthStart = new Date(new Date().setMonth(new Date().getMonth() - i, 1));
             const monthEnd = new Date(new Date().setMonth(new Date().getMonth() - i + 1, 0));
-            
+
             const count = await Hotel.countDocuments({
                 createdAt: {
                     $gte: monthStart,
                     $lte: monthEnd
                 }
             });
-            
+
             growthTrend.push({
                 month: monthStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
                 count
@@ -746,7 +908,7 @@ const getAnalytics = async (req, res) => {
         for (let i = 0; i < 90; i += 30) {
             const rangeStart = new Date(new Date().setDate(new Date().getDate() + i));
             const rangeEnd = new Date(new Date().setDate(new Date().getDate() + i + 30));
-            
+
             const count = await Hotel.countDocuments({
                 'subscription.expiryDate': {
                     $gte: rangeStart,
@@ -754,7 +916,7 @@ const getAnalytics = async (req, res) => {
                 },
                 'subscription.isActive': true
             });
-            
+
             expiryDistribution.push({
                 range: `${Math.floor(i / 30)} - ${Math.floor((i + 30) / 30)} months`,
                 count
@@ -772,9 +934,9 @@ const getAnalytics = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching analytics:', error);
-        res.status(500).json({ 
-            message: 'Error fetching analytics', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Error fetching analytics',
+            error: error.message
         });
     }
 };
@@ -845,12 +1007,12 @@ const getAuditLogs = async (req, res) => {
 const getAuditStats = async (req, res) => {
     try {
         const { period = '7d' } = req.query;
-        
+
         // Calculate date range
         const now = new Date();
         let startDate;
-        
-        switch(period) {
+
+        switch (period) {
             case '24h':
                 startDate = new Date(now.setHours(now.getHours() - 24));
                 break;
@@ -919,13 +1081,152 @@ const getAuditStats = async (req, res) => {
     }
 };
 
+// @desc    Get activity logs with filters
+// @route   GET /api/super-admin/activity-logs
+// @access  Private (Super Admin only)
+const getActivityLogs = async (req, res) => {
+    try {
+        const {
+            category,
+            action,
+            userId,
+            suspicious,
+            statusCode,
+            startDate,
+            endDate,
+            page = 1,
+            limit = 50
+        } = req.query;
+
+        const query = {};
+        if (category) query.category = category;
+        if (action) query.action = action;
+        if (userId) query.userId = userId;
+        if (statusCode) query.statusCode = Number(statusCode);
+        if (typeof suspicious !== 'undefined') {
+            query.suspicious = String(suspicious).toLowerCase() === 'true';
+        }
+
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate) query.createdAt.$gte = new Date(startDate);
+            if (endDate) query.createdAt.$lte = new Date(endDate);
+        }
+
+        const pageNumber = Math.max(1, parseInt(page, 10) || 1);
+        const limitNumber = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+        const skip = (pageNumber - 1) * limitNumber;
+
+        const total = await ActivityLog.countDocuments(query);
+        const logs = await ActivityLog.find(query)
+            .populate('userId', 'name username role')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNumber);
+
+        return res.status(200).json({
+            logs,
+            pagination: {
+                total,
+                page: pageNumber,
+                limit: limitNumber,
+                pages: Math.ceil(total / limitNumber)
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching activity logs:', error);
+        return res.status(500).json({
+            message: 'Error fetching activity logs',
+            error: error.message
+        });
+    }
+};
+
+// @desc    Get suspicious activity summary
+// @route   GET /api/super-admin/suspicious-activities
+// @access  Private (Super Admin only)
+const getSuspiciousActivities = async (req, res) => {
+    try {
+        const { period = '24h', limit = 100 } = req.query;
+
+        const now = new Date();
+        let startDate = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+
+        if (period === '7d') {
+            startDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+        } else if (period === '30d') {
+            startDate = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+        } else if (period === '1h') {
+            startDate = new Date(now.getTime() - (60 * 60 * 1000));
+        }
+
+        const limitNumber = Math.min(500, Math.max(1, parseInt(limit, 10) || 100));
+
+        const logs = await ActivityLog.find({
+            suspicious: true,
+            createdAt: { $gte: startDate }
+        })
+            .populate('userId', 'name username role')
+            .sort({ createdAt: -1 })
+            .limit(limitNumber);
+
+        const reasonsBreakdown = await ActivityLog.aggregate([
+            { $match: { suspicious: true, createdAt: { $gte: startDate } } },
+            { $unwind: '$suspiciousReasons' },
+            { $group: { _id: '$suspiciousReasons', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+        ]);
+
+        const categoryBreakdown = await ActivityLog.aggregate([
+            { $match: { suspicious: true, createdAt: { $gte: startDate } } },
+            { $group: { _id: '$category', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+        ]);
+
+        const topSourceIps = await ActivityLog.aggregate([
+            { $match: { suspicious: true, createdAt: { $gte: startDate } } },
+            { $group: { _id: '$ipAddress', count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 10 }
+        ]);
+
+        const authOrBookingSuspicious = await ActivityLog.aggregate([
+            {
+                $match: {
+                    suspicious: true,
+                    createdAt: { $gte: startDate },
+                    category: { $in: ['auth', 'booking', 'reservation'] }
+                }
+            },
+            { $group: { _id: '$category', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+        ]);
+
+        return res.status(200).json({
+            period,
+            totalSuspicious: logs.length,
+            reasonsBreakdown,
+            categoryBreakdown,
+            topSourceIps,
+            authOrBookingSuspicious,
+            logs
+        });
+    } catch (error) {
+        console.error('Error fetching suspicious activities:', error);
+        return res.status(500).json({
+            message: 'Error fetching suspicious activities',
+            error: error.message
+        });
+    }
+};
+
 // @desc    Delete old audit logs
 // @route   DELETE /api/super-admin/audit-logs/cleanup
 // @access  Private (Super Admin only)
 const cleanupAuditLogs = async (req, res) => {
     try {
         const { olderThan = 365 } = req.body; // Days
-        
+
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - parseInt(olderThan));
 
@@ -946,6 +1247,66 @@ const cleanupAuditLogs = async (req, res) => {
     }
 };
 
+// @desc    Clear all activity logs
+// @route   DELETE /api/super-admin/activity-logs/clear-all
+// @access  Private (Super Admin only)
+const clearAllActivityLogs = async (req, res) => {
+    try {
+        console.log(`[SuperAdmin] Clear all activity logs requested by ${req.user?._id}`);
+        // Ensure connection is established
+        if (!mongoose.connection.readyState) {
+            throw new Error('Database connection not ready');
+        }
+
+        const result = await ActivityLog.deleteMany({});
+        console.log(`[SuperAdmin] Activity logs cleared: ${result.deletedCount} items removed`);
+        
+        res.status(200).json({
+            success: true,
+            message: `Successfully deleted all ${result.deletedCount} activity logs.`,
+            deletedCount: result.deletedCount
+        });
+    } catch (error) {
+        console.error('[SuperAdmin] ERROR clearing activity logs:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error clearing activity logs: ' + error.message,
+            error: error.message
+        });
+    }
+};
+
+// @desc    Get monitoring pause status
+// @route   GET /api/super-admin/monitoring-status
+// @access  Private (Super Admin only)
+const getMonitoringStatus = async (req, res) => {
+    try {
+        res.status(200).json({
+            success: true,
+            isPaused: isDetectionPaused()
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Toggle monitoring pause
+// @route   PATCH /api/super-admin/monitoring-toggle
+// @access  Private (Super Admin only)
+const toggleMonitoringControl = async (req, res) => {
+    try {
+        const { pause } = req.body;
+        setPauseDetection(!!pause);
+        res.status(200).json({
+            success: true,
+            isPaused: isDetectionPaused(),
+            message: pause ? 'Activity monitoring paused' : 'Activity monitoring resumed'
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // Legacy endpoints for backward compatibility
 const getAllAdmins = getAllHotels;
 const createAdmin = createHotel;
@@ -956,9 +1317,11 @@ module.exports = {
     getDashboardStats,
     getAllHotels,
     getHotelById,
+    getHotelAdminCredentials,
     createHotel,
     updateHotelDetails,
     updateHotelAdminPermissions,
+    toggleHotelAdminAccountStatus,
     suspendHotel,
     activateHotel,
     renewSubscription,
@@ -973,6 +1336,12 @@ module.exports = {
     getAuditLogs,
     getAuditStats,
     cleanupAuditLogs,
+    // Activity Monitoring
+    getActivityLogs,
+    getSuspiciousActivities,
+    clearAllActivityLogs,
+    getMonitoringStatus,
+    toggleMonitoringControl,
     // Legacy exports
     getAllAdmins,
     createAdmin,
