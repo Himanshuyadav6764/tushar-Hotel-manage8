@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import { useSettings } from '../../context/SettingsContext';
 
 const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
@@ -21,7 +21,7 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch(`${API_URL}/api/reservations/${booking._id || booking.id}`);
+                const response = await apiCall(`/api/reservations/${booking._id || booking.id}`);
                 const result = await response.json();
                 if (result.success) {
                     const data = result.data;

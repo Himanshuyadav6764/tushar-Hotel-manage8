@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './HousekeepingView.css';
-import API_URL_CONFIG from '../config/api';
+import API_URL_CONFIG, { apiCall } from '../config/api';
 
 const HousekeepingView = () => {
     const API_URL = `${API_URL_CONFIG}/api/housekeeping`;
@@ -21,7 +21,7 @@ const HousekeepingView = () => {
     const fetchTasks = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_URL}/list`);
+            const response = await apiCall(`/list`);
             const data = await response.json();
             if (data.success) {
                 setTasks(data.data);
@@ -70,7 +70,7 @@ const HousekeepingView = () => {
     // Mark room as clean
     const handleMarkClean = async (taskId, roomNumber) => {
         try {
-            const response = await fetch(`${API_URL}/mark-clean`, {
+            const response = await apiCall(`/mark-clean`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ taskId, roomNumber })
@@ -106,7 +106,7 @@ const HousekeepingView = () => {
     // Mark room/task as pending for follow-up
     const handleMarkPending = async (taskId, roomNumber) => {
         try {
-            const response = await fetch(`${API_URL}/mark-pending`, {
+            const response = await apiCall(`/mark-pending`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ taskId, roomNumber })

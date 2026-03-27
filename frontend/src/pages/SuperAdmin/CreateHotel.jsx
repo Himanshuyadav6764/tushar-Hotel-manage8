@@ -79,6 +79,27 @@ const REPORT_OPTIONS = [
     'Reports - Analytics'
 ];
 
+const expandPermissionSelections = (labels = []) => {
+    const selected = new Set(labels);
+
+    if (selected.has('Property Setup (All)')) {
+        PROPERTY_SETUP_OPTIONS.forEach((label) => selected.add(label));
+        selected.add('Property Setup');
+    }
+
+    if (selected.has('Property Configuration (All)')) {
+        PROPERTY_CONFIG_OPTIONS.forEach((label) => selected.add(label));
+        selected.add('Property Configuration');
+    }
+
+    if (selected.has('Reports (All)')) {
+        REPORT_OPTIONS.forEach((label) => selected.add(label));
+        selected.add('Reports');
+    }
+
+    return Array.from(selected);
+};
+
 const MultiPermissionPicker = ({
     title,
     options,
@@ -87,12 +108,39 @@ const MultiPermissionPicker = ({
     onAdd,
     description
 }) => {
+    const allLabel = options.find((label) => /\(All\)/i.test(label));
+
     const toggleOption = (label) => {
-        setSelectedOptions((prev) => (
-            prev.includes(label)
-                ? prev.filter((item) => item !== label)
-                : [...prev, label]
-        ));
+        setSelectedOptions((prev) => {
+            const prevSet = new Set(prev);
+
+            if (allLabel && label === allLabel) {
+                if (prevSet.has(allLabel)) {
+                    return [];
+                }
+                return [...options];
+            }
+
+            if (prevSet.has(label)) {
+                prevSet.delete(label);
+            } else {
+                prevSet.add(label);
+            }
+
+            if (allLabel) {
+                const allChildrenSelected = options
+                    .filter((item) => item !== allLabel)
+                    .every((item) => prevSet.has(item));
+
+                if (allChildrenSelected) {
+                    prevSet.add(allLabel);
+                } else {
+                    prevSet.delete(allLabel);
+                }
+            }
+
+            return Array.from(prevSet);
+        });
     };
 
     return (
@@ -128,7 +176,7 @@ const MultiPermissionPicker = ({
                     <div className="mpp-actions" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                         <button
                             type="button"
-                            onClick={() => setSelectedOptions(options)}
+                            onClick={() => setSelectedOptions([...options])}
                             className="mpp-btn mpp-btn-neutral"
                             style={{
                                 border: '1px solid #cbd5e1',
@@ -284,7 +332,7 @@ const CreateHotel = () => {
     const addSelectedPermissions = (labels) => {
         if (!Array.isArray(labels) || labels.length === 0) return;
         setFormData((prev) => {
-            const nextPermissions = [...new Set([...prev.adminPermissions, ...labels])];
+            const nextPermissions = [...new Set([...prev.adminPermissions, ...expandPermissionSelections(labels)])];
             return {
                 ...prev,
                 adminPermissions: nextPermissions
@@ -465,6 +513,13 @@ const CreateHotel = () => {
                     >
                         <FaPlus />
                         Create Hotel
+                    </button>
+                    <button
+                        className="sa-nav-item"
+                        onClick={() => navigate('/super-admin/activity-monitoring')}
+                    >
+                        <FaClock />
+                        Activity Monitoring
                     </button>
                     <button
                         className="sa-nav-item"
@@ -904,7 +959,10 @@ const CreateHotel = () => {
                                                 onChange={handleChange}
                                                 required
                                                 placeholder="Enter secure password"
-                                                minLength="6"
+                                                minLength="8"
+                                                pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$"
+                                                title="Password must be at least 8 characters and include uppercase, lowercase, number, and special character"
+                                                autoComplete="new-password"
                                                 style={{
                                                     width: '100%',
                                                     padding: '12px 44px 12px 16px',
@@ -937,6 +995,13 @@ const CreateHotel = () => {
                                                 {showAdminPassword ? <FaEyeSlash /> : <FaEye />}
                                             </button>
                                         </div>
+                                        <p style={{
+                                            margin: '8px 0 0 0',
+                                            fontSize: '12px',
+                                            color: '#6b7280'
+                                        }}>
+                                            Use minimum 8 characters with at least 1 uppercase, 1 lowercase, 1 number, and 1 special symbol.
+                                        </p>
                                     </div>
                                 </div>
 

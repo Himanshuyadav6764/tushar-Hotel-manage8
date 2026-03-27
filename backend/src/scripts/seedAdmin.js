@@ -50,7 +50,6 @@ const seedUser = async (email, password, role, name, hotelId = null) => {
             // User exists — verify password match, update role/permissions/hotel
             const passwordMatches = await bcrypt.compare(password, existingUser.password);
             const updateData = {
-                isActive: true,
                 role: role, // FORCE update role to match strict seed type
                 username: normalizedEmail
             };

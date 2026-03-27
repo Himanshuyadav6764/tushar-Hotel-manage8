@@ -67,7 +67,7 @@ const PrintSummaryForm = ({ booking, onSubmit, onCancel }) => {
         rooms: roomRows,
         nights,
         taxExempt: false,
-        inclusiveTax: settings.inclusiveTax,
+        inclusiveTax: Boolean(settings.inclusiveTax),
         roomGstSlabs: settings.roomGstSlabs,
         fallbackRoomGst: settings.roomGst
     });
@@ -98,7 +98,8 @@ const PrintSummaryForm = ({ booking, onSubmit, onCancel }) => {
 
     const derivedServiceCharge = Math.max(0, roomCharges - discount) * ((parseFloat(settings.roomServiceCharge ?? settings.serviceCharge) || 0) / 100);
     const serviceCharge = explicitServiceCharge > 0 ? explicitServiceCharge : derivedServiceCharge;
-    const tax = pickNum(b.tax, b.taxAmount, billing.tax, billing.taxAmount) ?? slabTax.taxAmount;
+    const taxEnabled = Boolean(settings.inclusiveTax);
+    const tax = taxEnabled ? (pickNum(b.tax, b.taxAmount, billing.tax, billing.taxAmount) ?? slabTax.taxAmount) : 0;
     const taxPct = parseFloat(settings.roomGst ?? 12) || 12;
     const storedTotal = pickNum(billing.totalAmount, b.totalAmount, b.grandTotal, b.amount);
     const grossBeforeDiscount = Math.max(0, roomCharges + serviceCharge + tax);
@@ -175,7 +176,7 @@ const PrintSummaryForm = ({ booking, onSubmit, onCancel }) => {
                                 <span>{cs}{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                             <div className="summary-item">
-                                <label>TAX ({taxPct.toFixed(1)}%)</label>
+                                <label>{taxEnabled ? `TAX (${taxPct.toFixed(1)}%)` : 'TAX (disabled)'}</label>
                                 <span>{cs}{tax.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                         </div>

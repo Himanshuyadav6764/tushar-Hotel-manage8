@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import API_URL from '../config/api';
+import API_URL, { apiCall } from '../config/api';
 import BookingRow from './BookingRow';
 import EditReservationModal from './EditReservationModal';
 import BookingActionsManager from './BookingActionsManager';
@@ -47,7 +47,7 @@ const Bookings = () => {
             // Clear old localStorage data
             localStorage.removeItem('hotelBookings');
 
-            const response = await fetch(`${API_URL}/api/bookings/list`);
+            const response = await apiCall(`/api/bookings/list`);
             const data = await response.json();
             if (data.success) {
                 setBookings(data.data);
@@ -94,7 +94,7 @@ const Bookings = () => {
     const handleDeleteBooking = async (id) => {
         if (confirm('Are you sure you want to delete this booking?')) {
             try {
-                const response = await fetch(`${API_URL}/api/bookings/delete/${id}`, {
+                const response = await apiCall(`/api/bookings/delete/${id}`, {
                     method: 'DELETE'
                 });
 
@@ -142,7 +142,7 @@ const Bookings = () => {
                     status: bookingFormData.status || 'Upcoming'
                 };
 
-                const response = await fetch(`${API_URL}/api/bookings/add`, {
+                const response = await apiCall(`/api/bookings/add`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(newBooking)
@@ -167,7 +167,7 @@ const Bookings = () => {
                     status: bookingFormData.status
                 };
 
-                const response = await fetch(`${API_URL}/api/bookings/update/${currentBooking._id}`, {
+                const response = await apiCall(`/api/bookings/update/${currentBooking._id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(updatedBooking)

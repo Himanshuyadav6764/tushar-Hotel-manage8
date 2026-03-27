@@ -203,10 +203,17 @@ const AddPaymentForm = ({ booking, onSubmit, onCancel }) => {
     };
 
     const getDisplayAmount = (transaction) => {
+        const ledgerAmount = Math.abs(toNumber(transaction?.amount, 0));
+        if (ledgerAmount > 0) {
+            return ledgerAmount;
+        }
+
+        // Legacy fallback only when historical rows are missing amount.
         if (isRoomChargeTransaction(transaction)) {
             return toNumber(roomChargeFinal, 0);
         }
-        return Math.abs(toNumber(transaction?.amount, 0));
+
+        return 0;
     };
 
     const folioGuests = useMemo(() => {
@@ -283,11 +290,8 @@ const AddPaymentForm = ({ booking, onSubmit, onCancel }) => {
                         ?? booking?.rooms?.[0]?.ratePerNight,
                         0
                     );
-                    const virtualRoomCharge = toNumber(
-                        booking?.billing?.roomCharges
-                        ?? booking?.roomCharges,
-                        roomRate * nights
-                    );
+                    // Keep this in sync with FolioOperations where room entry uses final room amount.
+                    const virtualRoomCharge = toNumber(roomChargeFinal, roomRate * nights);
 
                     if (virtualRoomCharge > 0) {
                         summary.charges += virtualRoomCharge;
@@ -304,7 +308,11 @@ const AddPaymentForm = ({ booking, onSubmit, onCancel }) => {
 
         const expectedPrimary = Math.max(0, overall - otherFoliosTotal);
         const currentPrimary = Math.max(0, toNumber(balanceMap[0], 0));
-        balanceMap[0] = Math.max(currentPrimary, expectedPrimary);
+
+        // Keep transaction-derived primary when available; fallback to overall only if empty.
+        if (currentPrimary <= 0 && expectedPrimary > 0) {
+            balanceMap[0] = expectedPrimary;
+        }
 
         // Prefer explicit folio-wise balances from parent payload when available.
         if (incomingFolioBalances) {
@@ -312,6 +320,7 @@ const AddPaymentForm = ({ booking, onSubmit, onCancel }) => {
                 const folioIndex = Number(folioKey);
                 const mappedBalance = toNumber(incomingFolioBalances[folioKey], NaN);
                 if (Number.isFinite(folioIndex) && Number.isFinite(mappedBalance)) {
+                    // For primary folio, prefer transaction-derived balance to match folio ledger.
                     if (folioIndex === 0) return;
                     balanceMap[folioIndex] = Math.max(0, mappedBalance);
                 }

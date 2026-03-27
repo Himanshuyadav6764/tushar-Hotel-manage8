@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import './CashierSection.css';
 
 const CashierSection = () => {
@@ -40,26 +40,67 @@ const CashierSection = () => {
         pending: 0
     });
 
+    const isSuperAdmin = user?.role === 'super_admin' || user?.role === 'superadmin';
+    const permissionLabels = Array.isArray(user?.permissions) ? user.permissions : [];
+    const hasExplicitAssignments = !isSuperAdmin && permissionLabels.length > 0;
+
     // Helper to check permissions
     const hasCashierPermission = (type) => {
         if (!user) return false;
-        if (user.role !== 'staff') return true; // Admins etc have full access
+        if (isSuperAdmin) return true;
 
-        const permissions = user.permissions || [];
-        if (type === 'Table') return permissions.includes('Cashier Section (Table)');
-        if (type === 'Room') return permissions.includes('Cashier Section (Room Service)');
-        if (type === 'Take Away') return permissions.includes('Cashier Section (Take Away)');
+        const hasTable = permissionLabels.includes('Cashier Section (Table)');
+        const hasRoom = permissionLabels.includes('Cashier Section (Room Service)');
+        const hasTakeAway = permissionLabels.includes('Cashier Section (Take Away)');
+
+        if (hasExplicitAssignments) {
+            if (type === 'Table') return hasTable;
+            if (type === 'Room') return hasRoom;
+            if (type === 'Take Away') return hasTakeAway;
+            return false;
+        }
+
+        if (user.role === 'staff') return false;
         return false;
     };
 
-    const allowedTabs = ['All'];
-    if (hasCashierPermission('Table')) allowedTabs.push('Dine In');
-    if (hasCashierPermission('Room')) allowedTabs.push('Room');
+    const canAccessOrderType = (orderType) => {
+        if (orderType === 'Table') return hasCashierPermission('Table');
+        if (orderType === 'Room') return hasCashierPermission('Room');
+        if (['Take Away', 'Delivery', 'Online'].includes(orderType)) return hasCashierPermission('Take Away');
+        return false;
+    };
+
+    const modeTabs = [];
+    if (hasCashierPermission('Table')) modeTabs.push('Dine In');
+    if (hasCashierPermission('Room')) modeTabs.push('Room');
     if (hasCashierPermission('Take Away')) {
-        allowedTabs.push('Take Away');
-        allowedTabs.push('Delivery');
-        allowedTabs.push('Online Order');
+        modeTabs.push('Take Away');
+        modeTabs.push('Delivery');
+        modeTabs.push('Online Order');
     }
+    const allowedTabs = modeTabs.length > 1 ? ['All', ...modeTabs] : modeTabs;
+    const canCreateTakeAwayOrder = hasCashierPermission('Take Away');
+
+    useEffect(() => {
+        if (allowedTabs.length === 0) {
+            setActiveTab('All');
+            return;
+        }
+        if (!allowedTabs.includes(activeTab)) {
+            setActiveTab(allowedTabs[0]);
+        }
+    }, [allowedTabs, activeTab]);
+
+    useEffect(() => {
+        const requestedMode = location.state?.cashierMode;
+        if (!requestedMode) return;
+
+        if (!hasCashierPermission(requestedMode)) {
+            alert('Role not assigned for this cashier section.');
+            navigate(location.pathname, { replace: true, state: null });
+        }
+    }, [location.state, location.pathname, navigate]);
 
     // Initial fetch and periodic refresh
     useEffect(() => {
@@ -76,7 +117,7 @@ const CashierSection = () => {
 
     const fetchCheckedInRooms = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/bookings/list`);
+            const response = await apiCall(`/api/bookings/list`);
             const data = await response.json();
             if (data.success) {
                 const checkedIn = data.data.filter(b => ['Checked-in', 'CheckedIn', 'IN_HOUSE', 'Checked-In'].includes(b.status));
@@ -112,7 +153,7 @@ const CashierSection = () => {
 
     const fetchDashboardStats = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/guest-meal/analytics/dashboard`);
+            const response = await apiCall(`/api/guest-meal/analytics/dashboard`);
             const data = await response.json();
             if (data.success) {
                 const s = data.data;
@@ -132,7 +173,7 @@ const CashierSection = () => {
 
     const fetchPendingOrders = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/guest-meal/orders/pending`);
+            const response = await apiCall(`/api/guest-meal/orders/pending`);
             const data = await response.json();
 
             if (data.success) {
@@ -171,10 +212,11 @@ const CashierSection = () => {
                     };
                 });
 
-                setOrders(mappedOrders);
+                const permissionScopedOrders = mappedOrders.filter((order) => canAccessOrderType(order.type));
+                setOrders(permissionScopedOrders);
                 setStats(prev => ({
                     ...prev,
-                    pending: mappedOrders.length,
+                    pending: permissionScopedOrders.length,
                 }));
             }
         } catch (error) {
@@ -189,9 +231,9 @@ const CashierSection = () => {
         }
     };
 
-    const handlePaymentComplete = async (orderId, amount, mode, type, roomNumber = null, folioId = 0, billingMeta = null, paymentSplits = null) => {
+    const handlePaymentComplete = async (orderId, amount, mode, type, roomNumber = null, folioId = 0, billingMeta = null, paymentSplits = null, bookingId = null) => {
         try {
-            const response = await fetch(`${API_URL}/api/guest-meal/orders/${orderId}/settle`, {
+            const response = await apiCall(`/api/guest-meal/orders/${orderId}/settle`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -199,6 +241,7 @@ const CashierSection = () => {
                     paymentMode: mode,   // 'Cash', 'UPI', etc.
                     amount: amount,
                     roomNumber: roomNumber,
+                    bookingId,
                     folioId: folioId,
                     billingMeta,
                     paymentSplits
@@ -260,6 +303,10 @@ const CashierSection = () => {
             alert('POS is disabled. Cannot create orders. Enable POS from Company Settings.');
             return;
         }
+        if (!canCreateTakeAwayOrder) {
+            alert('Take Away order permission required.');
+            return;
+        }
         setNewOrderWarning('');
         setShowNewOrderModal(true);
     };
@@ -306,7 +353,7 @@ const CashierSection = () => {
             // Using getAllOrders to find by phone/name/id
             // In a real app, this should be a specific search endpoint.
             // Optimized: Fetch all active orders and filter client side for now.
-            const response = await fetch(`${API_URL}/api/guest-meal/orders`);
+            const response = await apiCall(`/api/guest-meal/orders`);
             const data = await response.json();
 
             if (data.success) {
@@ -356,12 +403,6 @@ const CashierSection = () => {
             if (activeTab === 'Online Order') return order.type === 'Online';
             return true;
         })).filter(order => {
-            // Apply permission filter
-            if (order.type === 'Table' && !hasCashierPermission('Table')) return false;
-            if (order.type === 'Room' && !hasCashierPermission('Room')) return false;
-            if (['Take Away', 'Delivery', 'Online'].includes(order.type) && !hasCashierPermission('Take Away')) return false;
-            return true;
-        }).filter(order => {
             // Apply search filter
             if (!searchQuery) return true;
             const q = searchQuery.toLowerCase();
@@ -384,9 +425,11 @@ const CashierSection = () => {
                         <button className="btn-track" onClick={() => setShowTrackModal(true)}>
                             <span className="icon">📡</span> Track Order
                         </button>
-                        <button className="btn-new-order" onClick={handleNewOrderClick}>
-                            <span className="icon">🛍️</span> New Take Away Order
-                        </button>
+                        {canCreateTakeAwayOrder && (
+                            <button className="btn-new-order" onClick={handleNewOrderClick}>
+                                <span className="icon">🛍️</span> New Take Away Order
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -441,15 +484,19 @@ const CashierSection = () => {
                             </div>
 
                             <div className="tabs-row">
-                                {allowedTabs.map(tab => (
-                                    <button
-                                        key={tab}
-                                        className={`tab ${activeTab === tab ? 'active' : ''}`}
-                                        onClick={() => setActiveTab(tab)}
-                                    >
-                                        {tab}
-                                    </button>
-                                ))}
+                                {allowedTabs.length > 0 ? (
+                                    allowedTabs.map(tab => (
+                                        <button
+                                            key={tab}
+                                            className={`tab ${activeTab === tab ? 'active' : ''}`}
+                                            onClick={() => setActiveTab(tab)}
+                                        >
+                                            {tab}
+                                        </button>
+                                    ))
+                                ) : (
+                                    <span className="tab" style={{ cursor: 'default', opacity: 0.75 }}>No cashier mode assigned</span>
+                                )}
                             </div>
                         </div>
 
@@ -757,12 +804,16 @@ const CashierSection = () => {
 const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInRooms = [] }) => {
     const { settings, getCurrencySymbol, formatDate } = useSettings();
     const cs = getCurrencySymbol();
+    const initialSplitAmounts = { Cash: '', UPI: '', Card: '', 'Bank Transfer': '' };
+    const initialSplitReferences = { UPI: '', Card: '', 'Bank Transfer': '' };
 
-    // Food items are always priced BEFORE tax (exclusive), so always add GST on top
+    // Inclusive Tax toggle acts as global tax enable switch for cashier billing.
     const computedSubtotal = order ? order.items.reduce((s, i) => s + i.amount, 0) : 0;
+    const taxEnabled = Boolean(settings.inclusiveTax);
     const cgstPct = parseFloat(settings.cgst) || 0;
     const sgstPct = parseFloat(settings.sgst) || 0;
-    const foodGstPct = (cgstPct + sgstPct) > 0 ? (cgstPct + sgstPct) : (parseFloat(settings.foodGst) || 0);
+    const rawFoodGstPct = (cgstPct + sgstPct) > 0 ? (cgstPct + sgstPct) : (parseFloat(settings.foodGst) || 0);
+    const foodGstPct = taxEnabled ? rawFoodGstPct : 0;
     const svcChargePct = parseFloat(settings.roomServiceCharge) || 0;
     let taxAmtComputed = 0, svcAmtComputed = 0;
     let grandTotalComputed = computedSubtotal;
@@ -776,8 +827,12 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
     const [paymentMode, setPaymentMode] = useState('Cash');
     const [paymentType, setPaymentType] = useState('Direct Payment');
     const [isSplitPayment, setIsSplitPayment] = useState(false);
-    const [splitAmounts, setSplitAmounts] = useState({ Cash: '', UPI: '', Card: '', 'Bank Transfer': '' });
+    const [splitAmounts, setSplitAmounts] = useState(initialSplitAmounts);
+    const [splitReferences, setSplitReferences] = useState(initialSplitReferences);
     const [receivedAmount, setReceivedAmount] = useState('');
+    const [upiUtr, setUpiUtr] = useState('');
+    const [bankTransactionId, setBankTransactionId] = useState('');
+    const [cardTransactionId, setCardTransactionId] = useState('');
     const [returnAmount, setReturnAmount] = useState(0);
     const [targetRoom, setTargetRoom] = useState('');
     const [targetFolioId, setTargetFolioId] = useState(0); // Default to Primary Folio
@@ -829,7 +884,11 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
             setPaymentMode(defaultPayMode);
             setPaymentType('Direct Payment');
             setIsSplitPayment(false);
-            setSplitAmounts({ Cash: '', UPI: '', Card: '', 'Bank Transfer': '' });
+            setSplitAmounts(initialSplitAmounts);
+            setSplitReferences(initialSplitReferences);
+            setUpiUtr('');
+            setBankTransactionId('');
+            setCardTransactionId('');
             setIsTendered(false);
             setShowPrintDropdown(false);
             setShowEditBill(false);
@@ -885,7 +944,11 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
             setDiscountSource('');
             setDiscountType('PERCENTAGE');
             setIsSplitPayment(false);
-            setSplitAmounts({ Cash: '', UPI: '', Card: '', 'Bank Transfer': '' });
+            setSplitAmounts(initialSplitAmounts);
+            setSplitReferences(initialSplitReferences);
+            setUpiUtr('');
+            setBankTransactionId('');
+            setCardTransactionId('');
         }
     }, [order]);
 
@@ -936,9 +999,40 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
         return () => clearTimeout(timer);
     }, [pendingRemoveItemIndex]);
 
+    const directPaymentModes = useMemo(() => {
+        const modes = [];
+        if (settings.paymentModes?.cash !== false) modes.push('Cash');
+        if (settings.paymentModes?.upi !== false) modes.push('UPI');
+        if (settings.paymentModes?.card !== false) modes.push('Card');
+        if (settings.paymentModes?.bankTransfer) modes.push('Bank Transfer');
+        return modes;
+    }, [settings.paymentModes]);
+
+    const splitPaymentModes = useMemo(() => [...directPaymentModes], [directPaymentModes]);
+
     const splitTotalReceived = useMemo(() => {
         return Object.values(splitAmounts).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
     }, [splitAmounts]);
+
+    const splitUsedModesCount = useMemo(() => {
+        return splitPaymentModes.filter(mode => (parseFloat(splitAmounts[mode]) || 0) > 0).length;
+    }, [splitPaymentModes, splitAmounts]);
+
+    // Discount + final payable computation
+    const discountAmt = discountValue
+        ? discountType === 'PERCENTAGE'
+            ? Math.round(grandTotalComputed * (parseFloat(discountValue) || 0) / 100)
+            : parseFloat(discountValue) || 0
+        : 0;
+    const netAfterDiscount = Math.max(0, grandTotalComputed - discountAmt);
+
+    const splitRemainingAmount = useMemo(() => {
+        return Math.max(0, netAfterDiscount - splitTotalReceived);
+    }, [netAfterDiscount, splitTotalReceived]);
+
+    const splitHasMismatch = useMemo(() => {
+        return Math.abs(splitTotalReceived - netAfterDiscount) > 0.01;
+    }, [splitTotalReceived, netAfterDiscount]);
 
     const effectiveReceivedAmount = isSplitPayment ? splitTotalReceived : (parseFloat(receivedAmount) || 0);
 
@@ -956,22 +1050,17 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
         }
     }, [effectiveReceivedAmount, order, discountType, discountValue, grandTotalComputed]);
 
-    // Discount + final payable computation
-    const discountAmt = discountValue
-        ? discountType === 'PERCENTAGE'
-            ? Math.round(grandTotalComputed * (parseFloat(discountValue) || 0) / 100)
-            : parseFloat(discountValue) || 0
-        : 0;
-    const netAfterDiscount = Math.max(0, grandTotalComputed - discountAmt);
+    const currentSplitBreakup = useMemo(() => {
+        if (!(paymentType === 'Direct Payment' && isSplitPayment)) return [];
+        return splitPaymentModes
+            .map(mode => ({ mode, amount: parseFloat(splitAmounts[mode]) || 0 }))
+            .filter(entry => entry.amount > 0);
+    }, [paymentType, isSplitPayment, splitPaymentModes, splitAmounts]);
 
-    const directPaymentModes = useMemo(() => {
-        const modes = [];
-        if (settings.paymentModes?.cash !== false) modes.push('Cash');
-        if (settings.paymentModes?.upi !== false) modes.push('UPI');
-        if (settings.paymentModes?.card !== false) modes.push('Card');
-        if (settings.paymentModes?.bankTransfer) modes.push('Bank Transfer');
-        return modes;
-    }, [settings.paymentModes]);
+    const normalizeUtrInput = (value) => String(value || '').replace(/\D/g, '').slice(0, 12);
+    const normalizeTxnInput = (value) => String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
+    const isValidUtr = (value) => /^\d{12}$/.test(String(value || ''));
+    const isValidTxnId = (value) => /^(?:[A-Z0-9]{10}|[A-Z0-9]{12}|[A-Z0-9]{15})$/.test(String(value || ''));
 
     const printFormats = [
         { key: 'a4', label: 'A4', icon: '📄', pageSize: '210mm 297mm', bodyWidth: '190mm' },
@@ -1004,9 +1093,16 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
         const printDiscountType = order ? discountType : (lastPrintableBill?.discountType || 'PERCENTAGE');
         const printDiscountValue = order ? discountValue : (lastPrintableBill?.discountValue || '');
         const printDiscountSource = order ? discountSource : (lastPrintableBill?.discountSource || '');
+        const printPaymentBreakup = order
+            ? currentSplitBreakup
+            : (Array.isArray(lastPrintableBill?.paymentBreakup) ? lastPrintableBill.paymentBreakup : []);
+        const printPaymentReceivedTotal = order
+            ? currentSplitBreakup.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+            : (Number(lastPrintableBill?.paymentReceivedTotal) || 0);
         const printDiscountLabel = printDiscountType === 'PERCENTAGE'
             ? `${Number(printDiscountValue || 0)}%`
             : `${cs}${Number(printDiscountValue || 0).toFixed(2)}`;
+        const printInvoicePrefix = settings.billingInvoicePrefix || settings.invoicePrefix || 'INV';
 
         const invoiceContent = `
     <!DOCTYPE html>
@@ -1026,6 +1122,7 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                             line-height: 1.4;
                         }
                         .header { text-align: center; margin-bottom: 12px; }
+                        .logo-image { max-height: ${isNarrow ? '42px' : '68px'}; max-width: 180px; object-fit: contain; margin: 0 auto 8px auto; display: block; mix-blend-mode: multiply; background: transparent; }
                         .logo-area { font-size: ${logoSize}; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 2px; }
                         .subtitle { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #444; margin-bottom: 8px; }
                         .contact-info { font-size: 9px; color: #666; line-height: 1.2; }
@@ -1056,7 +1153,9 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                             font-weight: 800; 
                         }
 
-                        .footer { margin-top: 20px; text-align: center; }
+                        .footer { margin-top: 20px; text-align: center; border-top: 1px dashed #cbd5e1; padding-top: 10px; }
+                        .footer-qr { width: ${isNarrow ? '88px' : '126px'}; height: ${isNarrow ? '88px' : '126px'}; object-fit: contain; margin: 0 auto 6px auto; display: block; }
+                        .invoice-prefix { font-size: 10px; font-weight: 700; margin-bottom: 4px; }
                         .thanks { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
                         .visit-again { font-size: 9px; color: #666; }
                         .barcode { 
@@ -1071,7 +1170,8 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
             </head>
             <body>
                 <div class="header">
-                    <div class="logo-area">${settings.name || 'Hotel'}</div>
+                    ${settings.displayLogoOnBill && settings.logoUrl ? `<img class="logo-image" src="${settings.logoUrl}" alt="Hotel Logo" />` : ''}
+                    ${settings.displayLogoOnBill && settings.logoUrl ? '' : `<div class="logo-area">${settings.name || 'Hotel'}</div>`}
                     <div class="subtitle">Premium Hospitality</div>
                     <div class="contact-info">
                         ${[settings.address, settings.city, settings.state, settings.pin].filter(Boolean).join(', ')}<br>
@@ -1140,6 +1240,19 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                         <span>NET PAYABLE</span>
                         <span>${cs} ${printNet.toFixed(2)}</span>
                     </div>
+                    ${printPaymentBreakup.length > 0 ? `
+                    <div style="margin-top:8px; border-top:1px dashed #cbd5e1; padding-top:6px;">
+                        <div class="total-row" style="font-weight:700;">
+                            <span>Payment Breakup</span>
+                            <span>${cs} ${printPaymentReceivedTotal.toFixed(2)}</span>
+                        </div>
+                        ${printPaymentBreakup.map(row => `
+                            <div class="total-row">
+                                <span>${row.mode}</span>
+                                <span>${cs} ${(Number(row.amount) || 0).toFixed(2)}</span>
+                            </div>
+                        `).join('')}
+                    </div>` : ''}
                 </div>
 
                 ${printOrder.notes ? `
@@ -1149,6 +1262,8 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                 </div>` : ''}
 
                 <div class="footer">
+                    ${settings.qrCodeUrl ? `<img class="footer-qr" src="${settings.qrCodeUrl}" alt="Payment QR" />` : ''}
+                    <div class="invoice-prefix">Invoice Prefix: ${printInvoicePrefix}</div>
                     <div class="thanks">${settings.thankYouMessage || 'Thank You!'}</div>
                     <div class="visit-again">We hope to see you again soon.</div>
                     <div class="barcode">${printOrder.billNo.replace('#', '')}</div>
@@ -1202,10 +1317,43 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                 return;
             }
 
+            if (!isSplitPayment) {
+                if (paymentMode === 'UPI' && !isValidUtr(upiUtr)) {
+                    alert('⚠️ UPI payment ke liye valid 12-digit UTR number required hai.');
+                    return;
+                }
+                if (paymentMode === 'Bank Transfer' && !isValidTxnId(bankTransactionId)) {
+                    alert('⚠️ Bank payment Transaction ID valid hona chahiye (A-Z/0-9 only, length 10/12/15).');
+                    return;
+                }
+                if (paymentMode === 'Card' && !isValidTxnId(cardTransactionId)) {
+                    alert('⚠️ Card payment Transaction ID valid hona chahiye (A-Z/0-9 only, length 10/12/15).');
+                    return;
+                }
+            }
+
             if (isSplitPayment) {
-                const usedModes = directPaymentModes.filter(mode => (parseFloat(splitAmounts[mode]) || 0) > 0);
+                const usedModes = splitPaymentModes.filter(mode => (parseFloat(splitAmounts[mode]) || 0) > 0);
                 if (usedModes.length < 2) {
                     alert('⚠️ Multiple payment me kam se kam 2 payment modes enter karein.');
+                    return;
+                }
+
+                if (Math.abs(splitTotalReceived - netAfterDiscount) > 0.01) {
+                    alert(`⚠️ Split total (${splitTotalReceived.toFixed(2)}) aur bill amount (${netAfterDiscount.toFixed(2)}) same hona chahiye.`);
+                    return;
+                }
+
+                if (usedModes.includes('UPI') && !isValidUtr(splitReferences.UPI)) {
+                    alert('⚠️ Split UPI payment ke liye valid 12-digit UTR number required hai.');
+                    return;
+                }
+                if (usedModes.includes('Bank Transfer') && !isValidTxnId(splitReferences['Bank Transfer'])) {
+                    alert('⚠️ Split Bank payment Transaction ID valid hona chahiye (A-Z/0-9 only, length 10/12/15).');
+                    return;
+                }
+                if (usedModes.includes('Card') && !isValidTxnId(splitReferences.Card)) {
+                    alert('⚠️ Split Card payment Transaction ID valid hona chahiye (A-Z/0-9 only, length 10/12/15).');
                     return;
                 }
             }
@@ -1219,10 +1367,34 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
         }
 
         const activeSplits = paymentType === 'Direct Payment' && isSplitPayment
-            ? directPaymentModes
-                .map(modeName => ({ mode: modeName, amount: parseFloat(splitAmounts[modeName]) || 0 }))
+            ? splitPaymentModes
+                .map(modeName => ({
+                    mode: modeName,
+                    amount: parseFloat(splitAmounts[modeName]) || 0,
+                    referenceId: modeName === 'UPI'
+                        ? normalizeUtrInput(splitReferences.UPI)
+                        : modeName === 'Bank Transfer'
+                            ? normalizeTxnInput(splitReferences['Bank Transfer'])
+                            : modeName === 'Card'
+                                ? normalizeTxnInput(splitReferences.Card)
+                                : '',
+                }))
                 .filter(s => s.amount > 0)
             : [];
+
+        const paymentReference = paymentMode === 'UPI'
+            ? normalizeUtrInput(upiUtr)
+            : paymentMode === 'Bank Transfer'
+                ? normalizeTxnInput(bankTransactionId)
+                : paymentMode === 'Card'
+                    ? normalizeTxnInput(cardTransactionId)
+                    : '';
+
+        const settledPaymentBreakup = activeSplits.length > 0
+            ? activeSplits.map(split => ({ mode: split.mode, amount: Number(split.amount) || 0 }))
+            : (paymentType === 'Direct Payment'
+                ? [{ mode: paymentMode, amount: Number(effectiveReceivedAmount || netAfterDiscount) || 0 }]
+                : []);
 
         // Trigger completion callback
         const settled = await onPaymentComplete(
@@ -1241,6 +1413,8 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                 discountType,
                 discountValue,
                 discountSource,
+                paymentReference,
+                splitReferences,
                 netPayable: netAfterDiscount,
                 sourceOrderCategory: order.type,
                 sourceOrderName: order.name,
@@ -1250,7 +1424,8 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                     amount: item.amount
                 }))
             },
-            activeSplits.length > 0 ? activeSplits : null
+            activeSplits.length > 0 ? activeSplits : null,
+            selectedBooking?._id || null
         );
         if (!settled) return;
 
@@ -1267,7 +1442,9 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
             discountType,
             discountValue,
             discountSource,
-            net: netAfterDiscount
+            paymentBreakup: settledPaymentBreakup,
+            paymentReceivedTotal: settledPaymentBreakup.reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+            net: netAfterDiscount,
         });
 
         setIsTendered(true);
@@ -1277,7 +1454,11 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
             setShowPrintDropdown(false);
             setReceivedAmount('');
             setIsSplitPayment(false);
-            setSplitAmounts({ Cash: '', UPI: '', Card: '', 'Bank Transfer': '' });
+            setSplitAmounts(initialSplitAmounts);
+            setSplitReferences(initialSplitReferences);
+            setUpiUtr('');
+            setBankTransactionId('');
+            setCardTransactionId('');
             setReturnAmount(0);
             setDiscountType('PERCENTAGE');
             setDiscountValue('');
@@ -1374,6 +1555,12 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                         <span>Subtotal</span>
                         <span>{cs} {computedSubtotal.toFixed(0)}</span>
                     </div>
+                    {!taxEnabled && (
+                        <div className="summary-row-modern">
+                            <span>Food GST</span>
+                            <span style={{ color: '#94a3b8', fontWeight: 700 }}>Disabled</span>
+                        </div>
+                    )}
                     {foodGstPct > 0 && (
                         <div className="summary-row-modern">
                             <span>Food GST ({foodGstPct}%)</span>
@@ -1390,6 +1577,21 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                         <span>Grand Total</span>
                         <span>{cs} {grandTotalComputed.toFixed(0)}</span>
                     </div>
+
+                    {(paymentType === 'Direct Payment' && isSplitPayment && currentSplitBreakup.length > 0) && (
+                        <div style={{ borderTop: '1px dashed #cbd5e1', marginTop: '8px', paddingTop: '8px' }}>
+                            <div className="summary-row-modern" style={{ fontWeight: 700 }}>
+                                <span>Payment Breakup</span>
+                                <span>{cs} {currentSplitBreakup.reduce((sum, row) => sum + row.amount, 0).toFixed(2)}</span>
+                            </div>
+                            {currentSplitBreakup.map(row => (
+                                <div className="summary-row-modern" key={`split-row-${row.mode}`}>
+                                    <span>{row.mode}</span>
+                                    <span>{cs} {row.amount.toFixed(2)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Discount Section */}
                     {!isPlaceholder && (
@@ -1496,7 +1698,8 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                                 setIsSplitPayment(prev => {
                                     const next = !prev;
                                     if (!next) {
-                                        setSplitAmounts({ Cash: '', UPI: '', Card: '', 'Bank Transfer': '' });
+                                        setSplitAmounts(initialSplitAmounts);
+                                        setSplitReferences(initialSplitReferences);
                                     }
                                     return next;
                                 });
@@ -1526,35 +1729,94 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                             <div className="payment-input-modern">
                                 <label>Split Payment Amounts</label>
                                 <div style={{ display: 'grid', gap: '8px' }}>
-                                    {directPaymentModes.map(modeName => (
-                                        <div className="input-box-wrap" key={modeName}>
-                                            <span>{modeName === 'Cash' ? '💵' : modeName === 'UPI' ? '📱' : modeName === 'Card' ? '💳' : '🏦'}</span>
-                                            <input
-                                                type="number"
-                                                placeholder={`${modeName} amount`}
-                                                min="0"
-                                                value={splitAmounts[modeName] || ''}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    if (val === '' || parseFloat(val) >= 0) {
-                                                        const entered = val === '' ? 0 : (parseFloat(val) || 0);
-                                                        const otherTotal = directPaymentModes
-                                                            .filter(m => m !== modeName)
-                                                            .reduce((sum, m) => sum + (parseFloat(splitAmounts[m]) || 0), 0);
-                                                        const maxForCurrent = Math.max(0, netAfterDiscount - otherTotal);
-                                                        const nextVal = val === '' ? '' : String(Math.min(entered, maxForCurrent));
-                                                        setSplitAmounts(prev => ({ ...prev, [modeName]: nextVal }));
-                                                    }
-                                                }}
-                                                disabled={isPlaceholder}
-                                            />
-                                        </div>
-                                    ))}
+                                    {splitPaymentModes.map(modeName => {
+                                        const icon = modeName === 'Cash' ? '💵' : modeName === 'UPI' ? '📱' : modeName === 'Card' ? '💳' : modeName === 'Bank Transfer' ? '🏦' : '💼';
+                                        const splitAmountValue = parseFloat(splitAmounts[modeName]) || 0;
+                                        return (
+                                            <div key={modeName}>
+                                                <div className="input-box-wrap">
+                                                    <span>{icon}</span>
+                                                    <input
+                                                        type="number"
+                                                        placeholder={`${modeName} amount`}
+                                                        min="0"
+                                                        value={splitAmounts[modeName] || ''}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            if (val === '' || parseFloat(val) >= 0) {
+                                                                const entered = val === '' ? 0 : (parseFloat(val) || 0);
+                                                                const otherTotal = splitPaymentModes
+                                                                    .filter(m => m !== modeName)
+                                                                    .reduce((sum, m) => sum + (parseFloat(splitAmounts[m]) || 0), 0);
+                                                                const maxForCurrent = Math.max(0, netAfterDiscount - otherTotal);
+                                                                const nextVal = val === '' ? '' : String(Math.min(entered, maxForCurrent));
+                                                                setSplitAmounts(prev => ({ ...prev, [modeName]: nextVal }));
+                                                            }
+                                                        }}
+                                                        disabled={isPlaceholder}
+                                                    />
+                                                </div>
+
+                                                {splitAmountValue > 0 && modeName === 'UPI' && (
+                                                    <div className="input-box-wrap" style={{ marginTop: '6px' }}>
+                                                        <span>🔢</span>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Enter 12-digit UTR"
+                                                            value={splitReferences.UPI}
+                                                            inputMode="numeric"
+                                                            maxLength={12}
+                                                            onChange={(e) => setSplitReferences(prev => ({ ...prev, UPI: normalizeUtrInput(e.target.value) }))}
+                                                            disabled={isPlaceholder}
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                {splitAmountValue > 0 && modeName === 'Bank Transfer' && (
+                                                    <div className="input-box-wrap" style={{ marginTop: '6px' }}>
+                                                        <span>🔢</span>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Bank Txn ID (10/12/15)"
+                                                            value={splitReferences['Bank Transfer']}
+                                                            maxLength={15}
+                                                            onChange={(e) => setSplitReferences(prev => ({ ...prev, 'Bank Transfer': normalizeTxnInput(e.target.value) }))}
+                                                            disabled={isPlaceholder}
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                {splitAmountValue > 0 && modeName === 'Card' && (
+                                                    <div className="input-box-wrap" style={{ marginTop: '6px' }}>
+                                                        <span>🔢</span>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Card Txn ID (10/12/15)"
+                                                            value={splitReferences.Card}
+                                                            maxLength={15}
+                                                            onChange={(e) => setSplitReferences(prev => ({ ...prev, Card: normalizeTxnInput(e.target.value) }))}
+                                                            disabled={isPlaceholder}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
+
                                 <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#475569', display: 'flex', justifyContent: 'space-between' }}>
                                     <span>Total Received</span>
                                     <strong>{cs}{splitTotalReceived.toFixed(2)}</strong>
                                 </div>
+                                <div style={{ marginTop: '4px', fontSize: '0.82rem', color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>Used Modes: {splitUsedModesCount} (minimum 2)</span>
+                                    <span>Remaining: {cs}{splitRemainingAmount.toFixed(2)}</span>
+                                </div>
+                                {splitHasMismatch && (
+                                    <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#b91c1c', fontWeight: 700 }}>
+                                        Split total must match Grand Total before Tender.
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div className="payment-input-modern">
@@ -1573,6 +1835,58 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                                                 setReceivedAmount(entered);
                                             }
                                         }}
+                                        disabled={isPlaceholder}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {!isSplitPayment && paymentMode === 'UPI' && (
+                            <div className="payment-input-modern">
+                                <label>UPI UTR Number</label>
+                                <div className="input-box-wrap">
+                                    <span>🔢</span>
+                                    <input
+                                        type="text"
+                                        placeholder="Enter 12-digit UTR"
+                                        value={upiUtr}
+                                        inputMode="numeric"
+                                        maxLength={12}
+                                        onChange={(e) => setUpiUtr(normalizeUtrInput(e.target.value))}
+                                        disabled={isPlaceholder}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {!isSplitPayment && paymentMode === 'Bank Transfer' && (
+                            <div className="payment-input-modern">
+                                <label>Bank Transaction ID</label>
+                                <div className="input-box-wrap">
+                                    <span>🔢</span>
+                                    <input
+                                        type="text"
+                                        placeholder="Txn ID (10/12/15)"
+                                        value={bankTransactionId}
+                                        maxLength={15}
+                                        onChange={(e) => setBankTransactionId(normalizeTxnInput(e.target.value))}
+                                        disabled={isPlaceholder}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {!isSplitPayment && paymentMode === 'Card' && (
+                            <div className="payment-input-modern">
+                                <label>Card Transaction ID</label>
+                                <div className="input-box-wrap">
+                                    <span>🔢</span>
+                                    <input
+                                        type="text"
+                                        placeholder="Card Txn ID (10/12/15)"
+                                        value={cardTransactionId}
+                                        maxLength={15}
+                                        onChange={(e) => setCardTransactionId(normalizeTxnInput(e.target.value))}
                                         disabled={isPlaceholder}
                                     />
                                 </div>
@@ -1812,7 +2126,8 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                                     if (order) {
                                         order.items = editItems;
                                         const newSubtotal = editItems.reduce((s, i) => s + i.amount, 0);
-                                        const fGst = ((parseFloat(settings.cgst) || 0) + (parseFloat(settings.sgst) || 0)) || (parseFloat(settings.foodGst) || 0);
+                                        const fGstRaw = ((parseFloat(settings.cgst) || 0) + (parseFloat(settings.sgst) || 0)) || (parseFloat(settings.foodGst) || 0);
+                                        const fGst = Boolean(settings.inclusiveTax) ? fGstRaw : 0;
                                         const sSvc = parseFloat(settings.roomServiceCharge) || 0;
                                         const newGrandTotal = newSubtotal + Math.round(newSubtotal * fGst / 100) + Math.round(newSubtotal * sSvc / 100);
                                         order.amount = newGrandTotal;

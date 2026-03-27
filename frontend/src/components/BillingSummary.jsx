@@ -27,7 +27,17 @@ const BillingSummary = ({
     onTaxExemptChange = () => { },
     taxExempt = false,
     transactionId = '',
-    onTransactionIdChange = () => { }
+    onTransactionIdChange = () => { },
+    splitAmounts = { Cash: '', UPI: '', Card: '', 'Bank Transfer': '' },
+    onSplitAmountsChange = () => { },
+    splitReferences = { UPI: '', Card: '', 'Bank Transfer': '' },
+    onSplitReferencesChange = () => { },
+    upiUtr = '',
+    onUpiUtrChange = () => { },
+    bankTransactionId = '',
+    onBankTransactionIdChange = () => { },
+    cardTransactionId = '',
+    onCardTransactionIdChange = () => { }
 }) => {
     const { getCurrencySymbol, settings } = useSettings();
     const cs = getCurrencySymbol();
@@ -35,9 +45,12 @@ const BillingSummary = ({
     const isFullyPaid = balanceDue <= 0 && totalAmount > 0;
 
     const roomGstPct = parseFloat(settings.roomGst) || 12;
-    const isInclusive = settings.inclusiveTax;
+    const isTaxEnabled = Boolean(settings.inclusiveTax);
     const pm = settings.paymentModes || {};
-    const resolvedTaxLabel = taxLabel || `Tax (${roomGstPct}%)${isInclusive ? ' (incl.)' : ''}`;
+    const resolvedTaxLabel = isTaxEnabled
+        ? (taxLabel || `Tax (${roomGstPct}%)`)
+        : 'Tax (disabled)';
+    const displayedTax = isTaxEnabled ? tax : 0;
 
     // Build enabled payment options
     const paymentOptions = [
@@ -45,8 +58,30 @@ const BillingSummary = ({
         pm.upi !== false && { value: 'UPI', label: 'UPI / Online' },
         pm.card !== false && { value: 'Card', label: 'Card' },
         pm.bankTransfer && { value: 'Bank Transfer', label: 'Bank Transfer' },
-        { value: 'Cheque', label: 'Cheque' },
+        { value: 'Multiple Payment', label: 'Multiple Payment' },
     ].filter(Boolean);
+
+    const splitModes = ['Cash', 'UPI', 'Card', 'Bank Transfer'];
+    const isSplitPayment = paymentMode === 'Multiple Payment';
+    const splitTotal = splitModes.reduce((sum, mode) => sum + (Number(splitAmounts[mode]) || 0), 0);
+    const splitUsedModesCount = splitModes.filter(mode => (Number(splitAmounts[mode]) || 0) > 0).length;
+    const splitRemaining = Math.max(0, Number(totalAmount || 0) - splitTotal);
+    const splitHasMismatch = Math.abs(splitTotal - Number(totalAmount || 0)) > 0.01;
+
+    const handleSplitAmountChange = (mode, rawValue) => {
+        if (rawValue !== '' && Number(rawValue) < 0) return;
+        const entered = rawValue === '' ? 0 : (Number(rawValue) || 0);
+        const otherTotal = splitModes
+            .filter(key => key !== mode)
+            .reduce((sum, key) => sum + (Number(splitAmounts[key]) || 0), 0);
+        const maxForCurrent = Math.max(0, Number(totalAmount || 0) - otherTotal);
+        const nextValue = rawValue === '' ? '' : String(Math.min(entered, maxForCurrent));
+        const nextSplitAmounts = { ...splitAmounts, [mode]: nextValue };
+        onSplitAmountsChange(nextSplitAmounts);
+
+        const nextTotal = splitModes.reduce((sum, key) => sum + (Number(nextSplitAmounts[key]) || 0), 0);
+        onPaidAmountChange(nextTotal);
+    };
 
     return (
         <div className="billing-payment-dual-container">
@@ -67,7 +102,7 @@ const BillingSummary = ({
                         </div>
                         <div className="summary-item-v2" style={{ marginTop: '20px' }}>
                             <span className="label">{resolvedTaxLabel}</span>
-                            <span className="value">{cs}{tax.toLocaleString('en-IN')}</span>
+                            <span className="value">{cs}{displayedTax.toLocaleString('en-IN')}</span>
                         </div>
                         {serviceCharge > 0 && (
                             <div className="summary-item-v2" style={{ marginTop: '10px' }}>
@@ -116,7 +151,15 @@ const BillingSummary = ({
                             <select
                                 className="premium-select-v2"
                                 value={paymentMode}
-                                onChange={(e) => onPaymentModeChange(e.target.value)}
+                                onChange={(e) => {
+                                    const selectedMode = e.target.value;
+                                    onPaymentModeChange(selectedMode);
+
+                                    if (selectedMode !== 'Multiple Payment') {
+                                        onSplitAmountsChange({ Cash: '', UPI: '', Card: '', 'Bank Transfer': '' });
+                                        onSplitReferencesChange({ UPI: '', Card: '', 'Bank Transfer': '' });
+                                    }
+                                }}
                             >
                                 {paymentOptions.map(opt => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -124,9 +167,134 @@ const BillingSummary = ({
                             </select>
                         </div>
 
-                        {paymentMode !== 'Cash' && (
+                        {!isSplitPayment && paymentMode === 'UPI' && (
                             <div className="payment-form-group-v2">
-                                <label className="input-label-v2">TRANSACTION ID <span className="req-star">*</span></label>
+                                <label className="input-label-v2">UPI UTR NUMBER <span className="req-star">*</span></label>
+                                <div className="premium-input-wrapper-v2">
+                                    <input
+                                        type="text"
+                                        className="premium-input-v2"
+                                        value={upiUtr}
+                                        onChange={(e) => onUpiUtrChange(e.target.value)}
+                                        placeholder="Enter 12-digit UTR"
+                                        maxLength={12}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {!isSplitPayment && paymentMode === 'Bank Transfer' && (
+                            <div className="payment-form-group-v2">
+                                <label className="input-label-v2">BANK TRANSACTION ID <span className="req-star">*</span></label>
+                                <div className="premium-input-wrapper-v2">
+                                    <input
+                                        type="text"
+                                        className="premium-input-v2"
+                                        value={bankTransactionId}
+                                        onChange={(e) => onBankTransactionIdChange(e.target.value)}
+                                        placeholder="Enter Bank Txn ID (10/12/15)"
+                                        maxLength={15}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {!isSplitPayment && paymentMode === 'Card' && (
+                            <div className="payment-form-group-v2">
+                                <label className="input-label-v2">CARD TRANSACTION ID <span className="req-star">*</span></label>
+                                <div className="premium-input-wrapper-v2">
+                                    <input
+                                        type="text"
+                                        className="premium-input-v2"
+                                        value={cardTransactionId}
+                                        onChange={(e) => onCardTransactionIdChange(e.target.value)}
+                                        placeholder="Enter Card Txn ID (10/12/15)"
+                                        maxLength={15}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {isSplitPayment && (
+                            <div className="payment-form-group-v2">
+                                <label className="input-label-v2">MULTIPLE PAYMENT BREAKUP</label>
+                                <div style={{ display: 'grid', gap: '8px' }}>
+                                    {splitModes.map((mode) => {
+                                        const splitAmount = Number(splitAmounts[mode]) || 0;
+                                        return (
+                                            <div key={mode} style={{ display: 'grid', gap: '6px' }}>
+                                                <div className="premium-input-wrapper-v2">
+                                                    <input
+                                                        type="number"
+                                                        className="premium-input-v2"
+                                                        min="0"
+                                                        placeholder={`${mode} amount`}
+                                                        value={splitAmounts[mode] || ''}
+                                                        onChange={(e) => handleSplitAmountChange(mode, e.target.value)}
+                                                    />
+                                                </div>
+
+                                                {splitAmount > 0 && mode === 'UPI' && (
+                                                    <div className="premium-input-wrapper-v2">
+                                                        <input
+                                                            type="text"
+                                                            className="premium-input-v2"
+                                                            placeholder="UPI UTR (12 digits)"
+                                                            value={splitReferences.UPI || ''}
+                                                            onChange={(e) => onSplitReferencesChange({ ...splitReferences, UPI: e.target.value })}
+                                                            maxLength={12}
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                {splitAmount > 0 && mode === 'Bank Transfer' && (
+                                                    <div className="premium-input-wrapper-v2">
+                                                        <input
+                                                            type="text"
+                                                            className="premium-input-v2"
+                                                            placeholder="Bank Txn ID (10/12/15)"
+                                                            value={splitReferences['Bank Transfer'] || ''}
+                                                            onChange={(e) => onSplitReferencesChange({ ...splitReferences, 'Bank Transfer': e.target.value })}
+                                                            maxLength={15}
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                {splitAmount > 0 && mode === 'Card' && (
+                                                    <div className="premium-input-wrapper-v2">
+                                                        <input
+                                                            type="text"
+                                                            className="premium-input-v2"
+                                                            placeholder="Card Txn ID (10/12/15)"
+                                                            value={splitReferences.Card || ''}
+                                                            onChange={(e) => onSplitReferencesChange({ ...splitReferences, Card: e.target.value })}
+                                                            maxLength={15}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div style={{ marginTop: '6px', fontSize: '0.82rem', color: '#475569', display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>Used Modes: {splitUsedModesCount} (minimum 2)</span>
+                                    <strong>Total: {cs}{splitTotal.toFixed(2)}</strong>
+                                </div>
+                                <div style={{ marginTop: '2px', fontSize: '0.82rem', display: 'flex', justifyContent: 'space-between', color: splitRemaining > 0 ? '#b45309' : '#166534' }}>
+                                    <span>Remaining Amount</span>
+                                    <strong>{cs}{splitRemaining.toFixed(2)}</strong>
+                                </div>
+                                {splitHasMismatch && (
+                                    <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#b91c1c', fontWeight: 700 }}>
+                                        Split total must match Grand Total before save.
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {!isSplitPayment && paymentMode !== 'Cash' && paymentMode !== 'UPI' && paymentMode !== 'Bank Transfer' && paymentMode !== 'Card' && (
+                            <div className="payment-form-group-v2">
+                                <label className="input-label-v2">TRANSACTION ID</label>
                                 <div className="premium-input-wrapper-v2">
                                     <input
                                         type="text"

@@ -9,7 +9,19 @@ import { hasModuleAccess } from '../config/rbac';
 const ProtectedRoute = ({ children, module, role }) => {
     const { user, isAuthenticated, loading } = useAuth();
     const safeUser = user && typeof user === 'object' ? user : null;
-    const authenticated = typeof isAuthenticated === 'function' ? isAuthenticated() : !!safeUser;
+    let hasStoredToken = false;
+
+    try {
+        const raw = localStorage.getItem('authUser');
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            hasStoredToken = !!parsed?.token;
+        }
+    } catch (error) {
+        hasStoredToken = false;
+    }
+
+    const authenticated = (typeof isAuthenticated === 'function' ? isAuthenticated() : !!safeUser) && hasStoredToken;
 
     // Show loading state while checking authentication
     if (loading) {

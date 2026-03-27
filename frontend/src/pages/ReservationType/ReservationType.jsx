@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './ReservationType.css';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 
 const ReservationType = () => {
     const [reservationTypes, setReservationTypes] = useState([]);
@@ -25,7 +25,7 @@ const ReservationType = () => {
     const fetchReservationTypes = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_URL}/api/reservation-types/list`);
+            const response = await apiCall(`/api/reservation-types/list`);
             const data = await response.json();
             if (data.success) {
                 setReservationTypes(data.data);
@@ -63,13 +63,13 @@ const ReservationType = () => {
         try {
             let response;
             if (modalMode === 'add') {
-                response = await fetch(`${API_URL}/api/reservation-types/add`, {
+                response = await apiCall(`/api/reservation-types/add`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
             } else {
-                response = await fetch(`${API_URL}/api/reservation-types/update/${currentReservationType._id}`, {
+                response = await apiCall(`/api/reservation-types/update/${currentReservationType._id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
@@ -95,7 +95,7 @@ const ReservationType = () => {
     const confirmDelete = async (id) => {
         setDeletingId(id);
         try {
-            const response = await fetch(`${API_URL}/api/reservation-types/delete/${id}`, {
+            const response = await apiCall(`/api/reservation-types/delete/${id}`, {
                 method: 'DELETE'
             });
             const data = await response.json();

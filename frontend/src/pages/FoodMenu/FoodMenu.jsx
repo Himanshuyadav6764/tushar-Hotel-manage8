@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import { useSettings } from '../../context/SettingsContext';
 import './FoodMenu.css';
 
@@ -40,7 +40,7 @@ const FoodMenu = () => {
 
     const fetchMenuItems = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/menu/list`);
+            const response = await apiCall(`/api/menu/list`);
             const data = await response.json();
             if (data.success) {
                 setMenuItems(data.data);
@@ -52,7 +52,7 @@ const FoodMenu = () => {
 
     const handleAddItem = async (newItem) => {
         try {
-            const response = await fetch(`${API_URL}/api/menu/add`, {
+            const response = await apiCall(`/api/menu/add`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -77,7 +77,7 @@ const FoodMenu = () => {
 
     const handleUpdateItem = async (id, updatedItem) => {
         try {
-            const response = await fetch(`${API_URL}/api/menu/update/${id}`, {
+            const response = await apiCall(`/api/menu/update/${id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -101,7 +101,7 @@ const FoodMenu = () => {
     const handleDeleteItem = async (id) => {
         if (window.confirm('Are you sure you want to delete this item?')) {
             try {
-                const response = await fetch(`${API_URL}/api/menu/delete/${id}`, {
+                const response = await apiCall(`/api/menu/delete/${id}`, {
                     method: 'DELETE',
                 });
                 const data = await response.json();
@@ -121,7 +121,7 @@ const FoodMenu = () => {
     const handleToggleStatus = async (id, currentStatus) => {
         const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
         try {
-            const response = await fetch(`${API_URL}/api/menu/toggle-status/${id}`, {
+            const response = await apiCall(`/api/menu/toggle-status/${id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './ExtraCharge.css';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import { useSettings } from '../../context/SettingsContext';
 
 const ExtraCharge = () => {
@@ -37,7 +37,7 @@ const ExtraCharge = () => {
     const fetchCharges = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`${API_URL}/api/extra-charges/list`);
+            const res = await apiCall(`/api/extra-charges/list`);
             const data = await res.json();
             if (data.success) {
                 setCharges(data.data);
@@ -72,7 +72,7 @@ const ExtraCharge = () => {
         try {
             const url = modalMode === 'add' ? `${API_URL}/api/extra-charges/add` : `${API_URL}/api/extra-charges/update/${currentCharge._id}`;
             const method = modalMode === 'add' ? 'POST' : 'PUT';
-            const res = await fetch(url, {
+            const res = await apiCall(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
@@ -96,7 +96,7 @@ const ExtraCharge = () => {
 
     const confirmDelete = async (id) => {
         try {
-            const res = await fetch(`${API_URL}/api/extra-charges/delete/${id}`, { method: 'DELETE' });
+            const res = await apiCall(`/api/extra-charges/delete/${id}`, { method: 'DELETE' });
             const data = await res.json();
             if (data.success) {
                 showInlineNote('Charge Deleted', 'Extra charge removed successfully.');

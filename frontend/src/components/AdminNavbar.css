@@ -67,7 +67,7 @@
 .top-bar .top-bar-left {
     display: flex;
     align-items: center;
-    gap: 30px;
+    gap: 10px;
     flex: 1;
     min-width: 0;
 }
@@ -90,6 +90,8 @@
     width: auto;
     object-fit: contain;
     max-width: 100%;
+    mix-blend-mode: multiply;
+    filter: brightness(1.2) contrast(1.1) saturate(1.8);
 }
 
 /* Navbar Search */

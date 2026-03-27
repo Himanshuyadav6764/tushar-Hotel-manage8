@@ -7,6 +7,7 @@ import {
     FaShieldAlt,
     FaExclamationTriangle,
     FaClock,
+    FaHistory,
     FaChevronRight,
     FaBars,
     FaBuilding,
@@ -20,6 +21,7 @@ import {
     FaEdit
 } from 'react-icons/fa';
 import { MdDashboard, MdLogout } from 'react-icons/md';
+import LogoNew from '../../assets/logo_new.jpg';
 import './SuperAdminDashboard.css';
 
 const SuperAdminDashboard = () => {
@@ -201,7 +203,11 @@ const SuperAdminDashboard = () => {
 
     const getInitials = (name) => {
         if (!name) return 'SA';
-        return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        const parts = name.trim().split(' ').filter(Boolean);
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+        return name.substring(0, 2).toUpperCase();
     };
 
     const formatDate = (dateString) => {
@@ -262,6 +268,13 @@ const SuperAdminDashboard = () => {
                     </button>
                     <button
                         className="sa-nav-item"
+                        onClick={() => navigate('/super-admin/activity-monitoring')}
+                    >
+                        <FaHistory />
+                        Activity Monitoring
+                    </button>
+                    <button
+                        className="sa-nav-item"
                         onClick={handleLogout}
                     >
                         <MdLogout />
@@ -285,14 +298,17 @@ const SuperAdminDashboard = () => {
                             </button>
                         )}
                         <div className="sa-header-logo">
-                            <FaHotel style={{ color: '#e11d48' }} />
-                            <span>BIREENA ATITHI</span>
+                            <img src={LogoNew} alt="BIREENA ATITHI" className="project-logo-main" />
                         </div>
                     </div>
 
                     <div className="sa-header-actions">
-                        <div className="sa-profile">
-                            {getInitials(user?.name)}
+                        <div className="sa-profile" onClick={() => navigate('/super-admin/profile')} style={{ cursor: 'pointer', overflow: 'hidden' }}>
+                            {user?.image ? (
+                                <img src={user.image} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                                getInitials(user?.name)
+                            )}
                         </div>
                     </div>
                 </header>

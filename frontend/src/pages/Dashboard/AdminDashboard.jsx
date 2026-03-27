@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import soundManager from '../../utils/soundManager';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import FoodMenuDashboard from '../FoodMenu/FoodMenuDashboard';
 import FoodOrderPage from '../../components/FoodOrderPage';
 import ViewOrderPage from '../../components/ViewOrderPage';
@@ -279,7 +279,7 @@ const AdminDashboard = () => {
             if (currentFilters.bedType && currentFilters.bedType !== 'All') queryParams.append('bedType', currentFilters.bedType);
             if (currentFilters.status && currentFilters.status !== 'All') queryParams.append('status', currentFilters.status);
 
-            const response = await fetch(`${API_URL}/api/rooms/list?${queryParams.toString()}`);
+            const response = await apiCall(`/api/rooms/list?${queryParams.toString()}`);
             const data = await response.json();
             if (data.success) {
                 setRooms(data.data);
@@ -294,7 +294,7 @@ const AdminDashboard = () => {
     // Fetch Room Types
     const fetchRoomTypes = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/facility-types/list`);
+            const response = await apiCall(`/api/facility-types/list`);
             const data = await response.json();
             if (data.success) {
                 setRoomTypes(data.data);
@@ -307,7 +307,7 @@ const AdminDashboard = () => {
     // Fetch Bed Types
     const fetchBedTypes = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/bed-types/list`);
+            const response = await apiCall(`/api/bed-types/list`);
             const data = await response.json();
             if (data.success) {
                 setBedTypes(data.data);
@@ -320,7 +320,7 @@ const AdminDashboard = () => {
     // Fetch Floors
     const fetchFloors = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/floors/list`);
+            const response = await apiCall(`/api/floors/list`);
             const data = await response.json();
             if (data.success) {
                 setFloors(data.data);
@@ -558,7 +558,7 @@ const AdminDashboard = () => {
         else if (menuId === 'business-source') { setMenuNow('business-source'); navigate(`${prefix}/business-source`); }
         else if (menuId === 'maintenance-block') { setMenuNow('maintenance-block'); navigate(`${prefix}/maintenance-block`); }
         else if (menuId === 'table-management') { setMenuNow('table-management'); navigate(`${prefix}/table-management`); }
-        else if (menuId === 'company') { setMenuNow('company'); navigate(`${prefix}/company-settings`); }
+        else if (menuId === 'company' || menuId === 'company-settings') { setMenuNow('company'); navigate(`${prefix}/company-settings`); }
         else if (menuId === 'hotel-customer') {
             // Future implementation
             alert('Coming Soon');
@@ -587,7 +587,7 @@ const AdminDashboard = () => {
     const handleViewQR = async (room) => {
         setQRLoading(true);
         try {
-            const response = await fetch(`${API_URL}/api/qr/generate/${room._id}`, {
+            const response = await apiCall(`/api/qr/generate/${room._id}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -690,7 +690,7 @@ const AdminDashboard = () => {
 
                 };
 
-                const response = await fetch(`${API_URL}/api/rooms/add`, {
+                const response = await apiCall(`/api/rooms/add`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(newRoom)
@@ -719,7 +719,7 @@ const AdminDashboard = () => {
 
                 };
 
-                const response = await fetch(`${API_URL}/api/rooms/update/${currentRoom._id}`, {
+                const response = await apiCall(`/api/rooms/update/${currentRoom._id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(updatedRoom)

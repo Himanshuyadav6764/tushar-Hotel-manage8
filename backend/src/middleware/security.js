@@ -66,4 +66,28 @@ const loginLimiter = rateLimit({
     }
 });
 
-module.exports = { limiter, loginLimiter };
+// Super admin panel limiter - protects dashboard APIs from abuse.
+const superAdminLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: isDev ? 300 : 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        message: 'Too many super admin requests, please try again in a few minutes'
+    }
+});
+
+// Extra strict limiter for high-risk super admin actions.
+const superAdminCriticalLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: isDev ? 40 : 15,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        message: 'Too many critical admin actions, please wait and try again'
+    }
+});
+
+module.exports = { limiter, loginLimiter, superAdminLimiter, superAdminCriticalLimiter };

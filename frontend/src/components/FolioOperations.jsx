@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import API_URL from '../config/api';
+import API_URL, { apiCall } from '../config/api';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
 import './FolioOperations.css';
@@ -65,7 +65,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
         try {
             if (!reservation?.roomNumber) return;
 
-            const response = await fetch(`${BASE_API_URL}/list`);
+            const response = await apiCall(`${BASE_API_URL}/list`);
             const data = await response.json();
 
             if (data.success && data.data) {
@@ -141,7 +141,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
             if (!idToFetch) return;
 
             console.log('Fetching transactions for booking:', idToFetch);
-            const response = await fetch(`${BASE_API_URL}/${idToFetch}`);
+            const response = await apiCall(`${BASE_API_URL}/${idToFetch}`);
             const data = await response.json();
 
             if (data.success && data.data.transactions) {
@@ -224,7 +224,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
 
         try {
             const bookingId = reservation.id || reservation._id;
-            const response = await fetch(`${BASE_API_URL}/${bookingId}/transactions`, {
+            const response = await apiCall(`${BASE_API_URL}/${bookingId}/transactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newTransaction)
@@ -271,7 +271,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
 
         try {
             const bookingId = reservation.id || reservation._id;
-            const response = await fetch(`${BASE_API_URL}/${bookingId}/transactions`, {
+            const response = await apiCall(`${BASE_API_URL}/${bookingId}/transactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newTransaction)
@@ -339,7 +339,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
 
         try {
             const bookingId = reservation.id || reservation._id;
-            const response = await fetch(`${BASE_API_URL}/${bookingId}/transactions`, {
+            const response = await apiCall(`${BASE_API_URL}/${bookingId}/transactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newTransaction)
@@ -386,7 +386,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
 
             // Fallback to global list if not found in current reservation (e.g. if list was fetched from API)
             if (!selectedGuestName) {
-                const response = await fetch(`${BASE_API_URL}/list`);
+                const response = await apiCall(`${BASE_API_URL}/list`);
                 const data = await response.json();
                 if (data.success && data.data) {
                     const guestInList = data.data.find(booking => booking._id === folioData.customer);
@@ -443,7 +443,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
             console.log('- Transaction IDs:', pendingRouteData.transactionIds);
             console.log('- Is Cross-Booking?', targetBookingId !== bookingId);
 
-            const response = await fetch(`${BASE_API_URL}/${bookingId}/route-folio`, {
+            const response = await apiCall(`${BASE_API_URL}/${bookingId}/route-folio`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -465,6 +465,8 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
 
                 // Fetch transactions for the target booking if different
                 await fetchTransactions(targetBookingId || bookingId);
+
+                if (onRefresh) await onRefresh();
 
                 // Show success toast
                 setToast({
@@ -505,8 +507,21 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
 
     // Print full folio statement
     const handlePrintFolio = async (printType = selectedPrintType) => {
-        if (!currentFolioTransactions.length) return;
+        const selectedFmt = printFormats.find((f) => f.key === (printType || selectedPrintType)) || printFormats[0];
+        const printWindow = window.open('', '_blank', `height=860,width=${selectedFmt.windowWidth || 420}`);
 
+        if (!printWindow) {
+            setToast({
+                message: 'Pop-up blocked. Please allow pop-ups and try printing again.',
+                type: 'error'
+            });
+            return;
+        }
+
+        printWindow.document.write(`<!DOCTYPE html><html><head><title>Preparing Print...</title></head><body style="font-family: Arial, sans-serif; padding: 16px; color: #334155;">Preparing folio for print...</body></html>`);
+        printWindow.document.close();
+
+        try {
         const selectedFolioData = folioList.find((f) => f.id === selectedRoom);
         const guestName = selectedFolioData?.guestName || reservation?.guestName || '';
         const roomNo = selectedFolioData?.roomNumber || reservation?.roomNumber || '';
@@ -518,8 +533,6 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
         const billPrefix = settings?.billingInvoicePrefix || settings?.invoicePrefix || 'FOLIO';
         const folioNo = `${String(billPrefix).trim() || 'FOLIO'}-${roomNo || selectedFolioData?.folioId || 'NA'}`;
         const thankYouMessage = settings?.thankYouMessage || 'Thank you for visiting our hotel!';
-        const selectedFmt = printFormats.find((f) => f.key === (printType || selectedPrintType)) || printFormats[0];
-
         const toNum = (v) => {
             const n = Number(v);
             return Number.isFinite(n) ? n : 0;
@@ -595,7 +608,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
 
         if (foodTx.length > 0) {
             try {
-                const orderResp = await fetch(`${API_URL}/api/guest-meal/orders`);
+                const orderResp = await apiCall(`/api/guest-meal/orders`);
                 const orderJson = await orderResp.json();
                 if (orderJson?.success && Array.isArray(orderJson?.data)) {
                     allFoodOrders = orderJson.data;
@@ -677,13 +690,13 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                 gross = orderGross || gross;
             }
 
-            if (sectionType === 'food' && (gross === null || gross === 0) && (taxCfg.foodGstPercent > 0 || taxCfg.servicePercent > 0)) {
+            if (sectionType === 'food' && (gross === null || gross === 0) && (taxCfg.foodGstPercent > 0 || taxCfg.foodServicePercent > 0)) {
                 const targetBeforeDiscount = Math.max(0, row.amountAbs + discount);
-                const denom = 1 + (taxCfg.foodGstPercent / 100) + (taxCfg.servicePercent / 100);
+                const denom = 1 + (taxCfg.foodGstPercent / 100) + (taxCfg.foodServicePercent / 100);
                 const inferredGross = denom > 0 ? targetBeforeDiscount / denom : targetBeforeDiscount;
                 gross = inferredGross;
                 if (!gst) gst = inferredGross * (taxCfg.foodGstPercent / 100);
-                if (!service) service = inferredGross * (taxCfg.servicePercent / 100);
+                if (!service) service = inferredGross * (taxCfg.foodServicePercent / 100);
             }
 
             let finalTotal = row.amountAbs;
@@ -791,14 +804,125 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
         const ledgerDiscountTotal = discountTx.reduce((s, d) => s + d.amountAbs, 0);
         const grandTotal = Math.max(0, sectionChargesTotal - ledgerDiscountTotal);
 
-        const paymentSplit = { cash: 0, upi: 0, card: 0, other: 0, total: 0 };
-        paymentTx.forEach((p) => {
+        const normalizePaymentMode = (mode) => {
+            const lower = String(mode || '').trim().toLowerCase();
+            if (!lower) return '';
+            if (lower.includes('cash')) return 'Cash';
+            if (lower.includes('upi')) return 'UPI';
+            if (lower.includes('card')) return 'Card';
+            if (lower.includes('bank') || lower.includes('transfer')) return 'Bank Transfer';
+            return String(mode || '').trim();
+        };
+
+        const parseMixedPaymentText = (rawText) => {
+            const text = String(rawText || '').trim();
+            if (!text || !text.includes(':')) return [];
+            return text
+                .split(';')
+                .map((part) => String(part || '').trim())
+                .filter(Boolean)
+                .map((part) => {
+                    const [modeRaw, amountWithRef = ''] = part.split(':');
+                    const [amountRaw, referenceRaw = ''] = String(amountWithRef).split('@');
+                    return {
+                        mode: normalizePaymentMode(modeRaw),
+                        amount: toNum(amountRaw),
+                        referenceId: String(referenceRaw || '').trim()
+                    };
+                })
+                .filter((split) => split.mode && split.amount > 0);
+        };
+
+        const resolvePaymentSplits = (paymentRow) => {
+            const directSplits = Array.isArray(paymentRow?.paymentSplits) ? paymentRow.paymentSplits : [];
+            const normalizedDirect = directSplits
+                .map((split) => ({
+                    mode: normalizePaymentMode(split?.mode || split?.paymentMode || split?.method),
+                    amount: toNum(split?.amount),
+                    referenceId: String(split?.referenceId || '').trim()
+                }))
+                .filter((split) => split.mode && split.amount > 0);
+
+            if (normalizedDirect.length > 0) return normalizedDirect;
+
+            const legacyCandidates = [
+                parseMixedPaymentText(paymentRow?.referenceId),
+                parseMixedPaymentText(paymentRow?.notes),
+                parseMixedPaymentText(paymentRow?.description)
+            ];
+            const parsedLegacy = legacyCandidates.find((entry) => Array.isArray(entry) && entry.length > 0) || [];
+            if (parsedLegacy.length > 0) return parsedLegacy;
+
+            const inferredMode = normalizePaymentMode(paymentRow?.particulars || paymentRow?.textRaw || paymentRow?.method);
+            if (inferredMode && toNum(paymentRow?.amountAbs) > 0) {
+                return [{ mode: inferredMode, amount: toNum(paymentRow.amountAbs), referenceId: '' }];
+            }
+
+            return [];
+        };
+
+        const extractUtr = (paymentRow, splits) => {
+            const fromSplit = splits
+                .map((split) => String(split.referenceId || '').trim())
+                .find((ref) => /^\d{12}$/.test(ref));
+            if (fromSplit) return fromSplit;
+
+            const candidates = [paymentRow?.referenceId, paymentRow?.notes, paymentRow?.description, paymentRow?.textRaw]
+                .map((value) => String(value || ''));
+            for (const candidate of candidates) {
+                const m = candidate.match(/\b\d{12}\b/);
+                if (m) return m[0];
+            }
+            return '';
+        };
+
+        const paymentSplit = { cash: 0, upi: 0, card: 0, bank: 0, other: 0, total: 0 };
+        const paymentDetailsRows = paymentTx.map((p, idx) => {
+            const splits = resolvePaymentSplits(p);
+            const utr = extractUtr(p, splits);
+
             paymentSplit.total += p.amountAbs;
-            if (p.textLc.includes('cash')) paymentSplit.cash += p.amountAbs;
-            else if (p.textLc.includes('upi')) paymentSplit.upi += p.amountAbs;
-            else if (p.textLc.includes('card')) paymentSplit.card += p.amountAbs;
-            else paymentSplit.other += p.amountAbs;
+            if (splits.length > 0) {
+                splits.forEach((split) => {
+                    const modeLc = String(split.mode || '').toLowerCase();
+                    if (modeLc === 'cash') paymentSplit.cash += split.amount;
+                    else if (modeLc === 'upi') paymentSplit.upi += split.amount;
+                    else if (modeLc === 'card') paymentSplit.card += split.amount;
+                    else if (modeLc === 'bank transfer') paymentSplit.bank += split.amount;
+                    else paymentSplit.other += split.amount;
+                });
+            } else {
+                if (p.textLc.includes('cash')) paymentSplit.cash += p.amountAbs;
+                else if (p.textLc.includes('upi')) paymentSplit.upi += p.amountAbs;
+                else if (p.textLc.includes('card')) paymentSplit.card += p.amountAbs;
+                else paymentSplit.other += p.amountAbs;
+            }
+
+            const splitText = splits.length > 0
+                ? splits.map((split) => {
+                    const refText = split.referenceId ? ` (Ref/UTR: ${escapeHtml(split.referenceId)})` : '';
+                    return `${escapeHtml(split.mode)}: ${cs}${money(split.amount)}${refText}`;
+                }).join(' | ')
+                : (escapeHtml(String(p.description || 'Advance payment at booking')) || 'Payment');
+
+            const utrLine = utr ? `<div class="payment-subline">UTR: ${escapeHtml(utr)}</div>` : '';
+            const dateText = escapeHtml(String(p.day || new Date(p.date || Date.now()).toLocaleDateString('en-GB')));
+
+            return `
+                <div class="payment-card" key="payment-${idx}">
+                    <div class="payment-head">
+                        <span>Advance payment at booking</span>
+                        <strong>${cs}${money(p.amountAbs)}</strong>
+                    </div>
+                    <div class="payment-subline">${dateText}</div>
+                    <div class="payment-subline">${splitText}</div>
+                    ${utrLine}
+                </div>
+            `;
         });
+        const paymentDetailsHtml = paymentDetailsRows.length > 0
+            ? paymentDetailsRows.join('')
+            : '<div class="empty-text">No payment entries</div>';
 
         const pending = Math.max(0, grandTotal - paymentSplit.total);
 
@@ -837,10 +961,10 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
 
         const content = `<!DOCTYPE html><html><head><title>Folio Print - ${escapeHtml(String(roomNo || 'NA'))}</title>
             <style>
-<<<<<<< HEAD
                 @page { size: ${pageSize}; margin: 3.5mm; }
                 body { font-family: Arial, sans-serif; font-size: 11px; color: #1f2937; margin: 0 auto; width: ${printWidth}; }
                 .company-header { text-align: center; border: 1px solid #d6dbe3; border-radius: 4px; padding: 8px; margin-bottom: 6px; }
+                .company-logo { max-height: 52px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto 6px auto; mix-blend-mode: multiply; background: transparent; }
                 .company-name { font-size: 13px; font-weight: 900; letter-spacing: 0.2px; text-transform: uppercase; color: #111827; }
                 .company-line { font-size: 10px; color: #4b5563; margin-top: 2px; }
                 .header { border: 1px solid #d6dbe3; border-radius: 4px; padding: 8px; margin-bottom: 8px; }
@@ -854,55 +978,27 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                 .charge-date { color: #4b5563; font-size: 10px; margin: 2px 0 4px 0; }
                 .detail-row { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; margin: 2px 0; }
                 .section-total { border: 1px solid #d6dbe3; border-radius: 4px; padding: 5px 6px; margin-bottom: 8px; display: flex; justify-content: space-between; font-weight: 800; }
+                .payment-card { border: 1px solid #d6dbe3; border-radius: 4px; padding: 6px; margin-bottom: 6px; }
+                .payment-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-weight: 800; }
+                .payment-subline { margin-top: 2px; font-size: 10px; color: #4b5563; }
                 .totals-box { border: 1px solid #d6dbe3; border-radius: 4px; padding: 8px; margin-top: 8px; }
                 .total-row { display: flex; justify-content: space-between; gap: 8px; margin: 3px 0; font-weight: 700; }
-                .total-row.light { font-weight: 600; color: #374151; }
                 .total-row.red { color: #dc2626; }
                 .total-row.green { color: #15803d; }
                 .empty-text { color: #6b7280; font-style: italic; margin: 4px 0 8px 0; }
                 .footer { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #d9dde4; text-align: center; }
+                .footer-qr { width: 112px; height: 112px; object-fit: contain; display: block; margin: 0 auto 6px auto; }
+                .footer-prefix { font-size: 10px; font-weight: 700; color: #111827; margin-top: 2px; }
                 .footer-line { font-size: 10px; color: #4b5563; margin-top: 2px; }
                 .thanks { text-align: center; margin-top: 10px; font-style: italic; color: #374151; }
             </style>
         </head><body>
             <div class="company-header">
-                <div class="company-name">${escapeHtml(hotelName)}</div>
+                ${settings?.displayLogoOnBill && settings?.logoUrl ? `<img class="company-logo" src="${escapeHtml(settings.logoUrl)}" alt="Hotel Logo" />` : ''}
+                ${settings?.displayLogoOnBill && settings?.logoUrl ? '' : `<div class="company-name">${escapeHtml(hotelName)}</div>`}
                 ${fullAddress ? `<div class="company-line">${escapeHtml(fullAddress)}</div>` : ''}
                 ${(companyPhone || companyGst) ? `<div class="company-line">${companyPhone ? `Ph: ${escapeHtml(companyPhone)}` : ''}${(companyPhone && companyGst) ? ' | ' : ''}${companyGst ? `GSTIN: ${escapeHtml(companyGst)}` : ''}</div>` : ''}
             </div>
-=======
-                @page { size: 80mm auto; margin: 4mm; }
-                body { font-family: 'Courier New', monospace; font-size: 12px; color: #111; margin: 0 auto; width: 74mm; }
-                .center { text-align: center; }
-                .row { display: flex; justify-content: space-between; gap: 8px; margin: 2px 0; }
-                .row span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                .strong { font-weight: 700; }
-                .sep { border-top: 1px dashed #333; margin: 6px 0; }
-                .title { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
-                .muted { color: #333; }
-                .formula { font-size: 11px; color: #333; margin: 1px 0 3px 0; }
-                .section { margin-top: 2px; }
-                .toolbar { display: flex; gap: 8px; justify-content: center; margin: 8px 0 10px 0; }
-                .toolbar button { border: 1px solid #222; background: #fff; color: #111; padding: 5px 10px; cursor: pointer; font-family: inherit; font-size: 12px; }
-                .toolbar button:hover { background: #f3f4f6; }
-                .note { text-align: center; font-size: 11px; color: #444; margin-bottom: 6px; }
-                @media print { .toolbar, .note { display: none; } }
-            </style>
-        </head><body>
-            <div class="toolbar">
-                <button onclick="triggerPrint()">Save / Print</button>
-                <button onclick="window.close()">Close</button>
-            </div>
-            <div class="note">Preview ready. Click Save / Print after checking full bill.</div>
-            <div class="center title">TAX INVOICE</div>
-            <div class="row"><span>${new Date().toLocaleString('en-IN')}</span><span>Folio: ${roomNo}</span></div>
-            <div class="sep"></div>
-            <div class="center strong">${hotelName}</div>
-            ${address ? `<div class="center muted">${address}</div>` : ''}
-            <div class="sep"></div>
-            ${lineRow('Guest Name', guestName || '-')}
-            <div class="sep"></div>
->>>>>>> origin/main
 
             <div class="header">
                 ${infoRow('Folio No:', folioNo)}
@@ -923,6 +1019,10 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
             ${addCards}
             <div class="section-total"><span>ADDITIONAL CHARGES TOTAL</span><span>${cs}${money(addCalc.total)}</span></div>
 
+            <div class="section-title">Payment Details</div>
+            ${paymentDetailsHtml}
+            <div class="section-total"><span>PAYMENT TOTAL</span><span>${cs}${money(paymentSplit.total)}</span></div>
+
             <div class="totals-box">
                 <div class="total-row"><span>ROOM TOTAL</span><span>${cs}${money(roomCalc.total)}</span></div>
                 <div class="total-row"><span>RESTAURANT TOTAL</span><span>${cs}${money(foodCalc.total)}</span></div>
@@ -934,28 +1034,45 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                 <div class="total-row red"><span>Net Payable</span><span>${cs}${money(pending)}</span></div>
             </div>
 
-<<<<<<< HEAD
             <div class="footer">
+                ${settings?.qrCodeUrl ? `<img class="footer-qr" src="${escapeHtml(settings.qrCodeUrl)}" alt="Payment QR" />` : ''}
+                <div class="footer-prefix">Invoice Prefix: ${escapeHtml(String(billPrefix).trim() || 'INV')}</div>
                 <div class="thanks">${escapeHtml(thankYouMessage)}</div>
                 ${companyPan ? `<div class="footer-line">PAN: ${escapeHtml(companyPan)}</div>` : ''}
                 ${companyGst ? `<div class="footer-line">GSTIN: ${escapeHtml(companyGst)}</div>` : ''}
             </div>
             <script>window.onload=function(){window.print();setTimeout(function(){window.close();},500)}<\/script>
-=======
-            ${lineRow('Subtotal', money(subtotal))}
-            ${lineRow('GST total', money(gstTotal))}
-            ${lineRow('Discount total', `-${money(discountTotal)}`)}
-            ${lineRow('Grand Total', money(grandTotal), true)}
-            <script>
-                function triggerPrint(){ window.print(); }
-            <\/script>
->>>>>>> origin/main
         </body></html>`;
 
-        const w = window.open('', '_blank', `height=860,width=${selectedFmt.windowWidth || 420}`);
-        w.document.write(content);
-        w.document.close();
+        printWindow.document.open();
+        printWindow.document.write(content);
+        printWindow.document.close();
         setShowPrintDrawer(false);
+        } catch (error) {
+            console.error('Print folio failed:', error);
+            setToast({
+                message: 'Print failed while preparing folio. Please try again.',
+                type: 'error'
+            });
+            const fallbackContent = `<!DOCTYPE html><html><head><title>Folio Print</title>
+                <style>
+                    @page { margin: 10mm; }
+                    body { font-family: Arial, sans-serif; color: #1f2937; padding: 8px; }
+                    h2 { margin: 0 0 8px; }
+                    p { margin: 4px 0; }
+                </style>
+            </head><body>
+                <h2>Folio Print</h2>
+                <p><strong>Room:</strong> ${reservation?.roomNumber || '-'}</p>
+                <p><strong>Guest:</strong> ${reservation?.guestName || '-'}</p>
+                <p><strong>Date:</strong> ${new Date().toLocaleString('en-GB')}</p>
+                <p>Detailed print could not be generated due to a temporary error.</p>
+                <script>window.onload=function(){window.print();setTimeout(function(){window.close();},500)}<\/script>
+            </body></html>`;
+            printWindow.document.open();
+            printWindow.document.write(fallbackContent);
+            printWindow.document.close();
+        }
     };
 
     // Print individual receipt
@@ -976,27 +1093,21 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
         w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title>
             <style>body{font-family:Arial,sans-serif;padding:20mm;font-size:12px;}
             h3{margin:0 0 10px}.company{text-align:center;margin-bottom:10px}
+            .logo{max-height:56px;max-width:180px;object-fit:contain;display:block;margin:0 auto 6px auto;mix-blend-mode:multiply;background:transparent}
             .cname{font-size:16px;font-weight:800;text-transform:uppercase}
             .cline{font-size:11px;color:#555;margin-top:2px}
             table{width:100%;border-collapse:collapse;margin-top:12px}
             td{padding:6px 0;border-bottom:1px solid #eee}.label{color:#666}.val{font-weight:700;text-align:right}
-<<<<<<< HEAD
             .footer{margin-top:12px;padding-top:8px;border-top:1px dashed #ddd;text-align:center}
+            .fqr{width:118px;height:118px;object-fit:contain;display:block;margin:0 auto 6px auto}
+            .prefix{font-size:11px;font-weight:700;color:#111;margin-bottom:4px}
             </style></head><body>
             <div class="company">
-                <div class="cname">${companyName}</div>
+                ${settings?.displayLogoOnBill && settings?.logoUrl ? `<img class="logo" src="${settings.logoUrl}" alt="Hotel Logo" />` : ''}
+                ${settings?.displayLogoOnBill && settings?.logoUrl ? '' : `<div class="cname">${companyName}</div>`}
                 ${fullAddress ? `<div class="cline">${fullAddress}</div>` : ''}
                 ${(companyPhone || companyGst) ? `<div class="cline">${companyPhone ? `Ph: ${companyPhone}` : ''}${(companyPhone && companyGst) ? ' | ' : ''}${companyGst ? `GSTIN: ${companyGst}` : ''}</div>` : ''}
             </div>
-=======
-            .toolbar{position:sticky;top:0;display:flex;gap:8px;justify-content:center;background:#fff;padding:8px 0}
-            .toolbar button{border:1px solid #222;background:#fff;padding:5px 10px;cursor:pointer}
-            .note{text-align:center;font-size:11px;color:#555;margin-bottom:8px}
-            @media print{.toolbar,.note{display:none}}
-            </style></head><body>
-            <div class="toolbar"><button onclick="triggerPrint()">Save / Print</button><button onclick="window.close()">Close</button></div>
-            <div class="note">Preview ready. Click Save / Print after checking receipt.</div>
->>>>>>> origin/main
             <h3>Transaction Receipt</h3>
             <table><tr><td class=label>Receipt No</td><td class=val>${receiptNo}</td></tr>
             <tr><td class=label>Date</td><td class=val>${item.day}</td></tr>
@@ -1004,19 +1115,14 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
             <tr><td class=label>Description</td><td class=val>${receiptDescription}</td></tr>
             <tr><td class=label>Amount</td><td class=val>${cs} ${receiptAmount.toFixed(2)}</td></tr>
             <tr><td class=label>User</td><td class=val>${item.user}</td></tr></table>
-<<<<<<< HEAD
             <div class="footer">
+                ${settings?.qrCodeUrl ? `<img class="fqr" src="${settings.qrCodeUrl}" alt="Payment QR" />` : ''}
+                <div class="prefix">Invoice Prefix: ${String(billPrefix).trim() || 'INV'}</div>
                 <div style="color:#555;font-size:11px">${thankYouMessage}</div>
                 ${companyPan ? `<div style="color:#666;font-size:10px;margin-top:3px">PAN: ${companyPan}</div>` : ''}
                 ${companyGst ? `<div style="color:#666;font-size:10px;margin-top:3px">GSTIN: ${companyGst}</div>` : ''}
             </div>
             <script>window.onload=function(){window.print();setTimeout(()=>window.close(),500)}<\/script>
-=======
-            <p style="margin-top:20px;text-align:center;color:#999;font-size:11px">Thank you!</p>
-            <script>
-                function triggerPrint(){ window.print(); }
-            <\/script>
->>>>>>> origin/main
             </body></html>`);
         w.document.close();
         setActiveMenu(null);
@@ -1032,7 +1138,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
         if (editingItem && editingItem.transactionId) {
             try {
                 const bookingId = reservation.id || reservation._id;
-                const response = await fetch(`${BASE_API_URL}/${bookingId}/transactions/${editingItem.transactionId}`, {
+                const response = await apiCall(`${BASE_API_URL}/${bookingId}/transactions/${editingItem.transactionId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1047,6 +1153,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                 const data = await response.json();
                 if (data.success) {
                     await fetchTransactions();
+                    if (onRefresh) await onRefresh();
                     setShowEditModal(false);
                     setEditingItem(null);
                 }
@@ -1062,7 +1169,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
         if (transaction._id) {
             try {
                 const bookingId = reservation.id || reservation._id;
-                const response = await fetch(`${BASE_API_URL}/${bookingId}/transactions/${transaction._id}`, {
+                const response = await apiCall(`${BASE_API_URL}/${bookingId}/transactions/${transaction._id}`, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1074,6 +1181,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                 const data = await response.json();
                 if (data.success) {
                     await fetchTransactions();
+                    if (onRefresh) await onRefresh();
                 }
             } catch (error) {
                 console.error('Error deleting transaction:', error);
@@ -1210,6 +1318,76 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
     };
 
     const getDisplayDescription = (transaction) => {
+        const typeLc = String(transaction?.type || '').toLowerCase();
+        if (typeLc === 'payment') {
+            const baseDescription = String(transaction?.description || 'Payment').trim();
+            const alreadyDetailed = /cash\s*:\s*rs|upi\s*:\s*rs|card\s*:\s*rs|bank\s*transfer\s*:\s*rs|utr\s*:|ref\/utr\s*:/i.test(baseDescription);
+            if (alreadyDetailed) return baseDescription;
+
+            const normalizeMode = (mode) => {
+                const lower = String(mode || '').trim().toLowerCase();
+                if (!lower) return '';
+                if (lower.includes('upi')) return 'UPI';
+                if (lower.includes('cash')) return 'Cash';
+                if (lower.includes('card')) return 'Card';
+                if (lower.includes('bank') || lower.includes('transfer')) return 'Bank Transfer';
+                return String(mode || '').trim();
+            };
+
+            const buildDetailsText = (splits) => {
+                if (!Array.isArray(splits) || splits.length === 0) return '';
+                return splits
+                    .map((split) => {
+                        const mode = normalizeMode(split?.mode || split?.paymentMode || split?.method);
+                        const amount = Number(split?.amount) || 0;
+                        const ref = String(split?.referenceId || '').trim();
+                        if (!mode || amount <= 0) return '';
+                        const refText = ref ? ` (Ref/UTR: ${ref})` : '';
+                        return `${mode}: Rs ${amount.toFixed(2)}${refText}`;
+                    })
+                    .filter(Boolean)
+                    .join(' | ');
+            };
+
+            const parseLegacyMixed = (raw) => {
+                const text = String(raw || '').trim();
+                if (!text || !text.includes(':')) return [];
+                return text
+                    .split(';')
+                    .map((chunk) => String(chunk || '').trim())
+                    .filter(Boolean)
+                    .map((chunk) => {
+                        const [modeRaw, amountWithRef = ''] = chunk.split(':');
+                        const [amountRaw, refRaw = ''] = String(amountWithRef).split('@');
+                        return {
+                            mode: String(modeRaw || '').trim(),
+                            amount: Number(amountRaw) || 0,
+                            referenceId: String(refRaw || '').trim()
+                        };
+                    })
+                    .filter((split) => split.mode && split.amount > 0);
+            };
+
+            const fromTransactionSplits = buildDetailsText(transaction?.paymentSplits);
+            if (fromTransactionSplits) return `${baseDescription} | ${fromTransactionSplits}`;
+
+            const fromLegacyRef = buildDetailsText(parseLegacyMixed(transaction?.referenceId || transaction?.notes));
+            if (fromLegacyRef) return `${baseDescription} | ${fromLegacyRef}`;
+
+            const fromReservationSplits = buildDetailsText(reservation?.paymentSplits);
+            if (fromReservationSplits) return `${baseDescription} | ${fromReservationSplits}`;
+
+            const fromReservationLegacy = buildDetailsText(parseLegacyMixed(reservation?.transactionId));
+            if (fromReservationLegacy) return `${baseDescription} | ${fromReservationLegacy}`;
+
+            const utrRef = String(transaction?.referenceId || reservation?.transactionId || '').trim();
+            if (utrRef && /^\d{12}$/.test(utrRef)) {
+                return `${baseDescription} | UTR: ${utrRef}`;
+            }
+
+            return baseDescription;
+        }
+
         if (!isRoomChargeTransaction(transaction)) return transaction?.description;
 
         const b = roomDescriptionBreakdown;

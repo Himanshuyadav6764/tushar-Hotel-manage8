@@ -35,12 +35,42 @@ const pricingRoutes = require('./routes/pricingRoutes');
 
 // Initialize express app
 const app = express();
+app.disable('x-powered-by');
+
+// Trust reverse proxies for accurate client IP handling.
+app.set('trust proxy', 1);
 
 // Per-request tenant context needed for automatic query scoping.
 app.use(runTenantContext);
 
-// CORS configuration - Allow production and development origins
-app.use(cors()); // Simplified CORS for development per user request
+// CORS configuration (whitelist via CORS_ORIGIN)
+const allowedOrigins = String(process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+const isProduction = process.env.NODE_ENV === 'production';
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin) {
+            return callback(null, true);
+        }
+
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        if (!isProduction && allowedOrigins.length === 0) {
+            return callback(null, true);
+        }
+
+        if (isProduction && allowedOrigins.length === 0) {
+            return callback(new Error('CORS misconfiguration: CORS_ORIGIN must be set in production'));
+        }
+
+        return callback(new Error('CORS policy: Origin not allowed'));
+    }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Security enhancements
@@ -49,15 +79,43 @@ const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const hpp = require('hpp');
 const { limiter } = require('./middleware/security');
+const { validateRequestInput } = require('./middleware/inputValidation');
+const { protect } = require('./middleware/authMiddleware');
+const { createFirewallMiddleware } = require('./middleware/firewallProtection');
+const { createActivityMonitoringMiddleware } = require('./middleware/activityMonitoring');
 
 // Set security HTTP headers
-app.use(helmet());
+app.use(helmet({
+    frameguard: { action: 'deny' },
+    referrerPolicy: { policy: 'no-referrer' },
+    hsts: isProduction
+        ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+        : false,
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
+            imgSrc: ["'self'", 'data:', 'https:'],
+            connectSrc: ["'self'", 'https:', 'wss:'],
+            fontSrc: ["'self'", 'data:', 'https:'],
+            objectSrc: ["'none'"],
+            baseUri: ["'self'"],
+            formAction: ["'self'"],
+            frameAncestors: ["'none'"]
+        }
+    },
+    crossOriginEmbedderPolicy: false
+}));
+
+// Firewall protections: IP/method/user-agent/path policy checks.
+app.use(createFirewallMiddleware());
 
 // Limit requests from same API
 app.use('/api', limiter);
 
 // Body parser, reading data from body into req.body
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));
 
 // Data sanitization against NoSQL query injection
 app.use(mongoSanitize());
@@ -76,6 +134,9 @@ app.use(hpp({
         'price'
     ]
 }));
+
+// Global input validation and payload inspection for SQLi/XSS style attacks.
+app.use('/api', validateRequestInput);
 
 // Simple request logger
 app.use((req, res, next) => {
@@ -141,6 +202,36 @@ app.use('/api', (req, res, next) => {
                 error: err.message
             });
         });
+});
+
+    // Global API activity monitoring with suspicious behavior detection.
+    app.use('/api', createActivityMonitoringMiddleware());
+
+const isPublicApiRoute = (req) => {
+    const path = String(req.path || '').toLowerCase();
+    const method = String(req.method || '').toUpperCase();
+
+    if (req.method === 'OPTIONS') {
+        return true;
+    }
+
+    return (
+        path === '/auth/login'
+        || path === '/auth/register'
+        || path === '/chatbot/chat'
+        || (method === 'GET' && path.startsWith('/hotel/settings'))
+        || path === '/qr/send-otp'
+        || path === '/qr/verify-otp'
+        || path.startsWith('/qr/room-details/')
+    );
+};
+
+// Default-deny API access: every endpoint requires auth unless explicitly public.
+app.use('/api', (req, res, next) => {
+    if (isPublicApiRoute(req)) {
+        return next();
+    }
+    return protect(req, res, next);
 });
 
 // Routes

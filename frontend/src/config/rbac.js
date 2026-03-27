@@ -448,6 +448,8 @@ const MODULE_LABEL_MAP = {
     [MODULES.RESERVATION_CARD]: ['Reservation Card', 'Registration Card'],
     [MODULES.FOOD_ORDER]: ['Food Order'],
     [MODULES.PROPERTY_SETUP]: ['Property Setup', 'Property Setup (All)', 'Property Setup - Discount', 'Property Setup - Generate Room QR'],
+    discount: ['Property Setup (All)', 'Property Setup - Discount'],
+    'generate-room-qr': ['Property Setup (All)', 'Property Setup - Generate Room QR'],
     [MODULES.PROPERTY_CONFIG]: [
         'Property Configuration',
         'Property Configuration (All)',
@@ -464,6 +466,19 @@ const MODULE_LABEL_MAP = {
         'Property Configuration - Table Management',
         'Property Configuration - Company Settings'
     ],
+    'floor-setup': ['Property Configuration (All)', 'Property Configuration - Floor Setup'],
+    'room-facilities-type': ['Property Configuration (All)', 'Property Configuration - Room Facilities Type'],
+    'meal-type': ['Property Configuration (All)', 'Property Configuration - Meal Type'],
+    'reservation-type': ['Property Configuration (All)', 'Property Configuration - Reservation Type'],
+    'extra-charges': ['Property Configuration (All)', 'Property Configuration - Extra Charges'],
+    'complimentary-services': ['Property Configuration (All)', 'Property Configuration - Complimentary Services'],
+    'customer-identity': ['Property Configuration (All)', 'Property Configuration - Customer Identity'],
+    'booking-source': ['Property Configuration (All)', 'Property Configuration - Booking Source'],
+    'business-source': ['Property Configuration (All)', 'Property Configuration - Business Source'],
+    'maintenance-block': ['Property Configuration (All)', 'Property Configuration - Maintenance Block'],
+    'table-management': ['Property Configuration (All)', 'Property Configuration - Table Management'],
+    company: ['Property Configuration (All)', 'Property Configuration - Company Settings'],
+    'company-settings': ['Property Configuration (All)', 'Property Configuration - Company Settings'],
     [MODULES.REPORTS]: [
         'Reports',
         'Reports (All)',

@@ -5,6 +5,9 @@ const tenantStorage = new AsyncLocalStorage();
 
 const TENANT_HEADER = 'x-hotel-id';
 const TENANT_DB_HEADER = 'x-tenant-db';
+const allowDefaultTenantFallback =
+    process.env.NODE_ENV !== 'production'
+    || String(process.env.ALLOW_DEFAULT_TENANT_CONTEXT || '').trim().toLowerCase() === 'true';
 
 const normalizeTenantId = (value) => {
     if (!value) return null;
@@ -19,8 +22,8 @@ const runTenantContext = (req, res, next) => {
 
     tenantStorage.run(
         {
-            hotelId: headerTenantId || defaultHotelId,
-            dbName: headerDbName || defaultDbName,
+            hotelId: headerTenantId || (allowDefaultTenantFallback ? defaultHotelId : null),
+            dbName: headerDbName || (allowDefaultTenantFallback ? defaultDbName : null),
             role: null,
             userId: null
         },
@@ -52,7 +55,7 @@ const runTenantContext = (req, res, next) => {
     );
 };
 
-const setTenantContextFromUser = (user) => {
+const setTenantContextFromUser = (user, options = {}) => {
     const store = tenantStorage.getStore();
     if (!store || !user) return;
 
@@ -60,8 +63,9 @@ const setTenantContextFromUser = (user) => {
     store.role = user.role || null;
     if (user.role !== 'super_admin') {
         store.hotelId = normalizeTenantId(user.hotelId);
-        if (user.dbName) {
-            store.dbName = normalizeTenantId(user.dbName);
+        const resolvedDbName = normalizeTenantId(options.dbName || user.dbName);
+        if (resolvedDbName) {
+            store.dbName = resolvedDbName;
         }
     } else {
         store.hotelId = null;

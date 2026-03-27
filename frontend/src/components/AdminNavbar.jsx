@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import RoleBadge from './RoleBadge';
 import { hasModuleAccess, MODULES } from '../config/rbac';
 import './AdminNavbar.css';
-import Logo from '../assets/final logo.png';
+import Logo from '../assets/logo_new.jpg';
 
 const AdminNavbar = ({
     sidebarOpen,
@@ -69,18 +69,6 @@ const AdminNavbar = ({
                             <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
                             <path d="M3 6h18" />
                             <path d="M16 10a4 4 0 0 1-8 0" />
-                        </svg>
-                    </button>
-                )}
-
-
-                {/* 5. Sync Icon */}
-                {user?.role === 'admin' && (
-                    <button className="top-icon-btn sync-btn" title="Sync Data" onClick={() => alert('Syncing...')}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="23 4 23 10 17 10"></polyline>
-                            <polyline points="1 20 1 14 7 14"></polyline>
-                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
                         </svg>
                     </button>
                 )}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './MaintenanceBlock.css';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 
 const MaintenanceBlock = () => {
     const [blocks, setBlocks] = useState([]);
@@ -42,7 +42,7 @@ const MaintenanceBlock = () => {
     const fetchBlocks = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`${API_URL}/api/maintenance-blocks/list`);
+            const res = await apiCall(`/api/maintenance-blocks/list`);
             const data = await res.json();
             if (data.success) {
                 // Ensure dates are parsed
@@ -88,7 +88,7 @@ const MaintenanceBlock = () => {
             const url = modalMode === 'add' ? `${API_URL}/api/maintenance-blocks/add` : `${API_URL}/api/maintenance-blocks/update/${currentBlock._id}`;
             const method = modalMode === 'add' ? 'POST' : 'PUT';
 
-            const res = await fetch(url, {
+            const res = await apiCall(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
@@ -109,7 +109,7 @@ const MaintenanceBlock = () => {
 
     const handleStatusUpdate = async (id, newStatus) => {
         try {
-            const res = await fetch(`${API_URL}/api/maintenance-blocks/update/${id}`, {
+            const res = await apiCall(`/api/maintenance-blocks/update/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
@@ -131,7 +131,7 @@ const MaintenanceBlock = () => {
 
     const confirmDelete = async (id) => {
         try {
-            const res = await fetch(`${API_URL}/api/maintenance-blocks/delete/${id}`, { method: 'DELETE' });
+            const res = await apiCall(`/api/maintenance-blocks/delete/${id}`, { method: 'DELETE' });
             const data = await res.json();
             if (data.success) {
                 showInlineNote('Block Deleted', 'Maintenance block removed successfully.');

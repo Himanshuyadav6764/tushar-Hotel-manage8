@@ -22,6 +22,10 @@ const LoginNew = ({ handleLogin, loading, error }) => {
     const submitHandler = (e) => {
         e.preventDefault();
 
+        if (loading) {
+            return;
+        }
+
         // 🔒 SAME EXISTING LOGIN LOGIC
         handleLogin({
             email,

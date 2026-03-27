@@ -76,6 +76,10 @@ const orderSchema = new mongoose.Schema({
         enum: ['Pending', 'Completed', 'Failed', 'Partial', 'Refunded'],
         default: 'Pending'
     },
+    paymentSplits: {
+        type: [mongoose.Schema.Types.Mixed],
+        default: []
+    },
 
     billing: { // New structure if we want to migrate slowly
         subtotal: Number,

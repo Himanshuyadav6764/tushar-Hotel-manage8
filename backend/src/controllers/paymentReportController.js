@@ -24,6 +24,7 @@ const buildOrderItemSummary = (order) => {
 
 const normalizeMode = (mode) => {
     const normalized = String(mode || '').toLowerCase();
+    if (normalized.includes('mixed') || normalized.includes('multiple')) return 'Mixed';
     if (normalized.includes('cash')) return 'Cash';
     if (normalized.includes('upi')) return 'UPI';
     if (normalized.includes('card')) return 'Card';
@@ -31,6 +32,47 @@ const normalizeMode = (mode) => {
     if (normalized.includes('transfer')) return 'Bank Transfer';
     if (normalized.includes('room')) return 'Room Billing';
     return mode || 'N/A';
+};
+
+const extractPaymentAllocations = (order, fallbackAmount = 0) => {
+    const splits = Array.isArray(order?.paymentSplits) ? order.paymentSplits : [];
+    const normalizedSplits = splits
+        .map(split => ({
+            mode: normalizeMode(split?.mode || split?.method || split?.paymentMode),
+            amount: Math.max(0, toNum(split?.amount))
+        }))
+        .filter(split => split.amount > 0);
+
+    if (normalizedSplits.length > 0) {
+        return normalizedSplits;
+    }
+
+    const normalizedMethod = normalizeMode(order?.paymentMethod || 'N/A');
+    if (normalizedMethod === 'Mixed') {
+        return [{
+            mode: 'Mixed',
+            amount: Math.max(0, toNum(fallbackAmount))
+        }];
+    }
+
+    return [{
+        mode: normalizedMethod,
+        amount: Math.max(0, toNum(fallbackAmount))
+    }];
+};
+
+const formatMixedPaymentDisplay = (allocations = [], fallbackMethod = '') => {
+    const splitModes = allocations.filter(entry => entry.mode !== 'Mixed' && entry.amount > 0);
+    if (splitModes.length > 1) {
+        const detail = splitModes
+            .map(entry => `${entry.mode} ${entry.amount.toFixed(2)}`)
+            .join(', ');
+        return `Mixed (${detail})`;
+    }
+    if (splitModes.length === 1 && normalizeMode(fallbackMethod) === 'Mixed') {
+        return `Mixed (${splitModes[0].mode})`;
+    }
+    return normalizeMode(fallbackMethod || 'Mixed');
 };
 
 const isWithinShift = (dateValue, shift) => {
@@ -70,7 +112,7 @@ const buildDiscountReport = async ({ startDate, endDate, cashierFilter, paymentM
             { updatedAt: { $gte: startDate, $lte: endDate } },
             { createdAt: { $gte: startDate, $lte: endDate } }
         ]
-    }).select('booking guestName orderType paymentMethod transactions items tax serviceChargeAmount subtotal finalAmount totalAmount discountAmount status closedAt updatedAt createdAt').lean();
+    }).select('booking guestName orderType paymentMethod paymentSplits transactions items tax serviceChargeAmount subtotal finalAmount totalAmount discountAmount status closedAt updatedAt createdAt').lean();
 
     const ordersByBooking = new Map();
     const standaloneOrders = [];
@@ -314,7 +356,11 @@ const buildDiscountReport = async ({ startDate, endDate, cashierFilter, paymentM
         if (cashier.toLowerCase().includes('take')) cashier = 'Take Away';
         else if (cashier.toLowerCase().includes('online')) cashier = 'Online Order';
 
-        const paymentMode = normalizeMode(order.paymentMethod || 'N/A');
+        const orderAmount = toNum(order.finalAmount) || toNum(order.totalAmount);
+        const allocations = extractPaymentAllocations(order, orderAmount);
+        const paymentMode = normalizeMode(order.paymentMethod || 'N/A') === 'Mixed'
+            ? formatMixedPaymentDisplay(allocations, order.paymentMethod)
+            : normalizeMode(order.paymentMethod || 'N/A');
         const createdAt = order.closedAt || order.updatedAt;
 
         if (!matchesCashier(cashier, cashierFilter)) return;
@@ -477,11 +523,6 @@ exports.getPaymentReport = async (req, res) => {
             }
         }
 
-        // Payment Mode Filter
-        if (req.query.paymentMode && req.query.paymentMode !== 'All' && req.query.paymentMode !== 'All Payment Modes') {
-            filter.paymentMethod = req.query.paymentMode;
-        }
-
         // Fetch Orders
         let orders = await GuestMealOrder.find(filter).sort({ closedAt: -1 }).lean();
 
@@ -509,30 +550,68 @@ exports.getPaymentReport = async (req, res) => {
         let totalRoom = 0;
         let totalOther = 0;
 
-        // Map and Aggregate
-        const formattedOrders = orders.map(o => {
-            const amount = o.revenue || o.finalAmount || 0;
-            const mode = o.paymentMethod || 'Unknown';
+        const selectedPaymentMode = req.query.paymentMode && req.query.paymentMode !== 'All' && req.query.paymentMode !== 'All Payment Modes'
+            ? normalizeMode(req.query.paymentMode)
+            : null;
+
+        // Map and Aggregate (split-aware)
+        const formattedOrders = [];
+        orders.forEach(o => {
+            const totalOrderAmount = o.revenue || o.finalAmount || o.totalAmount || 0;
+            const allocations = extractPaymentAllocations(o, totalOrderAmount);
             const cashierString = o.orderType || 'Dine-In';
             const statusStr = o.paymentStatus || 'Completed';
+            const billNo = o._id.toString().substr(-6).toUpperCase();
 
-            // Accumulate totals
-            totalAmount += amount;
-            if (mode === 'Cash') totalCash += amount;
-            else if (mode === 'UPI') totalUPI += amount;
-            else if (mode === 'Card') totalCard += amount;
-            else if (mode === 'Room Billing') totalRoom += amount;
-            else totalOther += amount;
+            if (selectedPaymentMode === 'Mixed') {
+                const explicitSplits = allocations.filter(entry => entry.mode !== 'Mixed' && entry.amount > 0);
+                const isMixedPayment = explicitSplits.length > 1 || normalizeMode(o.paymentMethod) === 'Mixed';
+                if (!isMixedPayment) return;
 
-            return {
-                id: o._id,
-                billNo: o._id.toString().substr(-6).toUpperCase(),
-                cashier: cashierString,
-                paymentMode: mode,
-                amount: amount,
-                status: statusStr,
-                createdAt: o.closedAt
-            };
+                explicitSplits.forEach(split => {
+                    if (split.mode === 'Cash') totalCash += split.amount;
+                    else if (split.mode === 'UPI') totalUPI += split.amount;
+                    else if (split.mode === 'Card') totalCard += split.amount;
+                    else if (split.mode === 'Room Billing') totalRoom += split.amount;
+                    else totalOther += split.amount;
+                });
+
+                totalAmount += Math.max(0, toNum(totalOrderAmount));
+                formattedOrders.push({
+                    id: `${o._id}-mixed`,
+                    billNo,
+                    cashier: cashierString,
+                    paymentMode: formatMixedPaymentDisplay(allocations, o.paymentMethod),
+                    amount: Math.max(0, toNum(totalOrderAmount)),
+                    status: statusStr,
+                    createdAt: o.closedAt
+                });
+                return;
+            }
+
+            allocations.forEach((allocation, index) => {
+                const mode = allocation.mode;
+                const amount = allocation.amount;
+                if (amount <= 0) return;
+                if (selectedPaymentMode && normalizeMode(mode) !== selectedPaymentMode) return;
+
+                totalAmount += amount;
+                if (mode === 'Cash') totalCash += amount;
+                else if (mode === 'UPI') totalUPI += amount;
+                else if (mode === 'Card') totalCard += amount;
+                else if (mode === 'Room Billing') totalRoom += amount;
+                else totalOther += amount;
+
+                formattedOrders.push({
+                    id: `${o._id}-${index}`,
+                    billNo,
+                    cashier: cashierString,
+                    paymentMode: mode,
+                    amount,
+                    status: statusStr,
+                    createdAt: o.closedAt
+                });
+            });
         });
 
         const includeAllHistory = String(req.query.includeAllHistory || 'false').toLowerCase() === 'true';

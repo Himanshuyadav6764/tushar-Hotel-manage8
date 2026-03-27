@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import API_URL from '../config/api';
+import API_URL, { apiCall } from '../config/api';
 import RoomDetailsPanel from './rooms/RoomDetailsPanel';
 import './StayOverview.css';
 import './StayOverviewModals.css';
@@ -216,9 +216,9 @@ const StayOverview = () => {
         try {
             setLoading(true);
             const [roomsRes, bookingsRes, reservationsRes] = await Promise.all([
-                fetch(`${API_URL}/api/rooms/list`),
-                fetch(`${API_URL}/api/bookings/list`),
-                fetch(`${API_URL}/api/reservations/list`)
+                apiCall(`/api/rooms/list`),
+                apiCall(`/api/bookings/list`),
+                apiCall(`/api/reservations/list`)
             ]);
 
             const roomsData = await roomsRes.json();

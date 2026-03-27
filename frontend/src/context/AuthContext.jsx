@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { ROLES } from '../config/rbac';
 import API_URL from '../config/api';
@@ -60,10 +60,28 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     // Login function
-    const login = async (email, password, role) => {
+    const login = async (email, password, role, options = {}) => {
         try {
             const normalizedEmail = String(email || '').trim().toLowerCase();
-            const response = await axios.post('/api/auth/login', { username: normalizedEmail, password, role });
+            const payload = {
+                username: normalizedEmail,
+                password,
+                role
+            };
+
+            if (options?.mfaCode) {
+                payload.mfaCode = String(options.mfaCode).trim();
+            }
+
+            const response = await axios.post('/api/auth/login', payload);
+
+            if (response.status === 202 && response.data?.requiresMfa) {
+                return {
+                    success: false,
+                    requiresMfa: true,
+                    error: response.data?.message || 'MFA verification required.'
+                };
+            }
 
             if (response.data) {
                 const userWithToken = response.data;
@@ -82,9 +100,11 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             console.error('Login error:', error);
             let errorMessage = 'An unexpected error occurred';
+            let requiresMfa = false;
 
             if (error.response) {
                 errorMessage = error.response.data.message || 'Invalid email or password';
+                requiresMfa = Boolean(error.response.data?.requiresMfa);
             } else if (error.request) {
                 errorMessage = 'Server is unreachable. Please try again later.';
             } else {
@@ -93,16 +113,24 @@ export const AuthProvider = ({ children }) => {
 
             return {
                 success: false,
-                error: errorMessage
+                error: errorMessage,
+                requiresMfa
             };
         }
     };
 
     // Logout function
-    const logout = () => {
+    const logout = useCallback(() => {
         setUser(null);
         localStorage.removeItem('authUser');
-    };
+
+        // Hard navigation prevents stale protected snapshots from showing via browser back.
+        const loginPaths = new Set(['/login', '/secure-owner-login', '/superadmin/login']);
+        if (!loginPaths.has(window.location.pathname)) {
+            window.history.replaceState(null, '', '/login');
+            window.location.replace('/login');
+        }
+    }, []);
 
     // Update user data
     const updateUser = (updatedData) => {

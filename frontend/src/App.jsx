@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { SettingsProvider } from './context/SettingsContext'
+import { useAuth } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import { MODULES, ROLES } from './config/rbac'
 import Navbar from './components/Navbar'
@@ -30,6 +31,7 @@ import SuperAdminDashboard from './pages/SuperAdmin/SuperAdminDashboard'
 import HotelsManagement from './pages/SuperAdmin/HotelsManagement'
 import CreateHotel from './pages/SuperAdmin/CreateHotel'
 import HotelDetails from './pages/SuperAdmin/HotelDetails'
+import ActivityMonitoring from './pages/SuperAdmin/ActivityMonitoring'
 import SuperAdminLogin from './pages/SuperAdmin/SuperAdminLogin'
 import QRScanPage from './pages/QRScan/QRScanPage'
 import FoodOrderPage from './components/FoodOrderPage'
@@ -75,9 +77,14 @@ function HomePageContent() {
 
 const AppRoutes = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const navigationType = useNavigationType();
+  const { user, logout } = useAuth();
   const isAdminRoute = location.pathname.startsWith('/admin') ||
     location.pathname.startsWith('/super-admin') ||
     location.pathname.startsWith('/secure-owner-login');
+  const isProtectedPath = (pathname) => pathname.startsWith('/admin') || pathname.startsWith('/super-admin');
+  const isLoginPath = (pathname) => pathname === '/login' || pathname === '/secure-owner-login' || pathname === '/superadmin/login';
 
   // Manage body class for scrolling behavior
   useEffect(() => {
@@ -91,6 +98,42 @@ const AppRoutes = () => {
       document.body.classList.remove('public-page');
     };
   }, [isAdminRoute]);
+
+  useEffect(() => {
+    // If user reaches login page using browser back/forward, invalidate current session.
+    if (navigationType === 'POP' && isLoginPath(location.pathname) && localStorage.getItem('authUser')) {
+      logout();
+    }
+  }, [location.pathname, navigationType, logout]);
+
+  useEffect(() => {
+    const enforceAuthForPath = (pathname) => {
+      const hasStoredAuth = !!localStorage.getItem('authUser');
+      if (!hasStoredAuth && isProtectedPath(pathname)) {
+        navigate('/login', { replace: true });
+      }
+    };
+
+    enforceAuthForPath(location.pathname);
+
+    const onPopState = () => {
+      enforceAuthForPath(window.location.pathname);
+    };
+
+    const onPageShow = (event) => {
+      if (event.persisted) {
+        enforceAuthForPath(window.location.pathname);
+      }
+    };
+
+    window.addEventListener('popstate', onPopState);
+    window.addEventListener('pageshow', onPageShow);
+
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('pageshow', onPageShow);
+    };
+  }, [location.pathname, navigate, user]);
 
   return (
     <div className="App">
@@ -135,6 +178,11 @@ const AppRoutes = () => {
           <Route path="/super-admin/hotels/:id" element={
             <ProtectedRoute module={MODULES.SUPER_ADMIN_DASHBOARD}>
               <HotelDetails />
+            </ProtectedRoute>
+          } />
+          <Route path="/super-admin/activity-monitoring" element={
+            <ProtectedRoute module={MODULES.SUPER_ADMIN_DASHBOARD}>
+              <ActivityMonitoring />
             </ProtectedRoute>
           } />
 

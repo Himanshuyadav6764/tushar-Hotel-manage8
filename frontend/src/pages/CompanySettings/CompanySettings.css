@@ -276,6 +276,72 @@
     color: #94a3b8;
 }
 
+.qr-upload-block {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.qr-upload-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 10px;
+}
+
+.qr-upload-row {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+}
+
+.qr-preview-box {
+    width: 96px;
+    height: 96px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.qr-preview-img {
+    width: 88px;
+    height: 88px;
+    object-fit: contain;
+}
+
+.qr-placeholder-text {
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.qr-upload-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.remove-qr-btn {
+    width: fit-content;
+    background: #fff;
+    border: 1px solid #fecaca;
+    color: #ef4444;
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.remove-qr-btn:hover {
+    background: #fef2f2;
+}
+
 /* Billing */
 .billing-rows {
     display: grid;

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
+import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import ReservationListModal from '../../components/ReservationListModal';
 import './GuestMealService.css';
@@ -87,6 +88,7 @@ const GuestMealService = () => {
     }, []);
     // --- STATE MANAGEMENT ---
     const navigate = useNavigate();
+    const { user } = useAuth();
     const {
         settings,
         getCurrencySymbol,
@@ -98,6 +100,14 @@ const GuestMealService = () => {
         timeToMinutes,
         isPastDateTime
     } = useSettings();
+    const isSuperAdmin = user?.role === 'super_admin' || user?.role === 'superadmin';
+    const permissionLabels = Array.isArray(user?.permissions) ? user.permissions : [];
+    const hasExplicitAssignments = !isSuperAdmin && permissionLabels.length > 0;
+    const canOpenCashierTableBilling = isSuperAdmin || (
+        hasExplicitAssignments
+            ? permissionLabels.includes('Cashier Section (Table)')
+            : user?.role !== 'staff'
+    );
     const cs = getCurrencySymbol();
 
     const getNowContext = useCallback(() => {
@@ -394,7 +404,7 @@ const GuestMealService = () => {
 
     const fetchTables = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/guest-meal/tables`);
+            const response = await apiCall(`/api/guest-meal/tables`);
             const data = await response.json();
             if (data.success) {
                 setTables(data.data);
@@ -455,6 +465,10 @@ const GuestMealService = () => {
 
     const handleSendToCashier = async (e, table) => {
         e.stopPropagation();
+        if (!canOpenCashierTableBilling) {
+            showToast('Role not assigned', 'Cashier Section (Table) permission is required.');
+            return;
+        }
         if (!table.currentOrderId) {
             showToast('No Order', 'This table has no active order to send.');
             return;
@@ -470,7 +484,7 @@ const GuestMealService = () => {
             const orderId = table.currentOrderId._id || table.currentOrderId;
 
             console.log(`Sending order ${orderId} to cashier...`);
-            const response = await fetch(`${API_URL}/api/guest-meal/orders/${orderId}/send-to-cashier`, {
+            const response = await apiCall(`/api/guest-meal/orders/${orderId}/send-to-cashier`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -483,7 +497,7 @@ const GuestMealService = () => {
                 console.log('Navigation state:', { activeMenu: 'cashier-section', refresh: true });
                 // Navigate to cashier section directly
                 navigate('/admin/cashier-section', {
-                    state: { activeMenu: 'cashier-section', refresh: true }
+                    state: { activeMenu: 'cashier-section', cashierMode: 'Table', refresh: true }
                 });
             } else {
                 showToast('Send Failed', data.message || 'Error occurred');
@@ -502,7 +516,7 @@ const GuestMealService = () => {
 
     const fetchStats = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/guest-meal/analytics/dashboard`);
+            const response = await apiCall(`/api/guest-meal/analytics/dashboard`);
             const data = await response.json();
             if (data.success) {
                 const s = data.data;
@@ -560,7 +574,7 @@ const GuestMealService = () => {
 
         try {
             const targetId = table.tableId || table._id;
-            const response = await fetch(`${API_URL}/api/guest-meal/tables/${targetId}`, {
+            const response = await apiCall(`/api/guest-meal/tables/${targetId}`, {
                 method: 'DELETE'
             });
             const data = await response.json();
@@ -596,7 +610,7 @@ const GuestMealService = () => {
 
         try {
             const targetId = walkInTargetTable.tableId || walkInTargetTable._id;
-            const response = await fetch(`${API_URL}/api/guest-meal/tables/${targetId}`, {
+            const response = await apiCall(`/api/guest-meal/tables/${targetId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -696,7 +710,7 @@ const GuestMealService = () => {
 
         try {
             const targetId = tableToVerify.tableId || tableToVerify._id;
-            const response = await fetch(`${API_URL}/api/guest-meal/tables/${targetId}`, {
+            const response = await apiCall(`/api/guest-meal/tables/${targetId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1113,7 +1127,7 @@ const GuestMealService = () => {
             }
 
             const targetId = reserveTargetTable.tableId || reserveTargetTable._id;
-            const response = await fetch(`${API_URL}/api/guest-meal/tables/${targetId}`, {
+            const response = await apiCall(`/api/guest-meal/tables/${targetId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -1174,7 +1188,7 @@ const GuestMealService = () => {
                 };
             });
 
-            const response = await fetch(`${API_URL}/api/guest-meal/tables/${targetId}`, {
+            const response = await apiCall(`/api/guest-meal/tables/${targetId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ reservations: updatedReservations })
@@ -1323,7 +1337,7 @@ const GuestMealService = () => {
         if (!mergeSourceTable || mergeSelectedTargetIds.length === 0) return;
 
         try {
-            const response = await fetch(`${API_URL}/api/guest-meal/tables/merge`, {
+            const response = await apiCall(`/api/guest-meal/tables/merge`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1375,7 +1389,7 @@ const GuestMealService = () => {
             if (closeTableData.currentOrderId) {
                 const orderId = closeTableData.currentOrderId._id || closeTableData.currentOrderId;
                 try {
-                    const closeOrderResponse = await fetch(`${API_URL}/api/guest-meal/orders/${orderId}/close`, {
+                    const closeOrderResponse = await apiCall(`/api/guest-meal/orders/${orderId}/close`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' }
                     });
@@ -1392,7 +1406,7 @@ const GuestMealService = () => {
             // Handle Split Tables: If it's a split table, we need to close the PARENT table in the DB
             // and then refresh the UI to show the parent table again instead of its splits.
             if (String(closeTableData.tableId).startsWith('SPLIT-') && closeTableData.parentTableId) {
-                const response = await fetch(`${API_URL}/api/guest-meal/tables/${closeTableData.parentTableId}`, {
+                const response = await apiCall(`/api/guest-meal/tables/${closeTableData.parentTableId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1414,7 +1428,7 @@ const GuestMealService = () => {
 
             // If the table is merged, we should release it back to its original state
             if (closeTableData.mergedTableIds && closeTableData.mergedTableIds.length > 0) {
-                await fetch(`${API_URL}/api/guest-meal/tables/${closeTableData.tableId}/release`, {
+                await apiCall(`/api/guest-meal/tables/${closeTableData.tableId}/release`, {
                     method: 'POST'
                 });
             }
@@ -1449,7 +1463,7 @@ const GuestMealService = () => {
                 updatePayload.reservation = null;
             }
 
-            const response = await fetch(`${API_URL}/api/guest-meal/tables/${closeTableData.tableId}`, {
+            const response = await apiCall(`/api/guest-meal/tables/${closeTableData.tableId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatePayload)
@@ -1470,7 +1484,7 @@ const GuestMealService = () => {
 
     const handleReleaseTable = async (table) => {
         try {
-            const response = await fetch(`${API_URL}/api/guest-meal/tables/${table.tableId}/release`, {
+            const response = await apiCall(`/api/guest-meal/tables/${table.tableId}/release`, {
                 method: 'POST'
             });
             const data = await response.json();
@@ -1731,7 +1745,7 @@ const GuestMealService = () => {
         if (table.status === 'Occupied') {
             try {
                 // Update status to Running via API immediately
-                await fetch(`${API_URL}/api/guest-meal/tables/${table.tableId || table._id}`, {
+                await apiCall(`/api/guest-meal/tables/${table.tableId || table._id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status: 'Running' })
@@ -1817,15 +1831,15 @@ const GuestMealService = () => {
                 location: normalizedLocation
             };
 
-            const response = await fetch(
+            const response = await apiCall(
                 isEditTableMode && editingTableId
                     ? `${API_URL}/api/guest-meal/tables/${editingTableId}`
                     : `${API_URL}/api/guest-meal/tables`,
                 {
-                method: isEditTableMode ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(tablePayload)
-            });
+                    method: isEditTableMode ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(tablePayload)
+                });
 
             const data = await response.json();
 
@@ -3656,11 +3670,16 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
             case 'Running': return { badge: '#10b981', bg: '#f0fdf4', border: '#bcfced' };
             case 'Occupied': return { badge: '#fbbf24', bg: '#fffbeb', border: '#fde68a' };
             case 'Billed': return { badge: '#ef4444', bg: '#fef2f2', border: '#fecaca' };
+            case 'Pending': return { badge: '#6366f1', bg: '#eef2ff', border: '#c7d2fe' };
             default: return { badge: '#6b7280', bg: '#fff', border: '#e5e7eb' };
         }
     };
 
-    const statusToUse = table.calculatedStatus || table.status;
+    let computedStatus = table.calculatedStatus || table.status;
+    if (table.orderStatus === 'Pending Payment') {
+        computedStatus = 'Pending';
+    }
+    const statusToUse = computedStatus;
     const styles = getStatusStyles(statusToUse);
 
     const [elapsedTime, setElapsedTime] = useState(table.duration || 0);

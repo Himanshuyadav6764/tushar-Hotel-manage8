@@ -4,7 +4,7 @@ import { useSettings } from '../context/SettingsContext';
 import './DocumentPreviewModal.css';
 
 const DocumentPreviewModal = ({ isOpen, onClose, documentType, data }) => {
-    const { getCurrencySymbol } = useSettings();
+    const { settings, getCurrencySymbol } = useSettings();
     const cs = getCurrencySymbol();
     if (!isOpen || !data) return null;
 
@@ -144,7 +144,16 @@ const DocumentPreviewModal = ({ isOpen, onClose, documentType, data }) => {
             <div className="document-modal" onClick={(e) => e.stopPropagation()}>
                 {/* Document Header */}
                 <div className="document-header">
-                    <h2>BIREENA ATITHI</h2>
+                    {settings.displayLogoOnBill && settings.logoUrl && (
+                        <img
+                            src={settings.logoUrl}
+                            alt="Hotel Logo"
+                            style={{ maxHeight: '62px', objectFit: 'contain', marginBottom: '8px', mixBlendMode: 'multiply', background: 'transparent' }}
+                        />
+                    )}
+                    {!(settings.displayLogoOnBill && settings.logoUrl) && (
+                        <h2>{settings.name || 'BIREENA ATITHI'}</h2>
+                    )}
                     <p>
                         {documentType === 'kot' && 'KITCHEN ORDER TICKET (KOT)'}
                         {documentType === 'bill' && 'TAX INVOICE'}
@@ -155,7 +164,7 @@ const DocumentPreviewModal = ({ isOpen, onClose, documentType, data }) => {
                 {/* Document Content - Scrollable */}
                 <div className="document-content">
                     {documentType === 'kot' && <KOTTemplate data={data} />}
-                    {(documentType === 'bill' || documentType === 'order') && <BillTemplate data={data} cs={cs} />}
+                    {(documentType === 'bill' || documentType === 'order') && <BillTemplate data={data} cs={cs} settings={settings} />}
                 </div>
 
                 {/* Action Buttons */}
@@ -225,7 +234,7 @@ const KOTTemplate = ({ data }) => (
 );
 
 // Bill/Order Template Component
-const BillTemplate = ({ data, cs }) => (
+const BillTemplate = ({ data, cs, settings }) => (
     <div className="bill-document">
         <div className="doc-row">
             <span><strong>Bill No:</strong> {data.billNumber}</span>
@@ -280,7 +289,15 @@ const BillTemplate = ({ data, cs }) => (
         </div>
 
         <div className="doc-footer" style={{ marginTop: '2rem' }}>
-            <p>Thank you for your order!</p>
+            {settings?.qrCodeUrl && (
+                <img
+                    src={settings.qrCodeUrl}
+                    alt="Payment QR"
+                    style={{ width: '126px', height: '126px', objectFit: 'contain', margin: '0 auto 8px auto', display: 'block' }}
+                />
+            )}
+            <p><strong>Invoice Prefix:</strong> {settings?.billingInvoicePrefix || settings?.invoicePrefix || 'INV'}</p>
+            <p>{settings?.thankYouMessage || 'Thank you for your order!'}</p>
             <p>Please visit again</p>
         </div>
     </div>

@@ -595,8 +595,15 @@
 }
 
 @keyframes dropdownFadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .action-dropdown button {
@@ -634,11 +641,12 @@
 
 /* Print Folio button */
 .btn-print-folio {
-    margin-left: auto;
+    margin-left: 0;
     background: #fff !important;
     color: #374151 !important;
     border: 1.5px solid #d1d5db !important;
     font-weight: 500;
+    flex-shrink: 0;
 }
 
 .btn-print-folio:hover {
@@ -769,4 +777,3 @@
 .btn-save:hover {
     background: #E31E24;
 }
-

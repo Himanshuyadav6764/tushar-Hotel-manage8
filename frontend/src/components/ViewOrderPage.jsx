@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import API_URL_CONFIG from '../config/api';
+import API_URL_CONFIG, { apiCall } from '../config/api';
 import './ViewOrderPage.css';
 import ItemStockStatus from './ItemStockStatus';
 import OutletCurrentStatus from './OutletCurrentStatus';
@@ -70,7 +70,7 @@ const ViewOrderPage = () => {
     const fetchOrders = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_URL_CONFIG}/api/guest-meal/orders`);
+            const response = await apiCall(`/api/guest-meal/orders`);
             const data = await response.json();
             if (data.success) {
                 const mappedOrders = data.data.map(order => ({
@@ -136,7 +136,7 @@ const ViewOrderPage = () => {
         }
 
         try {
-            const response = await fetch(`${API_URL_CONFIG}/api/guest-meal/orders/${orderId}/status`, {
+            const response = await apiCall(`/api/guest-meal/orders/${orderId}/status`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus }),
@@ -192,7 +192,7 @@ const ViewOrderPage = () => {
 
     const handleDeleteOrder = async (orderId) => {
         try {
-            const response = await fetch(`${API_URL_CONFIG}/api/guest-meal/orders/${orderId}`, {
+            const response = await apiCall(`/api/guest-meal/orders/${orderId}`, {
                 method: 'DELETE'
             });
             const data = await response.json();

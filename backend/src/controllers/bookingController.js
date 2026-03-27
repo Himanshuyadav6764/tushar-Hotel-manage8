@@ -23,6 +23,66 @@ const pushAuditTrail = (booking, payload) => {
     });
 };
 
+const toAmount = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+};
+
+const normalizeMethodForTransaction = (mode) => {
+    const raw = String(mode || '').trim().toLowerCase();
+    if (!raw) return 'Cash';
+    if (raw === 'bank transfer' || raw === 'transfer') return 'Transfer';
+    if (raw === 'card') return 'Card';
+    if (raw === 'upi') return 'UPI';
+    return 'Cash';
+};
+
+const parsePaymentSplitsFromBooking = (bookingData) => {
+    const directSplits = Array.isArray(bookingData?.paymentSplits) ? bookingData.paymentSplits : [];
+    if (directSplits.length > 0) {
+        return directSplits
+            .map((split) => ({
+                mode: String(split?.mode || split?.paymentMode || split?.method || '').trim(),
+                amount: toAmount(split?.amount),
+                referenceId: String(split?.referenceId || '').trim()
+            }))
+            .filter((split) => split.mode && split.amount > 0);
+    }
+
+    const rawTxn = String(bookingData?.transactionId || '').trim();
+    if (!rawTxn || !rawTxn.includes(':')) return [];
+
+    return rawTxn
+        .split(';')
+        .map((chunk) => String(chunk || '').trim())
+        .filter(Boolean)
+        .map((chunk) => {
+            const [modeRaw, amountWithRef = ''] = chunk.split(':');
+            const [amountRaw, refRaw = ''] = String(amountWithRef).split('@');
+            return {
+                mode: String(modeRaw || '').trim(),
+                amount: toAmount(amountRaw),
+                referenceId: String(refRaw || '').trim()
+            };
+        })
+        .filter((split) => split.mode && split.amount > 0);
+};
+
+const buildPaymentSplitDescription = (splits) => {
+    if (!Array.isArray(splits) || splits.length === 0) return '';
+    return splits
+        .map((split) => {
+            const mode = String(split?.mode || '').trim();
+            const amount = toAmount(split?.amount);
+            const ref = String(split?.referenceId || '').trim();
+            if (!mode || amount <= 0) return '';
+            const refText = ref ? ` (Ref/UTR: ${ref})` : '';
+            return `${mode}: Rs ${amount.toFixed(2)}${refText}`;
+        })
+        .filter(Boolean)
+        .join(' | ');
+};
+
 
 // Get all bookings
 exports.getBookings = async (req, res) => {
@@ -251,6 +311,9 @@ exports.addBooking = async (req, res) => {
             idProofType: bookingData.idProofType,
             idNumber: bookingData.idNumber,
             vehicleNumber: bookingData.vehicleNumber,
+            paymentMode: String(bookingData.paymentMode || '').trim() || undefined,
+            transactionId: String(bookingData.transactionId || '').trim() || undefined,
+            paymentSplits: parsePaymentSplitsFromBooking(bookingData),
             referenceId: bookingData.referenceId || bookingData.bookingId,
             rooms: bookingData.rooms || [],
             additionalGuests: Array.isArray(bookingData.additionalGuests) ? bookingData.additionalGuests : []
@@ -266,15 +329,22 @@ exports.addBooking = async (req, res) => {
         }
 
         const booking = new Booking(finalBookingData);
+        const paymentSplits = parsePaymentSplitsFromBooking(bookingData);
 
         // If advance paid, add matching payment transaction
         if (finalBookingData.billing.paidAmount > 0) {
+            const splitText = buildPaymentSplitDescription(paymentSplits);
+            const fallbackRef = String(bookingData.transactionId || '').trim();
             booking.transactions.push({
                 type: 'Payment',
                 amount: finalBookingData.billing.paidAmount,
-                description: 'Advance payment at booking',
+                description: splitText
+                    ? `Advance payment at booking | ${splitText}`
+                    : (fallbackRef ? `Advance payment at booking | Ref/UTR: ${fallbackRef}` : 'Advance payment at booking'),
                 date: new Date(),
-                method: 'Cash'
+                method: normalizeMethodForTransaction(paymentSplits[0]?.mode || bookingData.paymentMode),
+                referenceId: fallbackRef || undefined,
+                paymentSplits
             });
         }
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './ComplimentaryService.css';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 
 const ComplimentaryService = () => {
     const [services, setServices] = useState([]);
@@ -34,7 +34,7 @@ const ComplimentaryService = () => {
     const fetchServices = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`${API_URL}/api/complimentary-services/list`);
+            const res = await apiCall(`/api/complimentary-services/list`);
             const data = await res.json();
             if (data.success) {
                 setServices(data.data);
@@ -69,7 +69,7 @@ const ComplimentaryService = () => {
         try {
             const url = modalMode === 'add' ? `${API_URL}/api/complimentary-services/add` : `${API_URL}/api/complimentary-services/update/${currentService._id}`;
             const method = modalMode === 'add' ? 'POST' : 'PUT';
-            const res = await fetch(url, {
+            const res = await apiCall(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
@@ -93,7 +93,7 @@ const ComplimentaryService = () => {
 
     const confirmDelete = async (id) => {
         try {
-            const res = await fetch(`${API_URL}/api/complimentary-services/delete/${id}`, { method: 'DELETE' });
+            const res = await apiCall(`/api/complimentary-services/delete/${id}`, { method: 'DELETE' });
             const data = await res.json();
             if (data.success) {
                 showInlineNote('Service Deleted', 'Complimentary service removed successfully.');

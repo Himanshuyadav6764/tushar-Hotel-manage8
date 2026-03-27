@@ -6,6 +6,11 @@
     "scripts": {
         "start": "node src/server.js",
         "dev": "nodemon src/server.js",
+        "security:docker:check": "powershell -ExecutionPolicy Bypass -File scripts/setup-docker-for-zap.ps1",
+        "security:docker:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-docker-for-zap.ps1 -InstallIfMissing",
+        "security:smoke": "node src/scripts/securitySmokeTest.js",
+        "security:dast:fallback": "node src/scripts/dastFallbackScan.js",
+        "security:zap:baseline": "powershell -ExecutionPolicy Bypass -File scripts/run-zap-baseline.ps1",
         "import": "node src/scripts/importData.js",
         "fix-indexes": "node scripts/fixTableIndexes.js",
         "backfill-hotel-dbnames": "node src/scripts/backfillHotelDbNames.js",

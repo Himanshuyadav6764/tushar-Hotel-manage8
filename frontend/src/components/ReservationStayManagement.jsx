@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AnimatePresence, motion } from 'framer-motion';
-import API_URL_CONFIG from '../config/api';
+import API_URL_CONFIG, { apiCall } from '../config/api';
 import { searchBookings } from '../services/searchService';
 import './ReservationStayManagement.css';
 import './CreateGuestForm.css';
@@ -75,36 +75,79 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [cardViewMode, setCardViewMode] = useState('grid'); // 'grid' or 'list'
 
+    const getLocalDateKey = (value = new Date()) => {
+        const d = new Date(value);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+
+    const getDateCandidates = (value) => {
+        if (!value) return [];
+
+        const keys = new Set();
+        if (typeof value === 'string') {
+            const isoDate = value.match(/^(\d{4}-\d{2}-\d{2})/);
+            if (isoDate?.[1]) keys.add(isoDate[1]);
+        }
+
+        const d = new Date(value);
+        if (!Number.isNaN(d.getTime())) {
+            keys.add(getLocalDateKey(d));
+            keys.add(d.toISOString().split('T')[0]);
+        }
+
+        return Array.from(keys);
+    };
+
+    const getBookingDayKey = (value) => {
+        const candidates = getDateCandidates(value);
+        return candidates.length > 0 ? candidates[0] : null;
+    };
+
+    const normalizeBookingStatus = (status) => String(status || '').trim().toUpperCase().replace('-', '_');
+    const isCheckedInStatus = (status) => ['CHECKED_IN', 'CHECKEDIN', 'IN_HOUSE'].includes(normalizeBookingStatus(status));
+    const isCheckedOutStatus = (status) => ['CHECKED_OUT', 'CHECKEDOUT'].includes(normalizeBookingStatus(status));
+    const isUpcomingStatus = (status) => ['UPCOMING', 'CONFIRMED', 'PENDING', 'RESERVED'].includes(normalizeBookingStatus(status));
+
+    const matchesTabFilter = useCallback((reservation, tab, todayStr, oneMonthAgoStr) => {
+        const status = normalizeBookingStatus(reservation?.status);
+        const checkInDay = getBookingDayKey(reservation?.checkInDate);
+        const checkOutDay = getBookingDayKey(reservation?.checkOutDate);
+
+        if (tab === 'all') return true;
+        if (tab === 'reserved') return isUpcomingStatus(status);
+        if (tab === 'in-house') return isCheckedInStatus(status);
+        if (tab === 'checked-out') return isCheckedOutStatus(status) && Boolean(checkOutDay) && checkOutDay >= oneMonthAgoStr;
+        if (tab === 'arrival') return isUpcomingStatus(status) && checkInDay === todayStr;
+        if (tab === 'departure') return isCheckedInStatus(status) && Boolean(checkOutDay) && checkOutDay <= todayStr;
+        return true;
+    }, []);
+
     // Filter reservations
     const filteredReservations = useMemo(() => {
         const todayStr = getCurrentDateISO();
         const oneMonthAgoStr = getDateISOWithOffset(-30);
 
-        return reservations.filter(r => {
-            if (activeTab === 'all') return true;
-            if (activeTab === 'reserved') return r.status === 'RESERVED';
-            if (activeTab === 'in-house') return r.status === 'IN_HOUSE';
-            if (activeTab === 'checked-out') return r.status === 'CHECKED_OUT' && r.checkOutDate >= oneMonthAgoStr;
-            if (activeTab === 'arrival') return r.checkInDate === todayStr && r.status === 'RESERVED';
-            if (activeTab === 'departure') return r.checkOutDate <= todayStr && r.status === 'IN_HOUSE';
-            return true;
-        });
-    }, [reservations, activeTab, getCurrentDateISO, getDateISOWithOffset]);
+        return reservations.filter((r) => matchesTabFilter(r, activeTab, todayStr, oneMonthAgoStr));
+    }, [reservations, activeTab, getCurrentDateISO, getDateISOWithOffset, matchesTabFilter]);
 
     // Calculate real-time counts for tabs
     const counts = useMemo(() => {
         const todayStr = getCurrentDateISO();
         const oneMonthAgoStr = getDateISOWithOffset(-30);
+        const countSource = searchQuery.trim().length > 0 ? searchResults : reservations;
 
         return {
-            all: reservations.length,
-            reserved: reservations.filter(r => r.status === 'RESERVED').length,
-            'in-house': reservations.filter(r => r.status === 'IN_HOUSE').length,
-            'checked-out': reservations.filter(r => r.status === 'CHECKED_OUT' && r.checkOutDate >= oneMonthAgoStr).length,
-            arrival: reservations.filter(r => r.checkInDate === todayStr && r.status === 'RESERVED').length,
-            departure: reservations.filter(r => r.checkOutDate <= todayStr && r.status === 'IN_HOUSE').length
+            all: countSource.length,
+            reserved: countSource.filter((r) => matchesTabFilter(r, 'reserved', todayStr, oneMonthAgoStr)).length,
+            'in-house': countSource.filter((r) => matchesTabFilter(r, 'in-house', todayStr, oneMonthAgoStr)).length,
+            'checked-out': countSource.filter((r) => matchesTabFilter(r, 'checked-out', todayStr, oneMonthAgoStr)).length,
+            arrival: countSource.filter((r) => matchesTabFilter(r, 'arrival', todayStr, oneMonthAgoStr)).length,
+            departure: countSource.filter((r) => matchesTabFilter(r, 'departure', todayStr, oneMonthAgoStr)).length
         };
-    }, [reservations, getCurrentDateISO, getDateISOWithOffset]);
+    }, [reservations, searchQuery, searchResults, getCurrentDateISO, getDateISOWithOffset, matchesTabFilter]);
 
     const normalizeCategoryKey = (value) => {
         return String(value || '')
@@ -181,7 +224,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
 
                 // Fetch full details if roomId exists
                 if (data.roomId) {
-                    fetch(`${API_URL_CONFIG}/api/rooms/${data.roomId}`)
+                    apiCall(`/api/rooms/${data.roomId}`)
                         .then(res => res.json())
                         .then(resData => {
                             if (resData.success) {
@@ -244,14 +287,22 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         fetchMealTypes();
     }, []);
 
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetchReservationsFromAPI();
+        }, 60000);
+
+        return () => clearInterval(interval);
+    }, []);
+
     const fetchReservationsFromAPI = async () => {
         try {
             setLoading(true);
 
             // Fetch from both endpoints
             const [bookingsResponse, reservationsResponse] = await Promise.all([
-                fetch(`${API_URL}/list`).catch(() => ({ ok: false })),
-                fetch(`${API_URL_CONFIG}/api/reservations/list`).catch(() => ({ ok: false }))
+                apiCall(`/list`).catch(() => ({ ok: false })),
+                apiCall(`/api/reservations/list`).catch(() => ({ ok: false }))
             ]);
 
             let allReservations = [];
@@ -508,22 +559,12 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             const oneMonthAgoStr = getDateISOWithOffset(-30);
 
             // Further filter search results by active tab
-            results = searchResults.filter(r => {
-                if (activeTab === 'all') return true;
-                if (activeTab === 'reserved') return r.status === 'RESERVED';
-                if (activeTab === 'in-house') return r.status === 'IN_HOUSE';
-                if (activeTab === 'checked-out') {
-                    return r.status === 'CHECKED_OUT' && r.checkOutDate >= oneMonthAgoStr;
-                }
-
-                if (activeTab === 'arrival') return r.checkInDate === todayStr && r.status === 'RESERVED';
-                if (activeTab === 'departure') return r.checkOutDate <= todayStr && r.status === 'IN_HOUSE';
-                return true;
-            });
+            results = searchResults.filter((r) => matchesTabFilter(r, activeTab, todayStr, oneMonthAgoStr));
         }
 
-        return results;
-    }, [searchQuery, searchResults, filteredReservations, activeTab, getCurrentDateISO, getDateISOWithOffset]);
+        // Return sorted (newest first)
+        return [...results].sort((a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0));
+    }, [searchQuery, searchResults, filteredReservations, activeTab, getCurrentDateISO, getDateISOWithOffset, matchesTabFilter]);
 
 
 
@@ -533,7 +574,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
     // Fetch facility types
     const fetchFacilityTypes = async () => {
         try {
-            const response = await fetch(`${API_URL_CONFIG}/api/facility-types/list`);
+            const response = await apiCall(`/api/facility-types/list`);
             const data = await response.json();
             if (data.success) {
                 setFacilityTypes(data.data);
@@ -553,7 +594,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
     // Fetch meal types from API
     const fetchMealTypes = async () => {
         try {
-            const response = await fetch(`${API_URL_CONFIG}/api/meal-types/list`);
+            const response = await apiCall(`/api/meal-types/list`);
             const data = await response.json();
             if (data.success && data.data) {
                 setMealTypes(data.data);
@@ -572,7 +613,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
 
     const fetchBookingSources = async () => {
         try {
-            const response = await fetch(`${API_URL_CONFIG}/api/booking-sources/list`);
+            const response = await apiCall(`/api/booking-sources/list`);
             const data = await response.json();
             if (data.success) {
                 setBookingSources(data.data);
@@ -601,7 +642,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
 
     const fetchReservationTypesList = async () => {
         try {
-            const response = await fetch(`${API_URL_CONFIG}/api/reservation-types/list`);
+            const response = await apiCall(`/api/reservation-types/list`);
             const data = await response.json();
             if (data.success) {
                 setReservationTypesList(data.data);
@@ -630,7 +671,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
 
     const fetchBusinessSourcesList = async () => {
         try {
-            const response = await fetch(`${API_URL_CONFIG}/api/business-sources/list`);
+            const response = await apiCall(`/api/business-sources/list`);
             const data = await response.json();
             if (data.success) {
                 setBusinessSourcesList(data.data);
@@ -711,7 +752,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
     // Fetch guests from API
     const fetchGuestsFromAPI = async () => {
         try {
-            const response = await fetch(`${API_URL_CONFIG}/api/guests/list`, {
+            const response = await apiCall(`/api/guests/list`, {
                 headers: getAuthHeaders()
             });
             const data = await response.json();
@@ -730,9 +771,19 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
     const [paidAmount, setPaidAmount] = useState('');
     const [paymentMode, setPaymentMode] = useState('Cash');
     const [transactionId, setTransactionId] = useState('');
+    const [splitAmounts, setSplitAmounts] = useState({ Cash: '', UPI: '', Card: '', 'Bank Transfer': '' });
+    const [splitReferences, setSplitReferences] = useState({ UPI: '', Card: '', 'Bank Transfer': '' });
+    const [upiUtr, setUpiUtr] = useState('');
+    const [bankTransactionId, setBankTransactionId] = useState('');
+    const [cardTransactionId, setCardTransactionId] = useState('');
     const [taxExempt, setTaxExempt] = useState(false);
     const [manualDiscountType, setManualDiscountType] = useState('FLAT');
     const [manualDiscountValue, setManualDiscountValue] = useState('');
+
+    const normalizeUtrInput = (value) => String(value || '').replace(/\D/g, '').slice(0, 12);
+    const normalizeTxnInput = (value) => String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
+    const isValidUtr = (value) => /^\d{12}$/.test(String(value || ''));
+    const isValidTxnId = (value) => /^(?:[A-Z0-9]{10}|[A-Z0-9]{12}|[A-Z0-9]{15})$/.test(String(value || ''));
 
     // Invoice State
     const [invoices, setInvoices] = useState([]);
@@ -780,6 +831,50 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             }
         }
     }, [prefilledData]);
+
+    // Read draft on mount
+    useEffect(() => {
+        if (view === 'form' && !isEditingMode && !prefilledData) {
+            const draftRaw = sessionStorage.getItem('draft_reservation_form');
+            if (draftRaw) {
+                try {
+                    const draft = JSON.parse(draftRaw);
+                    if (draft.reservationType) setReservationType(draft.reservationType);
+                    if (draft.bookingSource) setBookingSource(draft.bookingSource);
+                    if (draft.businessSource) setBusinessSource(draft.businessSource);
+                    if (draft.referenceNumber) setReferenceNumber(draft.referenceNumber);
+                    if (draft.arrivalFrom) setArrivalFrom(draft.arrivalFrom);
+                    if (draft.purposeOfVisit) setPurposeOfVisit(draft.purposeOfVisit);
+                    if (draft.checkInDate) setCheckInDate(draft.checkInDate);
+                    if (draft.checkInTime) setCheckInTime(draft.checkInTime);
+                    if (draft.checkOutDate) setCheckOutDate(draft.checkOutDate);
+                    if (draft.checkOutTime) setCheckOutTime(draft.checkOutTime);
+                    if (draft.flexibleCheckout !== undefined) setFlexibleCheckout(draft.flexibleCheckout);
+                    if (draft.rooms?.length) setRooms(draft.rooms);
+                    if (draft.guestsData?.length) setSelectedGuests(draft.guestsData);
+                    if (draft.paidAmount !== undefined) setPaidAmount(draft.paidAmount);
+                    if (draft.paymentMode) setPaymentMode(draft.paymentMode);
+                    if (draft.taxExempt !== undefined) setTaxExempt(draft.taxExempt);
+                    if (draft.manualDiscountType) setManualDiscountType(draft.manualDiscountType);
+                    if (draft.manualDiscountValue !== undefined) setManualDiscountValue(draft.manualDiscountValue);
+                } catch (e) {
+                    console.error('Error parsing draft reservation form', e);
+                }
+            }
+        }
+    }, [view, isEditingMode, prefilledData]);
+
+    // Sync form state to draft
+    useEffect(() => {
+        if (view === 'form' && !isEditingMode && !prefilledData && !isSavingReservation) {
+            const draft = {
+                reservationType, bookingSource, businessSource, referenceNumber, arrivalFrom, purposeOfVisit,
+                checkInDate, checkInTime, checkOutDate, checkOutTime, flexibleCheckout,
+                rooms, guestsData: selectedGuests, paidAmount, paymentMode, taxExempt, manualDiscountType, manualDiscountValue
+            };
+            sessionStorage.setItem('draft_reservation_form', JSON.stringify(draft));
+        }
+    }, [view, isEditingMode, prefilledData, isSavingReservation, reservationType, bookingSource, businessSource, referenceNumber, arrivalFrom, purposeOfVisit, checkInDate, checkInTime, checkOutDate, checkOutTime, flexibleCheckout, rooms, selectedGuests, paidAmount, paymentMode, taxExempt, manualDiscountType, manualDiscountValue]);
 
     // Print Modal State
     const [showPrintModal, setShowPrintModal] = useState(false);
@@ -894,22 +989,22 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             configuredDiscounts = [];
         }
 
+        const taxEnabled = Boolean(settings.inclusiveTax);
         const taxResult = calculateRoomTaxBySlab({
             rooms,
             nights,
             taxExempt,
-            inclusiveTax: settings.inclusiveTax,
+            inclusiveTax: taxEnabled,
             roomGstSlabs: settings.roomGstSlabs,
             fallbackRoomGst: settings.roomGst
         });
         const roomCharges = taxResult.roomCharges;
         const totalDiscount = taxResult.totalDiscount;
         const subtotal = taxResult.subtotal;
-        const isInclusive = settings.inclusiveTax;
         const taxAmount = taxResult.taxAmount;
         const serviceChargePct = parseFloat(settings.roomServiceCharge) || 0;
         const serviceChargeAmount = subtotal > 0 ? Math.round((subtotal * serviceChargePct) / 100) : 0;
-        const preDiscountGrossTotal = (isInclusive || taxExempt ? subtotal : subtotal + taxAmount) + serviceChargeAmount;
+        const preDiscountGrossTotal = subtotal + taxAmount + serviceChargeAmount;
 
         const activeDiscountRules = configuredDiscounts.filter(rule => {
             if (rule?.status !== 'ACTIVE') return false;
@@ -949,9 +1044,11 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         const manualDiscountPercent = grossAfterAutoDiscount > 0 ? (appliedManualDiscount / grossAfterAutoDiscount) * 100 : 0;
         const totalAmount = Math.max(0, grossAfterAutoDiscount - appliedManualDiscount);
         const balanceDue = Math.max(0, totalAmount - (paidAmount || 0));
-        const taxLabel = taxExempt
+        const taxLabel = (!taxEnabled)
+            ? 'Tax (disabled)'
+            : taxExempt
             ? 'Tax (exempt)'
-            : `Tax (${taxResult.effectiveRate.toFixed(2)}% slab avg.)${isInclusive ? ' (incl.)' : ''}`;
+            : `Tax (${taxResult.effectiveRate.toFixed(2)}% slab avg.)`;
 
         return {
             roomCharges,
@@ -997,7 +1094,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         let sourceReservation = targetReservation;
         try {
             if (bookingId) {
-                const latestResp = await fetch(`${API_URL}/${bookingId}`);
+                const latestResp = await apiCall(`/${bookingId}`);
                 const latestJson = await latestResp.json();
                 if (latestResp.ok && latestJson?.success && latestJson?.data) {
                     sourceReservation = { ...targetReservation, ...latestJson.data };
@@ -1106,7 +1203,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         // Prefer canonical folio module balances when available (PRIMARY -> folioId 0, SECONDARY -> folioId 1..n).
         try {
             if (bookingId) {
-                const folioResp = await fetch(`${API_URL_CONFIG}/api/folio/reservation/${bookingId}`);
+                const folioResp = await apiCall(`/api/folio/reservation/${bookingId}`);
                 const folioJson = await folioResp.json();
                 if (folioResp.ok && folioJson?.success) {
                     const folioList = Array.isArray(folioJson?.allFolios)
@@ -1136,6 +1233,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         const resolvedTotal = Math.max(storedTotal, calculatedTotal);
         const resolvedPaid = Math.max(storedPaid, totalPaid);
         const resolvedBalance = Math.max(storedBalance, derivedStoredBalance, calculatedBalance, Math.max(0, resolvedTotal - resolvedPaid));
+        const shouldLockAddPaymentToFolio = actionType === 'add-payment';
 
         // Keep primary folio (Shekhar/current guest) aligned with booking's authoritative remaining amount.
         const authoritativePrimaryBalance = Math.max(0, toNum(
@@ -1146,7 +1244,15 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             ?? sourceReservation?.balanceDue,
             resolvedBalance
         ));
-        folioBalances[0] = Math.max(toNum(folioBalances[0], 0), authoritativePrimaryBalance);
+        if (shouldLockAddPaymentToFolio) {
+            // Add Payment must match folio ledger balance shown in Folio Operations.
+            folioBalances[0] = Math.max(0, toNum(folioBalances[0], 0));
+        } else {
+            folioBalances[0] = Math.max(toNum(folioBalances[0], 0), authoritativePrimaryBalance);
+        }
+
+        const primaryFolioRemaining = Math.max(0, toNum(folioBalances[0], resolvedBalance));
+        const actionRemaining = shouldLockAddPaymentToFolio ? primaryFolioRemaining : resolvedBalance;
 
         // Convert reservation to booking format for the actions
         const bookingData = {
@@ -1174,16 +1280,16 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             totalAmount: resolvedTotal,
             paidAmount: resolvedPaid,
             advancePaid: resolvedPaid,
-            folioRemainingAmount: resolvedBalance,
-            balanceDue: resolvedBalance,
-            remainingAmount: resolvedBalance,
+            folioRemainingAmount: actionRemaining,
+            balanceDue: actionRemaining,
+            remainingAmount: actionRemaining,
             folioBalances,
             billing: {
                 totalAmount: resolvedTotal,
                 paidAmount: resolvedPaid,
-                balanceAmount: resolvedBalance,
-                balanceDue: resolvedBalance,
-                remainingAmount: resolvedBalance,
+                balanceAmount: actionRemaining,
+                balanceDue: actionRemaining,
+                remainingAmount: actionRemaining,
                 roomCharges: toNum(sourceReservation.roomCharges, roomCharges),
                 serviceCharge: toNum(sourceReservation.serviceCharge ?? sourceReservation.serviceChargeAmount, serviceChargeAmount),
                 discount: discountAmount,
@@ -1342,7 +1448,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
 
             // Persist status change to Database
             try {
-                const response = await fetch(`${API_URL}/status/${reservation.id}`, {
+                const response = await apiCall(`/status/${reservation.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1412,14 +1518,14 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     };
 
                     // Try reservation check-in endpoint first, then booking check-in, then status update fallback.
-                    let response = await fetch(`${API_URL_CONFIG}/api/reservations/checkin/${reservationId}`, {
+                    let response = await apiCall(`/api/reservations/checkin/${reservationId}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(checkInPayload)
                     });
 
                     if (!response.ok) {
-                        response = await fetch(`${API_URL}/check-in/${reservationId}`, {
+                        response = await apiCall(`/check-in/${reservationId}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(checkInPayload)
@@ -1427,7 +1533,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     }
 
                     if (!response.ok) {
-                        response = await fetch(`${API_URL}/status/${reservationId}`, {
+                        response = await apiCall(`/status/${reservationId}`, {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ status: 'Checked-in' })
@@ -1457,7 +1563,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     newStatus === 'CHECKED_OUT' ? 'Checked-out' :
                         'Upcoming';
 
-            const response = await fetch(`${API_URL}/status/${reservationId}`, {
+            const response = await apiCall(`/status/${reservationId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: bookingStatus })
@@ -1477,6 +1583,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
 
     // Reset Form
     const resetForm = useCallback(() => {
+        sessionStorage.removeItem('draft_reservation_form'); // Clear draft
         setIsEditingMode(false);
         setEditingReservationId(null);
         setReservationType('');
@@ -1495,6 +1602,11 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         setPaidAmount(0);
         setPaymentMode('Cash');
         setTransactionId('');
+        setSplitAmounts({ Cash: '', UPI: '', Card: '', 'Bank Transfer': '' });
+        setSplitReferences({ UPI: '', Card: '', 'Bank Transfer': '' });
+        setUpiUtr('');
+        setBankTransactionId('');
+        setCardTransactionId('');
         setTaxExempt(false);
         setManualDiscountType('FLAT');
         setManualDiscountValue('');
@@ -1529,6 +1641,66 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             return;
         }
 
+        if (paymentMode === 'UPI' && !isValidUtr(upiUtr)) {
+            alert('UPI payment ke liye valid 12-digit UTR number required hai.');
+            return;
+        }
+
+        if (paymentMode === 'Bank Transfer' && !isValidTxnId(bankTransactionId)) {
+            alert('Bank Transfer ke liye valid Transaction ID required hai (A-Z/0-9, length 10/12/15).');
+            return;
+        }
+
+        if (paymentMode === 'Card' && !isValidTxnId(cardTransactionId)) {
+            alert('Card payment ke liye valid Transaction ID required hai (A-Z/0-9, length 10/12/15).');
+            return;
+        }
+
+        const activeSplitRows = paymentMode === 'Multiple Payment'
+            ? ['Cash', 'UPI', 'Card', 'Bank Transfer']
+                .map(mode => ({
+                    mode,
+                    amount: parseFloat(splitAmounts[mode]) || 0,
+                    referenceId: mode === 'UPI'
+                        ? normalizeUtrInput(splitReferences.UPI)
+                        : mode === 'Bank Transfer'
+                            ? normalizeTxnInput(splitReferences['Bank Transfer'])
+                            : mode === 'Card'
+                                ? normalizeTxnInput(splitReferences.Card)
+                                : ''
+                }))
+                .filter(row => row.amount > 0)
+            : [];
+
+        if (paymentMode === 'Multiple Payment') {
+            if (activeSplitRows.length < 2) {
+                alert('Multiple payment me kam se kam 2 payment modes enter karein.');
+                return;
+            }
+
+            const splitTotal = activeSplitRows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+            const targetTotal = Number(billingData.totalAmount) || 0;
+            if (Math.abs(splitTotal - targetTotal) > 0.01) {
+                alert(`Split total (${splitTotal.toFixed(2)}) aur Grand Total (${targetTotal.toFixed(2)}) same hona chahiye.`);
+                return;
+            }
+
+            if (activeSplitRows.some(row => row.mode === 'UPI') && !isValidUtr(splitReferences.UPI)) {
+                alert('Split UPI payment ke liye valid 12-digit UTR number required hai.');
+                return;
+            }
+
+            if (activeSplitRows.some(row => row.mode === 'Bank Transfer') && !isValidTxnId(splitReferences['Bank Transfer'])) {
+                alert('Split Bank Transfer ke liye valid Transaction ID required hai (A-Z/0-9, length 10/12/15).');
+                return;
+            }
+
+            if (activeSplitRows.some(row => row.mode === 'Card') && !isValidTxnId(splitReferences.Card)) {
+                alert('Split Card payment ke liye valid Transaction ID required hai (A-Z/0-9, length 10/12/15).');
+                return;
+            }
+        }
+
         // Map all rooms to backend format
         const mappedRooms = rooms.map(room => ({
             roomType: room.categoryId?.replace(/-/g, ' ').toUpperCase() || 'STANDARD',
@@ -1542,6 +1714,16 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         }));
 
         const totalGuests = mappedRooms.reduce((sum, r) => sum + r.adults + r.children, 0);
+
+        const resolvedTransactionId = paymentMode === 'UPI'
+            ? normalizeUtrInput(upiUtr)
+            : paymentMode === 'Bank Transfer'
+                ? normalizeTxnInput(bankTransactionId)
+                : paymentMode === 'Card'
+                    ? normalizeTxnInput(cardTransactionId)
+                    : paymentMode === 'Multiple Payment'
+                        ? activeSplitRows.map(row => `${row.mode}:${row.amount}${row.referenceId ? `@${row.referenceId}` : ''}`).join('; ')
+                        : (transactionId || '');
 
         const bookingData = {
             guestName: selectedGuests[0].fullName || selectedGuests[0].name || selectedGuests[0].guestName,
@@ -1587,8 +1769,9 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             serviceChargeAmount: Number(billingData.serviceChargeAmount) || 0,
             totalAmount: Number(billingData.totalAmount) || 0,
             advancePaid: Number(billingData.paidAmount) || 0,
-            paymentMode: paymentMode,
-            transactionId: transactionId || '',
+            paymentMode: paymentMode === 'Multiple Payment' ? 'Mixed' : paymentMode,
+            transactionId: resolvedTransactionId,
+            paymentSplits: paymentMode === 'Multiple Payment' ? activeSplitRows : [],
             status: status === 'IN_HOUSE' ? 'Checked-in' : 'Upcoming',
             reservationType: reservationType || 'Confirm',
             bookingSource: bookingSource || 'Direct',
@@ -1618,7 +1801,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             setIsSavingReservation(true);
             if (isEditingMode) {
                 // Update existing booking
-                const response = await fetch(`${API_URL}/update/${editingReservationId}`, {
+                const response = await apiCall(`/update/${editingReservationId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(bookingData)
@@ -1630,7 +1813,9 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     setSuccessMessage('Reservation updated successfully!');
                     setTimeout(() => {
                         setSuccessMessage('');
-                        navigate('/admin/dashboard');
+                        setView('dashboard');
+                        setActiveTab(status === 'IN_HOUSE' ? 'in-house' : 'reserved');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                     }, 1500);
                 } else {
                     setErrors({ submit: `Error: ${data.message || 'Unable to update reservation'}` });
@@ -1638,7 +1823,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                 }
             } else {
                 // Create new booking
-                const response = await fetch(`${API_URL}/add`, {
+                const response = await apiCall(`/add`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(bookingData)
@@ -1650,7 +1835,9 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     setSuccessMessage('Reservation created successfully!');
                     setTimeout(() => {
                         setSuccessMessage('');
-                        navigate('/admin/dashboard');
+                        setView('dashboard');
+                        setActiveTab(status === 'IN_HOUSE' ? 'in-house' : 'reserved');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                     }, 1500);
                 } else {
                     console.error('Server returned error:', data);
@@ -1691,8 +1878,26 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             phone: reservation.guestPhone
         }]);
         setPaidAmount(reservation.paidAmount);
-        setPaymentMode(reservation.paymentMode);
+        setPaymentMode(reservation.paymentMode === 'Mixed' ? 'Multiple Payment' : reservation.paymentMode);
         setTransactionId(reservation.transactionId || '');
+        const incomingSplits = Array.isArray(reservation.paymentSplits) ? reservation.paymentSplits : [];
+        const prefilledSplitAmounts = { Cash: '', UPI: '', Card: '', 'Bank Transfer': '' };
+        const prefilledSplitReferences = { UPI: '', Card: '', 'Bank Transfer': '' };
+        incomingSplits.forEach(split => {
+            const mode = String(split?.mode || '').trim();
+            const amount = Number(split?.amount) || 0;
+            if (prefilledSplitAmounts[mode] !== undefined && amount > 0) {
+                prefilledSplitAmounts[mode] = String(amount);
+            }
+            if (mode === 'UPI' && split?.referenceId) prefilledSplitReferences.UPI = normalizeUtrInput(split.referenceId);
+            if (mode === 'Bank Transfer' && split?.referenceId) prefilledSplitReferences['Bank Transfer'] = normalizeTxnInput(split.referenceId);
+            if (mode === 'Card' && split?.referenceId) prefilledSplitReferences.Card = normalizeTxnInput(split.referenceId);
+        });
+        setSplitAmounts(prefilledSplitAmounts);
+        setSplitReferences(prefilledSplitReferences);
+        setUpiUtr('');
+        setBankTransactionId('');
+        setCardTransactionId('');
         setTaxExempt(reservation.taxExempt);
         setManualDiscountType(reservation.manualDiscountType || 'FLAT');
         setManualDiscountValue(
@@ -1708,7 +1913,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         // Removed confirm pop section
 
         try {
-            const response = await fetch(`${API_URL}/delete/${reservationId}`, {
+            const response = await apiCall(`/delete/${reservationId}`, {
                 method: 'DELETE'
             });
 
@@ -2121,6 +2326,20 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                                 taxExempt={taxExempt}
                                 transactionId={transactionId}
                                 onTransactionIdChange={setTransactionId}
+                                splitAmounts={splitAmounts}
+                                onSplitAmountsChange={setSplitAmounts}
+                                splitReferences={splitReferences}
+                                onSplitReferencesChange={(nextRefs) => setSplitReferences({
+                                    UPI: normalizeUtrInput(nextRefs?.UPI),
+                                    Card: normalizeTxnInput(nextRefs?.Card),
+                                    'Bank Transfer': normalizeTxnInput(nextRefs?.['Bank Transfer'])
+                                })}
+                                upiUtr={upiUtr}
+                                onUpiUtrChange={(value) => setUpiUtr(normalizeUtrInput(value))}
+                                bankTransactionId={bankTransactionId}
+                                onBankTransactionIdChange={(value) => setBankTransactionId(normalizeTxnInput(value))}
+                                cardTransactionId={cardTransactionId}
+                                onCardTransactionIdChange={(value) => setCardTransactionId(normalizeTxnInput(value))}
                             />
 
                             {/* Form Actions */}
@@ -2555,9 +2774,10 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                             backdropFilter: 'blur(4px)',
                             zIndex: 99999,
                             display: 'flex',
-                            alignItems: 'center',
+                            alignItems: 'flex-start',
                             justifyContent: 'center',
-                            padding: '1rem'
+                            padding: '1rem',
+                            overflowY: 'auto'
                         }}
                     >
                         <motion.div
@@ -2572,7 +2792,8 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                                 width: '100%',
                                 maxHeight: '90vh',
                                 overflow: 'hidden',
-                                position: 'relative'
+                                position: 'relative',
+                                margin: '0 auto'
                             }}
                         >
                             <InvoiceView

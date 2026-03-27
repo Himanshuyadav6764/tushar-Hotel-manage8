@@ -2,6 +2,40 @@ const GuestMealOrder = require('../models/Order');
 
 const toNum = (value) => Number(value) || 0;
 
+const normalizePaymentMode = (mode) => {
+    const normalized = String(mode || '').trim().toLowerCase();
+    if (!normalized) return 'Cash';
+    if (normalized.includes('mixed') || normalized.includes('multiple')) return 'Mixed';
+    if (normalized.includes('upi')) return 'UPI';
+    if (normalized.includes('card')) return 'Card';
+    if (normalized.includes('bank') || normalized.includes('transfer')) return 'Bank Transfer';
+    if (normalized.includes('room')) return 'Add to Room';
+    if (normalized.includes('cash')) return 'Cash';
+    return String(mode || 'Cash');
+};
+
+const buildPaymentDisplay = (order) => {
+    const splits = Array.isArray(order?.paymentSplits)
+        ? order.paymentSplits
+            .map(split => ({
+                mode: normalizePaymentMode(split?.mode || split?.method || split?.paymentMode),
+                amount: Number(split?.amount) || 0
+            }))
+            .filter(split => split.amount > 0)
+        : [];
+
+    if (splits.length > 1) {
+        const detail = splits.map(split => `${split.mode} ${split.amount.toFixed(2)}`).join(', ');
+        return `Mixed (${detail})`;
+    }
+
+    if (splits.length === 1 && normalizePaymentMode(order?.paymentMethod) === 'Mixed') {
+        return `Mixed (${splits[0].mode})`;
+    }
+
+    return normalizePaymentMode(order?.paymentMethod || 'Cash');
+};
+
 exports.getSalesReport = async (req, res) => {
     try {
         const { outlet, category, item, startDate, endDate } = req.query;
@@ -82,6 +116,7 @@ exports.getSalesReport = async (req, res) => {
                         status: order.status || 'Active',
                         outlet: order.orderType || 'Dine-In',
                         paymentMethod: order.paymentMethod || 'Cash',
+                        paymentMethodDisplay: buildPaymentDisplay(order),
                         paymentStatus: order.paymentStatus || 'Pending',
                         tableNumber: order.tableNumber || '-',
                         roomNumber: order.roomNumber || '-',

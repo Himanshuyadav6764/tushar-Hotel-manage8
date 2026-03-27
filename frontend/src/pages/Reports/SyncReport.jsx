@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import './SyncReport.css';
 
 const COLLECTION_LABELS = {
@@ -82,7 +82,7 @@ export default function SyncReport() {
     const fetchStatus = async () => {
         setLoading(true);
         try {
-            const res  = await fetch(`${API_URL}/api/sync/status`);
+            const res  = await apiCall(`/api/sync/status`);
             const data = await res.json();
             if (data.success) {
                 setStatus(data);
@@ -136,7 +136,7 @@ export default function SyncReport() {
         const finish = runProgress();
         try {
             const colParam = selected.join(',');
-            const res = await fetch(`${API_URL}/api/sync/backup?collections=${encodeURIComponent(colParam)}`);
+            const res = await apiCall(`/api/sync/backup?collections=${encodeURIComponent(colParam)}`);
             if (!res.ok) throw new Error(`Server error ${res.status}`);
             const blob     = await res.blob();
             const sizeStr  = formatBytes(blob.size);

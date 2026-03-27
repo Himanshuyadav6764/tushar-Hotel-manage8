@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { hasModuleAccess, MODULES } from '../config/rbac';
 import './Sidebar.css';
-import logo from '../assets/final logo.png';
+import logo from '../assets/logo_new.jpg';
 
 // Simple Icon Components
 const Icons = {
@@ -79,7 +79,7 @@ const Sidebar = ({ isOpen, activeMenu, onMenuClick, onLogout, toggleSidebar }) =
         {
             id: MODULES.PROPERTY_SETUP,
             iconVal: <Icons.Config />,
-            label: 'Property Configuration',
+            label: 'Property Setup',
             hasDropdown: true,
             dropdownItems: [
                 { id: 'discount', label: 'Discount', iconVal: <Icons.Dot /> },
@@ -89,7 +89,7 @@ const Sidebar = ({ isOpen, activeMenu, onMenuClick, onLogout, toggleSidebar }) =
         {
             id: MODULES.PROPERTY_CONFIG,
             iconVal: <Icons.Config />,
-            label: 'Property Setup',
+            label: 'Property Configuration',
             hasDropdown: true,
             dropdownItems: [
                 { id: 'floor-setup', label: 'Floor Setup', iconVal: <Icons.Dot /> },
@@ -104,7 +104,7 @@ const Sidebar = ({ isOpen, activeMenu, onMenuClick, onLogout, toggleSidebar }) =
                 { id: 'booking-source', label: 'Booking Source', iconVal: <Icons.Dot /> },
                 { id: 'business-source', label: 'Business Source', iconVal: <Icons.Dot /> },
                 { id: 'maintenance-block', label: 'Maintenance Block', iconVal: <Icons.Dot /> },
-                { id: 'company', label: 'Company', iconVal: <Icons.Dot /> },
+                { id: 'company-settings', label: 'Company Settings', iconVal: <Icons.Dot /> },
                 { id: MODULES.FOOD_MENU, label: 'Food Menu', iconVal: <Icons.Dot /> }
             ]
         },

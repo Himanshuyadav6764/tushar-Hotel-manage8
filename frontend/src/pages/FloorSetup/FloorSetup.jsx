@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './FloorSetup.css';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 
 const FloorSetup = () => {
     const [floors, setFloors] = useState([]);
@@ -30,7 +30,7 @@ const FloorSetup = () => {
     const fetchFloors = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_URL}/api/floors/list`);
+            const response = await apiCall(`/api/floors/list`);
             const data = await response.json();
             if (data.success) {
                 setFloors(data.data);
@@ -74,13 +74,13 @@ const FloorSetup = () => {
         try {
             let response;
             if (modalMode === 'add') {
-                response = await fetch(`${API_URL}/api/floors/add`, {
+                response = await apiCall(`/api/floors/add`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
             } else {
-                response = await fetch(`${API_URL}/api/floors/update/${currentFloor._id}`, {
+                response = await apiCall(`/api/floors/update/${currentFloor._id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -106,7 +106,7 @@ const FloorSetup = () => {
 
     const confirmDelete = async (id) => {
         try {
-            const response = await fetch(`${API_URL}/api/floors/delete/${id}`, {
+            const response = await apiCall(`/api/floors/delete/${id}`, {
                 method: 'DELETE'
             });
             const data = await response.json();

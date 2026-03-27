@@ -1,0 +1,56 @@
+{
+  "target": "http://localhost:5000",
+  "generatedAt": "2026-03-27T12:51:01.833Z",
+  "totalChecks": 5,
+  "passed": 5,
+  "failed": 0,
+  "checks": [
+    {
+      "id": "SEC_HEADERS_PUBLIC",
+      "description": "Public endpoint returns security headers",
+      "status": 401,
+      "passed": true,
+      "evidence": {
+        "xContentTypeOptions": "nosniff",
+        "xFrameOptions": "SAMEORIGIN"
+      }
+    },
+    {
+      "id": "SQLI_REJECT",
+      "description": "SQL injection style payload is rejected",
+      "status": 400,
+      "passed": true,
+      "evidence": {
+        "snippet": "{\"success\":false,\"message\":\"Invalid input detected\",\"field\":\"body.username\",\"reason\":\"Potentially malicious payload detected\"}"
+      }
+    },
+    {
+      "id": "XSS_REJECT",
+      "description": "XSS payload is rejected",
+      "status": 401,
+      "passed": true,
+      "evidence": {
+        "snippet": "{\"message\":\"Invalid email or password\"}"
+      }
+    },
+    {
+      "id": "AUTH_GUARD",
+      "description": "Protected endpoint denies anonymous requests",
+      "status": 401,
+      "passed": true,
+      "evidence": {
+        "snippet": "{\"message\":\"Not authorized, no token\"}"
+      }
+    },
+    {
+      "id": "TRACE_BLOCK",
+      "description": "TRACE method is blocked or unsupported",
+      "status": 405,
+      "passed": true,
+      "evidence": {
+        "error": null,
+        "snippet": "{\"success\":false,\"message\":\"HTTP method TRACE is not allowed\"}"
+      }
+    }
+  ]
+}

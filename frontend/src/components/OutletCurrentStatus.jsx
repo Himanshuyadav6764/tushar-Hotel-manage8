@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import API_URL_CONFIG from '../config/api';
+import API_URL_CONFIG, { apiCall } from '../config/api';
 import './OutletCurrentStatus.css';
 
 const OutletCurrentStatus = () => {
@@ -15,7 +15,7 @@ const OutletCurrentStatus = () => {
 
     const fetchStatus = async () => {
         try {
-            const response = await fetch(`${API_URL_CONFIG}/api/guest-meal/analytics/outlet-status`);
+            const response = await apiCall(`/api/guest-meal/analytics/outlet-status`);
             const data = await response.json();
             if (data.success) {
                 setStatusData(data.data);

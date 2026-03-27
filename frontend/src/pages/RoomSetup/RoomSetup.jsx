@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { hasPermission, MODULES, PERMISSIONS } from '../../config/rbac';
 import './RoomSetup.css';
-import API_URL from '../../config/api';
+import API_URL, { apiCall } from '../../config/api';
 import RoomDetailsPanel from '../../components/rooms/RoomDetailsPanel';
 
 const DEFAULT_ROOM_VIEW_TYPES = ['City View', 'Pool View', 'Garden View', 'Sea View'];
@@ -175,7 +175,7 @@ const RoomSetup = () => {
     // Fetch Room Types (Facility Types)
     const fetchRoomTypes = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/facility-types/list`);
+            const response = await apiCall(`/api/facility-types/list`);
             const data = await response.json();
             if (data.success) {
                 setRoomTypes(data.data);
@@ -188,7 +188,7 @@ const RoomSetup = () => {
     // Fetch Floors
     const fetchFloors = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/floors/list`);
+            const response = await apiCall(`/api/floors/list`);
             const data = await response.json();
             if (data.success) {
                 setFloors(data.data);
@@ -201,7 +201,7 @@ const RoomSetup = () => {
     // Fetch Bed Types
     const fetchBedTypes = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/bed-types/list`);
+            const response = await apiCall(`/api/bed-types/list`);
             const data = await response.json();
             if (data.success) {
                 setBedTypes(data.data);
@@ -250,8 +250,8 @@ const RoomSetup = () => {
     const fetchReservations = async () => {
         try {
             const [bookingsRes, reservationsRes] = await Promise.all([
-                fetch(`${API_URL}/api/bookings/list`),
-                fetch(`${API_URL}/api/reservations/list`)
+                apiCall(`/api/bookings/list`),
+                apiCall(`/api/reservations/list`)
             ]);
             const b = await bookingsRes.json();
             const r = await reservationsRes.json();
@@ -276,7 +276,7 @@ const RoomSetup = () => {
     // Fetch Maintenance Blocks
     const fetchMaintenanceBlocks = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/maintenance-blocks/list`);
+            const response = await apiCall(`/api/maintenance-blocks/list`);
             const data = await response.json();
             if (data.success) {
                 setMaintenanceBlocks(data.data);
@@ -290,7 +290,7 @@ const RoomSetup = () => {
     const fetchRooms = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_URL}/api/rooms/list`);
+            const response = await apiCall(`/api/rooms/list`);
             const data = await response.json();
             if (data.success) {
                 const transformedRooms = data.data.map(room => ({
@@ -510,13 +510,13 @@ const RoomSetup = () => {
         try {
             let response;
             if (modalMode === 'add') {
-                response = await fetch(`${API_URL}/api/rooms/add`, {
+                response = await apiCall(`/api/rooms/add`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
             } else {
-                response = await fetch(`${API_URL}/api/rooms/update/${currentRoom.id}`, {
+                response = await apiCall(`/api/rooms/update/${currentRoom.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -540,7 +540,7 @@ const RoomSetup = () => {
     const handleDeleteClick = async (id) => {
         setDeletingRoomId(id);
         try {
-            const response = await fetch(`${API_URL}/api/rooms/delete/${id}`, {
+            const response = await apiCall(`/api/rooms/delete/${id}`, {
                 method: 'DELETE'
             });
             const data = await response.json();
@@ -976,214 +976,214 @@ const RoomSetup = () => {
             {/* Add/Edit Modal */}
             {
                 isModalOpen && (
-                <div className="add-payment-overlay" onClick={() => setIsModalOpen(false)}>
-                    <div className="add-payment-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="premium-payment-header">
-                            <div className="header-icon-wrap">
-                                <span role="img" aria-label="room">🏠</span>
+                    <div className="add-payment-overlay" onClick={() => setIsModalOpen(false)}>
+                        <div className="add-payment-modal" onClick={(e) => e.stopPropagation()}>
+                            <div className="premium-payment-header">
+                                <div className="header-icon-wrap">
+                                    <span role="img" aria-label="room">🏠</span>
+                                </div>
+                                <div className="header-text">
+                                    <h3>{modalMode === 'add' ? 'Add New Room' : 'Edit Room'}</h3>
+                                    <span>Room Configuration</span>
+                                </div>
+                                <button className="premium-close-btn" onClick={() => setIsModalOpen(false)}>×</button>
                             </div>
-                            <div className="header-text">
-                                <h3>{modalMode === 'add' ? 'Add New Room' : 'Edit Room'}</h3>
-                                <span>Room Configuration</span>
-                            </div>
-                            <button className="premium-close-btn" onClick={() => setIsModalOpen(false)}>×</button>
-                        </div>
-                        <div className="add-payment-body">
-                            <form onSubmit={handleSubmit} id="room-setup-form">
-                                <div className="payment-field-group">
-                                    <label className="field-label-premium">ROOM NUMBER *</label>
-                                    <div className="premium-input-wrapper">
-                                        <div className="input-icon-prefix">🚪</div>
-                                        <input
-                                            type="text"
-                                            name="roomNumber"
-                                            value={formData.roomNumber}
-                                            onChange={(e) => {
-                                                const cleanedValue = e.target.value.replace(/[^a-zA-Z0-9\s\-\/]/g, '');
-                                                setFormData({ ...formData, roomNumber: cleanedValue });
-                                            }}
-                                            required
-                                            placeholder="e.g., 101, A101, Deluxe-1"
-                                        />
+                            <div className="add-payment-body">
+                                <form onSubmit={handleSubmit} id="room-setup-form">
+                                    <div className="payment-field-group">
+                                        <label className="field-label-premium">ROOM NUMBER *</label>
+                                        <div className="premium-input-wrapper">
+                                            <div className="input-icon-prefix">🚪</div>
+                                            <input
+                                                type="text"
+                                                name="roomNumber"
+                                                value={formData.roomNumber}
+                                                onChange={(e) => {
+                                                    const cleanedValue = e.target.value.replace(/[^a-zA-Z0-9\s\-\/]/g, '');
+                                                    setFormData({ ...formData, roomNumber: cleanedValue });
+                                                }}
+                                                required
+                                                placeholder="e.g., 101, A101, Deluxe-1"
+                                            />
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="payment-field-group">
-                                    <label className="field-label-premium">FLOOR *</label>
-                                    <div className="premium-input-wrapper">
-                                        <div className="input-icon-prefix">🏢</div>
-                                        <select
-                                            name="floor"
-                                            value={formData.floor}
-                                            onChange={handleInputChange}
-                                            required
-                                        >
-                                            <option value="">-- Select Floor --</option>
-                                            {floors.map(floor => (
-                                                <option key={floor._id} value={floor.name}>{floor.name}</option>
-                                            ))}
-                                        </select>
+                                    <div className="payment-field-group">
+                                        <label className="field-label-premium">FLOOR *</label>
+                                        <div className="premium-input-wrapper">
+                                            <div className="input-icon-prefix">🏢</div>
+                                            <select
+                                                name="floor"
+                                                value={formData.floor}
+                                                onChange={handleInputChange}
+                                                required
+                                            >
+                                                <option value="">-- Select Floor --</option>
+                                                {floors.map(floor => (
+                                                    <option key={floor._id} value={floor.name}>{floor.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="payment-field-group">
-                                    <label className="field-label-premium">ROOM TYPE *</label>
-                                    <div className="premium-input-wrapper">
-                                        <div className="input-icon-prefix">🛌</div>
-                                        <select
-                                            name="roomType"
-                                            value={formData.roomType}
-                                            onChange={handleInputChange}
-                                            required
-                                        >
-                                            <option value="">-- Select Room Type --</option>
-                                            {roomTypes.map(type => (
-                                                <option key={type._id} value={type.name}>{type.name}</option>
-                                            ))}
-                                        </select>
+                                    <div className="payment-field-group">
+                                        <label className="field-label-premium">ROOM TYPE *</label>
+                                        <div className="premium-input-wrapper">
+                                            <div className="input-icon-prefix">🛌</div>
+                                            <select
+                                                name="roomType"
+                                                value={formData.roomType}
+                                                onChange={handleInputChange}
+                                                required
+                                            >
+                                                <option value="">-- Select Room Type --</option>
+                                                {roomTypes.map(type => (
+                                                    <option key={type._id} value={type.name}>{type.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="payment-field-group">
-                                    <label className="field-label-premium">ROOM CAPACITY *</label>
-                                    <div className="premium-input-wrapper">
-                                        <div className="input-icon-prefix">👥</div>
-                                        <input
-                                            type="number"
-                                            name="capacity"
-                                            value={formData.capacity}
-                                            onChange={handleInputChange}
-                                            required
-                                            min="1"
-                                            placeholder="2"
-                                        />
+                                    <div className="payment-field-group">
+                                        <label className="field-label-premium">ROOM CAPACITY *</label>
+                                        <div className="premium-input-wrapper">
+                                            <div className="input-icon-prefix">👥</div>
+                                            <input
+                                                type="number"
+                                                name="capacity"
+                                                value={formData.capacity}
+                                                onChange={handleInputChange}
+                                                required
+                                                min="1"
+                                                placeholder="2"
+                                            />
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="payment-field-group">
-                                    <label className="field-label-premium">BASE PRICE ({cs}) *</label>
-                                    <div className="premium-input-wrapper">
-                                        <div className="input-icon-prefix">{cs}</div>
-                                        <input
-                                            type="number"
-                                            name="basePrice"
-                                            value={formData.basePrice}
-                                            onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
-                                            required
-                                            placeholder="0"
-                                        />
+                                    <div className="payment-field-group">
+                                        <label className="field-label-premium">BASE PRICE ({cs}) *</label>
+                                        <div className="premium-input-wrapper">
+                                            <div className="input-icon-prefix">{cs}</div>
+                                            <input
+                                                type="number"
+                                                name="basePrice"
+                                                value={formData.basePrice}
+                                                onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
+                                                required
+                                                placeholder="0"
+                                            />
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="payment-field-group">
-                                    <label className="field-label-premium">ROOM VIEW TYPE</label>
-                                    <div className="premium-input-wrapper room-view-wrapper" ref={roomViewDropdownRef}>
-                                        <div className="input-icon-prefix">🌅</div>
-                                        <button
-                                            type="button"
-                                            className="room-view-trigger"
-                                            onClick={() => setShowRoomViewDropdown(prev => !prev)}
-                                        >
-                                            <span>{formData.roomViewType || 'Select view type'}</span>
-                                            <span className={`room-view-arrow ${showRoomViewDropdown ? 'open' : ''}`}>▾</span>
-                                        </button>
+                                    <div className="payment-field-group">
+                                        <label className="field-label-premium">ROOM VIEW TYPE</label>
+                                        <div className="premium-input-wrapper room-view-wrapper" ref={roomViewDropdownRef}>
+                                            <div className="input-icon-prefix">🌅</div>
+                                            <button
+                                                type="button"
+                                                className="room-view-trigger"
+                                                onClick={() => setShowRoomViewDropdown(prev => !prev)}
+                                            >
+                                                <span>{formData.roomViewType || 'Select view type'}</span>
+                                                <span className={`room-view-arrow ${showRoomViewDropdown ? 'open' : ''}`}>▾</span>
+                                            </button>
 
-                                        {showRoomViewDropdown && (
-                                            <div className="room-view-dropdown">
-                                                <div className="room-view-options-list">
-                                                    {roomViewTypes.map((viewType) => (
-                                                        <div
-                                                            key={viewType}
-                                                            className={`room-view-option-row ${formData.roomViewType === viewType ? 'selected' : ''}`}
-                                                            onClick={() => {
-                                                                setFormData(prev => ({ ...prev, roomViewType: viewType }));
-                                                                setShowRoomViewDropdown(false);
-                                                            }}
-                                                        >
-                                                            <span className="room-view-option-text">{viewType}</span>
-                                                            <button
-                                                                type="button"
-                                                                className="room-view-option-delete"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleDeleteRoomViewTypeInline(viewType);
+                                            {showRoomViewDropdown && (
+                                                <div className="room-view-dropdown">
+                                                    <div className="room-view-options-list">
+                                                        {roomViewTypes.map((viewType) => (
+                                                            <div
+                                                                key={viewType}
+                                                                className={`room-view-option-row ${formData.roomViewType === viewType ? 'selected' : ''}`}
+                                                                onClick={() => {
+                                                                    setFormData(prev => ({ ...prev, roomViewType: viewType }));
+                                                                    setShowRoomViewDropdown(false);
                                                                 }}
-                                                                title="Delete this view type"
                                                             >
-                                                                ×
-                                                            </button>
-                                                        </div>
-                                                    ))}
+                                                                <span className="room-view-option-text">{viewType}</span>
+                                                                <button
+                                                                    type="button"
+                                                                    className="room-view-option-delete"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteRoomViewTypeInline(viewType);
+                                                                    }}
+                                                                    title="Delete this view type"
+                                                                >
+                                                                    ×
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    <div className="room-view-add-row">
+                                                        <input
+                                                            type="text"
+                                                            value={newRoomViewType}
+                                                            onChange={(e) => setNewRoomViewType(e.target.value)}
+                                                            placeholder="Add new view type"
+                                                            className="room-view-add-input"
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    e.preventDefault();
+                                                                    handleAddRoomViewTypeInline();
+                                                                }
+                                                            }}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            className="room-view-add-btn"
+                                                            onClick={handleAddRoomViewTypeInline}
+                                                        >
+                                                            Add
+                                                        </button>
+                                                    </div>
                                                 </div>
-
-                                                <div className="room-view-add-row">
-                                                    <input
-                                                        type="text"
-                                                        value={newRoomViewType}
-                                                        onChange={(e) => setNewRoomViewType(e.target.value)}
-                                                        placeholder="Add new view type"
-                                                        className="room-view-add-input"
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') {
-                                                                e.preventDefault();
-                                                                handleAddRoomViewTypeInline();
-                                                            }
-                                                        }}
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        className="room-view-add-btn"
-                                                        onClick={handleAddRoomViewTypeInline}
-                                                    >
-                                                        Add
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="payment-field-group">
-                                    <label className="field-label-premium">SMOKING POLICY</label>
-                                    <div className="premium-input-wrapper">
-                                        <div className="input-icon-prefix">🚭</div>
-                                        <select
-                                            name="smokingPolicy"
-                                            value={formData.smokingPolicy}
-                                            onChange={handleInputChange}
-                                        >
-                                            <option value="Non-Smoking">Non-Smoking</option>
-                                            <option value="Smoking Allowed">Smoking Allowed</option>
-                                        </select>
+                                    <div className="payment-field-group">
+                                        <label className="field-label-premium">SMOKING POLICY</label>
+                                        <div className="premium-input-wrapper">
+                                            <div className="input-icon-prefix">🚭</div>
+                                            <select
+                                                name="smokingPolicy"
+                                                value={formData.smokingPolicy}
+                                                onChange={handleInputChange}
+                                            >
+                                                <option value="Non-Smoking">Non-Smoking</option>
+                                                <option value="Smoking Allowed">Smoking Allowed</option>
+                                            </select>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="payment-field-group">
-                                    <label className="field-label-premium">ROOM SIZE (SQ FT)</label>
-                                    <div className="premium-input-wrapper">
-                                        <div className="input-icon-prefix">📐</div>
-                                        <input
-                                            type="number"
-                                            name="roomSize"
-                                            value={formData.roomSize}
-                                            onChange={handleInputChange}
-                                            placeholder="e.g., 250"
-                                        />
+                                    <div className="payment-field-group">
+                                        <label className="field-label-premium">ROOM SIZE (SQ FT)</label>
+                                        <div className="premium-input-wrapper">
+                                            <div className="input-icon-prefix">📐</div>
+                                            <input
+                                                type="number"
+                                                name="roomSize"
+                                                value={formData.roomSize}
+                                                onChange={handleInputChange}
+                                                placeholder="e.g., 250"
+                                            />
+                                        </div>
                                     </div>
-                                </div>
-                            </form>
-                        </div>
-                        <div className="payment-modal-footer">
-                            <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>
-                                CANCEL
-                            </button>
-                            <button type="submit" form="room-setup-form" className="btn-primary">
-                                {modalMode === 'add' ? 'ADD ROOM' : 'UPDATE ROOM'}
-                            </button>
+                                </form>
+                            </div>
+                            <div className="payment-modal-footer">
+                                <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>
+                                    CANCEL
+                                </button>
+                                <button type="submit" form="room-setup-form" className="btn-primary">
+                                    {modalMode === 'add' ? 'ADD ROOM' : 'UPDATE ROOM'}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )
+                )
             }
         </div>
     );

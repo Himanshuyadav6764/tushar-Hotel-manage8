@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import API_URL from '../config/api';
+import API_URL, { apiCall } from '../config/api';
 import { useSettings } from '../context/SettingsContext';
 
 const RoomRow = ({ room, index, roomCategories, onUpdate, onRemove, mealTypes = [], readOnly = false, checkInDate = new Date().toISOString().split('T')[0], nights = 1 }) => {
@@ -28,7 +28,7 @@ const RoomRow = ({ room, index, roomCategories, onUpdate, onRemove, mealTypes = 
 
             if (shouldFetch) {
                 try {
-                    const res = await fetch(`${API_URL}/api/pricing/calculate/${room.categoryId}?date=${checkInDate}`);
+                    const res = await apiCall(`/api/pricing/calculate/${room.categoryId}?date=${checkInDate}`);
                     const data = await res.json();
                     if (data.success && data.price !== undefined) {
                         const basePrice = data.price;
@@ -75,7 +75,7 @@ const RoomRow = ({ room, index, roomCategories, onUpdate, onRemove, mealTypes = 
                 coDate.setDate(coDate.getDate() + nights);
                 const checkOutDate = coDate.toISOString().split('T')[0];
 
-                const response = await fetch(`${API_URL}/api/rooms/available?type=${room.categoryId}&from=${checkInDate}&to=${checkOutDate}`);
+                const response = await apiCall(`/api/rooms/available?type=${room.categoryId}&from=${checkInDate}&to=${checkOutDate}`);
                 const data = await response.json();
 
                 if (data.success && data.data) {

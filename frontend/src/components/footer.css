@@ -62,13 +62,20 @@
 }
 
 .brand-col .logo-wrapper {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  background: white;
+  display: inline-flex;
+  padding: 12px 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 .footer-logo-img {
-  height: 48px;
+  height: 56px;
   width: auto;
   object-fit: contain;
+  mix-blend-mode: multiply;
+  filter: brightness(1.1) saturate(1.4);
 }
 
 .brand-desc {
