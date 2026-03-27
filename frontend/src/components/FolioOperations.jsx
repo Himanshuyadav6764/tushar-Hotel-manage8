@@ -612,9 +612,6 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
         const findCashierOrderForFoodRow = (row, code) => {
             if (code && orderByCode.has(code)) return orderByCode.get(code);
 
-        const findCashierOrderForFoodRow = (row, code) => {
-            if (code && orderByCode.has(code)) return orderByCode.get(code);
-
             const roomNo = String(selectedFolioData?.roomNumber || reservation?.roomNumber || '').trim();
             const rowDateText = String(row.day || '').trim();
             const candidates = allFoodOrders.filter((order) => {
@@ -633,48 +630,6 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
 
             if (!candidates.length) return null;
             return candidates.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime())[0];
-        };
-
-        const buildSectionBreakdown = (rows, sectionType) => {
-            const sumAmount = (arr) => arr.reduce((sum, r) => sum + r.amountAbs, 0);
-            const sectionTotal = sumAmount(rows);
-            const details = [];
-            const breakdown = rows.reduce((acc, row) => {
-                const code = extractOrderCode(row.textRaw);
-                const linkedOrder = code ? orderByCode.get(code) : null;
-
-                if (sectionType === 'food' && linkedOrder) {
-                    const grossTag = parseTaggedAmount(row.textRaw, ['Gross', 'Amount']);
-                    const discount = toNum(linkedOrder.discountAmount) || parseTaggedAmount(row.textRaw, ['Discount']) || 0;
-                    let gst = toNum(linkedOrder.tax);
-                    let service = toNum(linkedOrder.serviceChargeAmount);
-                    let base = Math.max(0, row.amountAbs - gst - service + discount);
-
-                    if (grossTag !== null && (service <= 0.001) && (taxCfg.foodServicePercent > 0 || taxCfg.foodGstPercent > 0)) {
-                        const denom = 1 + (taxCfg.foodGstPercent / 100) + (taxCfg.foodServicePercent / 100);
-                        const inferredBase = denom > 0 ? grossTag / denom : grossTag;
-                        base = inferredBase;
-                        gst = inferredBase * (taxCfg.foodGstPercent / 100);
-                        service = inferredBase * (taxCfg.foodServicePercent / 100);
-                    }
-
-                    details.push({
-                        label: row.particulars || 'Food',
-                        base,
-                        gst,
-                        service,
-                        discount,
-                        total: row.amountAbs,
-                    });
-                    acc.gross += base;
-                    acc.gst += gst;
-                    acc.service += service;
-                    acc.discount += discount;
-                    return acc;
-                }
-                return acc;
-            }, { gross: 0, gst: 0, service: 0, discount: 0, total: sectionTotal });
-            return breakdown;
         };
 
         const normalizeEntry = (row, sectionType) => {
@@ -882,6 +837,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
 
         const content = `<!DOCTYPE html><html><head><title>Folio Print - ${escapeHtml(String(roomNo || 'NA'))}</title>
             <style>
+<<<<<<< HEAD
                 @page { size: ${pageSize}; margin: 3.5mm; }
                 body { font-family: Arial, sans-serif; font-size: 11px; color: #1f2937; margin: 0 auto; width: ${printWidth}; }
                 .company-header { text-align: center; border: 1px solid #d6dbe3; border-radius: 4px; padding: 8px; margin-bottom: 6px; }
@@ -914,6 +870,39 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                 ${fullAddress ? `<div class="company-line">${escapeHtml(fullAddress)}</div>` : ''}
                 ${(companyPhone || companyGst) ? `<div class="company-line">${companyPhone ? `Ph: ${escapeHtml(companyPhone)}` : ''}${(companyPhone && companyGst) ? ' | ' : ''}${companyGst ? `GSTIN: ${escapeHtml(companyGst)}` : ''}</div>` : ''}
             </div>
+=======
+                @page { size: 80mm auto; margin: 4mm; }
+                body { font-family: 'Courier New', monospace; font-size: 12px; color: #111; margin: 0 auto; width: 74mm; }
+                .center { text-align: center; }
+                .row { display: flex; justify-content: space-between; gap: 8px; margin: 2px 0; }
+                .row span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .strong { font-weight: 700; }
+                .sep { border-top: 1px dashed #333; margin: 6px 0; }
+                .title { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+                .muted { color: #333; }
+                .formula { font-size: 11px; color: #333; margin: 1px 0 3px 0; }
+                .section { margin-top: 2px; }
+                .toolbar { display: flex; gap: 8px; justify-content: center; margin: 8px 0 10px 0; }
+                .toolbar button { border: 1px solid #222; background: #fff; color: #111; padding: 5px 10px; cursor: pointer; font-family: inherit; font-size: 12px; }
+                .toolbar button:hover { background: #f3f4f6; }
+                .note { text-align: center; font-size: 11px; color: #444; margin-bottom: 6px; }
+                @media print { .toolbar, .note { display: none; } }
+            </style>
+        </head><body>
+            <div class="toolbar">
+                <button onclick="triggerPrint()">Save / Print</button>
+                <button onclick="window.close()">Close</button>
+            </div>
+            <div class="note">Preview ready. Click Save / Print after checking full bill.</div>
+            <div class="center title">TAX INVOICE</div>
+            <div class="row"><span>${new Date().toLocaleString('en-IN')}</span><span>Folio: ${roomNo}</span></div>
+            <div class="sep"></div>
+            <div class="center strong">${hotelName}</div>
+            ${address ? `<div class="center muted">${address}</div>` : ''}
+            <div class="sep"></div>
+            ${lineRow('Guest Name', guestName || '-')}
+            <div class="sep"></div>
+>>>>>>> origin/main
 
             <div class="header">
                 ${infoRow('Folio No:', folioNo)}
@@ -945,12 +934,22 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                 <div class="total-row red"><span>Net Payable</span><span>${cs}${money(pending)}</span></div>
             </div>
 
+<<<<<<< HEAD
             <div class="footer">
                 <div class="thanks">${escapeHtml(thankYouMessage)}</div>
                 ${companyPan ? `<div class="footer-line">PAN: ${escapeHtml(companyPan)}</div>` : ''}
                 ${companyGst ? `<div class="footer-line">GSTIN: ${escapeHtml(companyGst)}</div>` : ''}
             </div>
             <script>window.onload=function(){window.print();setTimeout(function(){window.close();},500)}<\/script>
+=======
+            ${lineRow('Subtotal', money(subtotal))}
+            ${lineRow('GST total', money(gstTotal))}
+            ${lineRow('Discount total', `-${money(discountTotal)}`)}
+            ${lineRow('Grand Total', money(grandTotal), true)}
+            <script>
+                function triggerPrint(){ window.print(); }
+            <\/script>
+>>>>>>> origin/main
         </body></html>`;
 
         const w = window.open('', '_blank', `height=860,width=${selectedFmt.windowWidth || 420}`);
@@ -981,6 +980,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
             .cline{font-size:11px;color:#555;margin-top:2px}
             table{width:100%;border-collapse:collapse;margin-top:12px}
             td{padding:6px 0;border-bottom:1px solid #eee}.label{color:#666}.val{font-weight:700;text-align:right}
+<<<<<<< HEAD
             .footer{margin-top:12px;padding-top:8px;border-top:1px dashed #ddd;text-align:center}
             </style></head><body>
             <div class="company">
@@ -988,6 +988,15 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                 ${fullAddress ? `<div class="cline">${fullAddress}</div>` : ''}
                 ${(companyPhone || companyGst) ? `<div class="cline">${companyPhone ? `Ph: ${companyPhone}` : ''}${(companyPhone && companyGst) ? ' | ' : ''}${companyGst ? `GSTIN: ${companyGst}` : ''}</div>` : ''}
             </div>
+=======
+            .toolbar{position:sticky;top:0;display:flex;gap:8px;justify-content:center;background:#fff;padding:8px 0}
+            .toolbar button{border:1px solid #222;background:#fff;padding:5px 10px;cursor:pointer}
+            .note{text-align:center;font-size:11px;color:#555;margin-bottom:8px}
+            @media print{.toolbar,.note{display:none}}
+            </style></head><body>
+            <div class="toolbar"><button onclick="triggerPrint()">Save / Print</button><button onclick="window.close()">Close</button></div>
+            <div class="note">Preview ready. Click Save / Print after checking receipt.</div>
+>>>>>>> origin/main
             <h3>Transaction Receipt</h3>
             <table><tr><td class=label>Receipt No</td><td class=val>${receiptNo}</td></tr>
             <tr><td class=label>Date</td><td class=val>${item.day}</td></tr>
@@ -995,12 +1004,19 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
             <tr><td class=label>Description</td><td class=val>${receiptDescription}</td></tr>
             <tr><td class=label>Amount</td><td class=val>${cs} ${receiptAmount.toFixed(2)}</td></tr>
             <tr><td class=label>User</td><td class=val>${item.user}</td></tr></table>
+<<<<<<< HEAD
             <div class="footer">
                 <div style="color:#555;font-size:11px">${thankYouMessage}</div>
                 ${companyPan ? `<div style="color:#666;font-size:10px;margin-top:3px">PAN: ${companyPan}</div>` : ''}
                 ${companyGst ? `<div style="color:#666;font-size:10px;margin-top:3px">GSTIN: ${companyGst}</div>` : ''}
             </div>
             <script>window.onload=function(){window.print();setTimeout(()=>window.close(),500)}<\/script>
+=======
+            <p style="margin-top:20px;text-align:center;color:#999;font-size:11px">Thank you!</p>
+            <script>
+                function triggerPrint(){ window.print(); }
+            <\/script>
+>>>>>>> origin/main
             </body></html>`);
         w.document.close();
         setActiveMenu(null);
