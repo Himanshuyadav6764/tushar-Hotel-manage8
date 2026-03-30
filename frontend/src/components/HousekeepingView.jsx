@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
 import './HousekeepingView.css';
-import API_URL_CONFIG, { apiCall } from '../config/api';
+import { apiCall } from '../config/api';
 
 const HousekeepingView = () => {
-    const API_URL = `${API_URL_CONFIG}/api/housekeeping`;
+    const API_BASE = '/api/housekeeping';
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
     const [viewType, setViewType] = useState('list'); // 'list' or 'grid'
-    const [pendingMarkedRooms, setPendingMarkedRooms] = useState({});
+    const [pendingMarkedTasks, setPendingMarkedTasks] = useState({});
     const [isMobileView, setIsMobileView] = useState(() => window.innerWidth <= 768);
 
     // Fetch pending tasks on mount
@@ -21,21 +21,18 @@ const HousekeepingView = () => {
     const fetchTasks = async () => {
         try {
             setLoading(true);
-            const response = await apiCall(`/list`);
+            const response = await apiCall(`${API_BASE}/list`);
             const data = await response.json();
             if (data.success) {
                 setTasks(data.data);
-                // Keep only room keys that still exist in pending list.
-                setPendingMarkedRooms((prev) => {
-                    const next = {};
-                    const currentRooms = new Set((data.data || []).map((t) => String(t.roomNumber)));
-                    Object.keys(prev).forEach((roomNo) => {
-                        if (currentRooms.has(roomNo) && prev[roomNo]) {
-                            next[roomNo] = true;
-                        }
-                    });
-                    return next;
+                // Persisted source of truth from backend for disabled pending state.
+                const persisted = {};
+                (data.data || []).forEach((task) => {
+                    if (task?.pendingAcknowledged) {
+                        persisted[String(task._id)] = true;
+                    }
                 });
+                setPendingMarkedTasks(persisted);
             }
         } catch (error) {
             console.error('Error fetching housekeeping tasks:', error);
@@ -70,7 +67,7 @@ const HousekeepingView = () => {
     // Mark room as clean
     const handleMarkClean = async (taskId, roomNumber) => {
         try {
-            const response = await apiCall(`/mark-clean`, {
+            const response = await apiCall(`${API_BASE}/mark-clean`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ taskId, roomNumber })
@@ -82,9 +79,9 @@ const HousekeepingView = () => {
                 setShowToast(true);
                 // Remove from current pending list immediately for snappy UX.
                 setTasks((prev) => prev.filter((t) => String(t._id) !== String(taskId)));
-                setPendingMarkedRooms((prev) => {
+                setPendingMarkedTasks((prev) => {
                     const next = { ...prev };
-                    delete next[String(roomNumber)];
+                    delete next[String(taskId)];
                     return next;
                 });
                 // Background refresh for consistency.
@@ -105,8 +102,19 @@ const HousekeepingView = () => {
 
     // Mark room/task as pending for follow-up
     const handleMarkPending = async (taskId, roomNumber) => {
+        const pendingKey = String(taskId);
+        if (pendingMarkedTasks[pendingKey]) {
+            return;
+        }
+
+        // Optimistic update so click feedback is instant.
+        setPendingMarkedTasks((prev) => ({
+            ...prev,
+            [pendingKey]: true
+        }));
+
         try {
-            const response = await apiCall(`/mark-pending`, {
+            const response = await apiCall(`${API_BASE}/mark-pending`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ taskId, roomNumber })
@@ -116,16 +124,22 @@ const HousekeepingView = () => {
             if (data.success) {
                 setToastMessage(`Room ${roomNumber} moved to Pending`);
                 setShowToast(true);
-                setPendingMarkedRooms((prev) => ({
-                    ...prev,
-                    [String(roomNumber)]: true
-                }));
                 fetchTasks();
             } else {
+                setPendingMarkedTasks((prev) => {
+                    const next = { ...prev };
+                    delete next[pendingKey];
+                    return next;
+                });
                 alert(data.message || 'Error updating pending status');
             }
         } catch (error) {
             console.error('Error marking pending:', error);
+            setPendingMarkedTasks((prev) => {
+                const next = { ...prev };
+                delete next[pendingKey];
+                return next;
+            });
             alert('Server error while updating status');
         }
     };
@@ -216,21 +230,25 @@ const HousekeepingView = () => {
                                         <td>{index + 1}</td>
                                         <td className="room-no">{task.roomNumber}</td>
                                         <td>
-                                            <span className="status-pill dirty">Needs Cleaning</span>
+                                            <span className={`status-pill ${pendingMarkedTasks[String(task._id)] ? 'pending' : 'dirty'}`}>
+                                                {pendingMarkedTasks[String(task._id)] ? 'Pending' : 'Needs Cleaning'}
+                                            </span>
                                         </td>
                                         <td>{new Date(task.createdAt).toLocaleString()}</td>
                                         <td>
                                             <div className="hk-action-buttons">
                                                 <button
-                                                    className={`action-btn pending-btn ${pendingMarkedRooms[String(task.roomNumber)] ? 'is-dimmed' : ''}`}
+                                                    type="button"
+                                                    className={`hk-action-btn pending-btn ${pendingMarkedTasks[String(task._id)] ? 'is-dimmed' : ''}`}
                                                     onClick={() => handleMarkPending(task._id, task.roomNumber)}
                                                     title="Mark as Pending"
-                                                    disabled={!!pendingMarkedRooms[String(task.roomNumber)]}
+                                                    disabled={!!pendingMarkedTasks[String(task._id)]}
                                                 >
-                                                    ⏳ Pending
+                                                    {pendingMarkedTasks[String(task._id)] ? '✅ Pending Marked' : '⏳ Pending'}
                                                 </button>
                                                 <button
-                                                    className="action-btn clean-btn"
+                                                    type="button"
+                                                    className="hk-action-btn clean-btn"
                                                     onClick={() => handleMarkClean(task._id, task.roomNumber)}
                                                     title="Mark as Clean"
                                                 >
@@ -259,7 +277,9 @@ const HousekeepingView = () => {
                             <div key={task._id} className="mobile-list-card">
                                 <div className="mobile-list-card-top">
                                     <div className="mobile-list-room">Room {task.roomNumber}</div>
-                                    <span className="card-status dirty">Needs Cleaning</span>
+                                    <span className={`card-status ${pendingMarkedTasks[String(task._id)] ? 'pending' : 'dirty'}`}>
+                                        {pendingMarkedTasks[String(task._id)] ? 'Pending' : 'Needs Cleaning'}
+                                    </span>
                                 </div>
                                 <div className="mobile-list-meta">
                                     <span>S.No: {index + 1}</span>
@@ -267,14 +287,16 @@ const HousekeepingView = () => {
                                 </div>
                                 <div className="mobile-list-actions">
                                     <button
-                                        className={`card-action-btn pending ${pendingMarkedRooms[String(task.roomNumber)] ? 'is-dimmed' : ''}`}
+                                        type="button"
+                                        className={`hk-card-action-btn pending ${pendingMarkedTasks[String(task._id)] ? 'is-dimmed' : ''}`}
                                         onClick={() => handleMarkPending(task._id, task.roomNumber)}
-                                        disabled={!!pendingMarkedRooms[String(task.roomNumber)]}
+                                        disabled={!!pendingMarkedTasks[String(task._id)]}
                                     >
-                                        ⏳ Pending
+                                        {pendingMarkedTasks[String(task._id)] ? '✅ Pending Marked' : '⏳ Pending'}
                                     </button>
                                     <button
-                                        className="card-action-btn"
+                                        type="button"
+                                        className="hk-card-action-btn"
                                         onClick={() => handleMarkClean(task._id, task.roomNumber)}
                                     >
                                         ✨ Mark Clean
@@ -297,7 +319,9 @@ const HousekeepingView = () => {
                             <div key={task._id} className="grid-card">
                                 <div className="card-header">
                                     <div className="room-badge">Room {task.roomNumber}</div>
-                                    <span className="card-status dirty">Needs Cleaning</span>
+                                    <span className={`card-status ${pendingMarkedTasks[String(task._id)] ? 'pending' : 'dirty'}`}>
+                                        {pendingMarkedTasks[String(task._id)] ? 'Pending' : 'Needs Cleaning'}
+                                    </span>
                                 </div>
                                 <div className="card-body">
                                     <div className="card-info">
@@ -317,14 +341,16 @@ const HousekeepingView = () => {
                                 <div className="card-footer">
                                     <div className="card-actions-row">
                                         <button
-                                            className={`card-action-btn pending ${pendingMarkedRooms[String(task.roomNumber)] ? 'is-dimmed' : ''}`}
+                                            type="button"
+                                            className={`hk-card-action-btn pending ${pendingMarkedTasks[String(task._id)] ? 'is-dimmed' : ''}`}
                                             onClick={() => handleMarkPending(task._id, task.roomNumber)}
-                                            disabled={!!pendingMarkedRooms[String(task.roomNumber)]}
+                                            disabled={!!pendingMarkedTasks[String(task._id)]}
                                         >
-                                            ⏳ Pending
+                                            {pendingMarkedTasks[String(task._id)] ? '✅ Pending Marked' : '⏳ Pending'}
                                         </button>
                                         <button
-                                            className="card-action-btn"
+                                            type="button"
+                                            className="hk-card-action-btn"
                                             onClick={() => handleMarkClean(task._id, task.roomNumber)}
                                         >
                                             ✨ Mark Clean

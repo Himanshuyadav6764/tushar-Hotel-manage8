@@ -48,6 +48,8 @@ router.post('/mark-clean', async (req, res) => {
 
         // 2. Update Task
         task.status = 'completed';
+        task.pendingAcknowledged = false;
+        task.pendingAcknowledgedAt = null;
         await task.save();
 
         res.json({
@@ -95,12 +97,18 @@ router.post('/mark-pending', async (req, res) => {
         // 2. Keep/reopen task as pending for housekeeping queue.
         if (task) {
             task.status = 'pending';
+            task.pendingAcknowledged = true;
+            task.pendingAcknowledgedAt = new Date();
             await task.save();
         }
 
         res.json({
             success: true,
-            message: `Room ${effectiveRoomNumber} marked as pending`
+            message: `Room ${effectiveRoomNumber} marked as pending`,
+            data: {
+                taskId: task ? String(task._id) : null,
+                pendingAcknowledged: true
+            }
         });
     } catch (error) {
         res.status(500).json({

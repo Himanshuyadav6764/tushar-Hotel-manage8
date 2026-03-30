@@ -708,7 +708,7 @@
 
 /* Inside guest profile cards use a fixed 3-col layout so long values don't bleed */
 .guest-profile-card .details-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 @media (max-width: 900px) {
@@ -727,6 +727,11 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    min-width: 0;
+}
+
+.detail-item-full {
+    grid-column: 1 / -1;
 }
 
 .detail-label {
@@ -738,9 +743,12 @@
 }
 
 .detail-value {
+    display: block;
+    max-width: 100%;
     font-size: 0.9rem;
     font-weight: 500;
     color: #111827;
+    white-space: normal;
     word-break: break-word;
     overflow-wrap: anywhere;
 }
@@ -777,6 +785,18 @@
         max-width: 100%;
         max-height: calc(100vh - 20px);
         border-radius: 10px;
+
+@media (max-width: 768px) {
+    .guest-profile-card {
+        padding: 12px;
+        overflow: hidden;
+    }
+
+    .guest-profile-card .details-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+}
     }
 
     .edit-modal-header {

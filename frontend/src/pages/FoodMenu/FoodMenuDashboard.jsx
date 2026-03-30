@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import API_URL, { apiCall } from '../../config/api';
 import { useSettings } from '../../context/SettingsContext';
 
-const DEFAULT_CATEGORIES = ['Starters', 'Main Course', 'Breakfast', 'Rice', 'Desserts', 'Beverages', 'Chinese', 'Continental'];
 const CUSTOM_CATEGORY_STORAGE_KEY = 'foodMenuCustomCategories';
 
 const FoodMenuDashboard = () => {
@@ -19,6 +18,9 @@ const FoodMenuDashboard = () => {
     const [addFormData, setAddFormData] = useState({ itemName: '', price: '', foodCode: '', description: '', category: '', image: '' });
     const [editFormData, setEditFormData] = useState({ itemName: '', price: '', foodCode: '', description: '', category: '', image: '' });
     const [pendingDeleteId, setPendingDeleteId] = useState(null);
+    const [activeCategoryInputMode, setActiveCategoryInputMode] = useState('');
+    const [newCategoryValue, setNewCategoryValue] = useState('');
+    const [categoryInputError, setCategoryInputError] = useState('');
     const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
 
     useEffect(() => {
@@ -30,7 +32,6 @@ const FoodMenuDashboard = () => {
     const categories = [
         'All Categories',
         ...Array.from(new Set([
-            ...DEFAULT_CATEGORIES,
             ...customCategories,
             ...menuItems.map(item => (item.category || '').trim()).filter(Boolean)
         ]))
@@ -83,14 +84,23 @@ const FoodMenuDashboard = () => {
             .join(' ');
     };
 
-    const handleAddCategory = (mode = 'add') => {
-        const rawValue = window.prompt('Enter new category name');
-        if (rawValue === null) return;
+    const openCategoryInput = (mode = 'add') => {
+        setActiveCategoryInputMode(mode);
+        setNewCategoryValue('');
+        setCategoryInputError('');
+    };
 
-        const formattedCategory = formatCategoryName(rawValue);
+    const closeCategoryInput = () => {
+        setActiveCategoryInputMode('');
+        setNewCategoryValue('');
+        setCategoryInputError('');
+    };
+
+    const handleInlineCategoryAdd = () => {
+        const formattedCategory = formatCategoryName(newCategoryValue);
 
         if (!formattedCategory) {
-            alert('Please enter category name.');
+            setCategoryInputError('Please enter category name.');
             return;
         }
 
@@ -107,12 +117,13 @@ const FoodMenuDashboard = () => {
             });
         }
 
-        if (mode === 'add') {
+        if (activeCategoryInputMode === 'add') {
             setAddFormData(prev => ({ ...prev, category: finalCategory }));
-            return;
+        } else if (activeCategoryInputMode === 'edit') {
+            setEditFormData(prev => ({ ...prev, category: finalCategory }));
         }
 
-        setEditFormData(prev => ({ ...prev, category: finalCategory }));
+        closeCategoryInput();
     };
 
     const normalizeImageUrl = (value) => {
@@ -214,6 +225,7 @@ const FoodMenuDashboard = () => {
                 // Add new item to the TOP of the list
                 setMenuItems([data.data, ...menuItems]);
                 setShowAddForm(false);
+                closeCategoryInput();
                 setAddFormData({ itemName: '', price: '', foodCode: '', description: '', category: '', image: '' });
             } else {
                 alert(data.message || 'Failed to add item. Check if "Food Code" is unique.');
@@ -234,6 +246,7 @@ const FoodMenuDashboard = () => {
             category: item.category,
             image: item.image || ''
         });
+        closeCategoryInput();
         setShowEditModal(true);
     };
 
@@ -261,6 +274,7 @@ const FoodMenuDashboard = () => {
                     item._id === editingItem._id ? data.data : item
                 ));
                 setShowEditModal(false);
+                closeCategoryInput();
                 setEditingItem(null);
             }
         } catch (error) {
@@ -320,7 +334,10 @@ const FoodMenuDashboard = () => {
             }}>
                 <h2 style={{ margin: 0 }}>🍽️ Food Menu Management</h2>
                 <button
-                    onClick={() => setShowAddForm(!showAddForm)}
+                    onClick={() => {
+                        if (showAddForm) closeCategoryInput();
+                        setShowAddForm(!showAddForm);
+                    }}
                     style={{
                         backgroundColor: '#ef4444',
                         color: 'white',
@@ -338,13 +355,18 @@ const FoodMenuDashboard = () => {
             {showAddForm && (
                 <form onSubmit={handleAddItem} style={{
                     backgroundColor: 'white',
-                    padding: '20px',
+                    padding: isMobile ? '14px' : '20px',
                     borderRadius: '12px',
                     marginBottom: '20px',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '15px' }}>
-                        <div>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, minmax(0, 1fr))',
+                        columnGap: '15px',
+                        rowGap: '15px'
+                    }}>
+                        <div style={{ minWidth: 0 }}>
                             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 600 }}>Item ID</label>
                             <input name="foodCode" value={addFormData.foodCode} onChange={e => setAddFormData({ ...addFormData, foodCode: e.target.value })} placeholder="Optional" style={{
                                 width: '100%',
@@ -353,7 +375,7 @@ const FoodMenuDashboard = () => {
                                 borderRadius: '6px'
                             }} />
                         </div>
-                        <div>
+                        <div style={{ minWidth: 0 }}>
                             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 600 }}>Item Name *</label>
                             <input name="itemName" value={addFormData.itemName} onChange={e => setAddFormData({ ...addFormData, itemName: e.target.value.replace(/[^A-Za-z\s]/g, '') })} required style={{
                                 width: '100%',
@@ -362,7 +384,7 @@ const FoodMenuDashboard = () => {
                                 borderRadius: '6px'
                             }} />
                         </div>
-                        <div>
+                        <div style={{ minWidth: 0 }}>
                             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 600 }}>Category *</label>
                             <div style={{ position: 'relative' }}>
                                 <select name="category" value={addFormData.category} onChange={e => setAddFormData({ ...addFormData, category: e.target.value })} required style={{
@@ -378,11 +400,11 @@ const FoodMenuDashboard = () => {
                                 </select>
                                 <button
                                     type="button"
-                                    onClick={() => handleAddCategory('add')}
+                                    onClick={() => openCategoryInput('add')}
                                     title="Add category"
                                     style={{
                                         position: 'absolute',
-                                        right: '26px',
+                                        right: '10px',
                                         top: '50%',
                                         transform: 'translateY(-50%)',
                                         width: '20px',
@@ -404,8 +426,70 @@ const FoodMenuDashboard = () => {
                                     Selected: {getCategoryWithIcon(addFormData.category)}
                                 </div>
                             )}
+                            {activeCategoryInputMode === 'add' && (
+                                <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <input
+                                        type="text"
+                                        value={newCategoryValue}
+                                        onChange={(e) => {
+                                            setNewCategoryValue(e.target.value);
+                                            if (categoryInputError) setCategoryInputError('');
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleInlineCategoryAdd();
+                                            }
+                                        }}
+                                        placeholder="Type new category"
+                                        style={{
+                                            width: '100%',
+                                            padding: '9px 10px',
+                                            border: '1px solid #e5e7eb',
+                                            borderRadius: '6px'
+                                        }}
+                                    />
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={handleInlineCategoryAdd}
+                                            style={{
+                                                backgroundColor: '#ef4444',
+                                                color: 'white',
+                                                border: 'none',
+                                                padding: '8px 12px',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontWeight: 600
+                                            }}
+                                        >
+                                            Add
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={closeCategoryInput}
+                                            style={{
+                                                backgroundColor: '#f8fafc',
+                                                color: '#334155',
+                                                border: '1px solid #e2e8f0',
+                                                padding: '8px 12px',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontWeight: 600
+                                            }}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                    {categoryInputError && (
+                                        <div style={{ color: '#dc2626', fontSize: '12px', fontWeight: 600 }}>
+                                            {categoryInputError}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
-                        <div>
+                        <div style={{ minWidth: 0 }}>
                             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 600 }}>Price ({cs}) *</label>
                             <input name="price" type="number" value={addFormData.price} onChange={e => {
                                 const val = e.target.value;
@@ -747,7 +831,10 @@ const FoodMenuDashboard = () => {
 
             {/* Edit Modal - Slide Drawer */}
             {showEditModal && editingItem && (
-                <div onClick={() => setShowEditModal(false)} style={{
+                <div onClick={() => {
+                    closeCategoryInput();
+                    setShowEditModal(false);
+                }} style={{
                     position: 'fixed',
                     top: 0,
                     left: 0,
@@ -816,7 +903,10 @@ const FoodMenuDashboard = () => {
                                 <span style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase' }}>Food Menu Management</span>
                             </div>
                             <button
-                                onClick={() => setShowEditModal(false)}
+                                onClick={() => {
+                                    closeCategoryInput();
+                                    setShowEditModal(false);
+                                }}
                                 style={{
                                     marginLeft: 'auto',
                                     backgroundColor: 'rgba(0, 0, 0, 0.1)',
@@ -942,7 +1032,7 @@ const FoodMenuDashboard = () => {
                                         </select>
                                         <button
                                             type="button"
-                                            onClick={() => handleAddCategory('edit')}
+                                            onClick={() => openCategoryInput('edit')}
                                             title="Add category"
                                             style={{
                                                 position: 'absolute',
@@ -967,6 +1057,73 @@ const FoodMenuDashboard = () => {
                                     {editFormData.category && (
                                         <div style={{ marginTop: '6px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
                                             Selected: {getCategoryWithIcon(editFormData.category)}
+                                        </div>
+                                    )}
+                                    {activeCategoryInputMode === 'edit' && (
+                                        <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <input
+                                                type="text"
+                                                value={newCategoryValue}
+                                                onChange={(e) => {
+                                                    setNewCategoryValue(e.target.value);
+                                                    if (categoryInputError) setCategoryInputError('');
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        handleInlineCategoryAdd();
+                                                    }
+                                                }}
+                                                placeholder="Type new category"
+                                                style={{
+                                                    width: '100%',
+                                                    boxSizing: 'border-box',
+                                                    padding: '10px 14px',
+                                                    border: '2px solid #f1f5f9',
+                                                    borderRadius: '10px',
+                                                    fontSize: '13px',
+                                                    fontWeight: 600
+                                                }}
+                                            />
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleInlineCategoryAdd}
+                                                    style={{
+                                                        backgroundColor: '#e11d48',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        padding: '8px 12px',
+                                                        borderRadius: '8px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 700,
+                                                        fontSize: '12px'
+                                                    }}
+                                                >
+                                                    Add
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={closeCategoryInput}
+                                                    style={{
+                                                        backgroundColor: '#ffffff',
+                                                        color: '#475569',
+                                                        border: '1px solid #cbd5e1',
+                                                        padding: '8px 12px',
+                                                        borderRadius: '8px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 700,
+                                                        fontSize: '12px'
+                                                    }}
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                            {categoryInputError && (
+                                                <div style={{ color: '#dc2626', fontSize: '12px', fontWeight: 700 }}>
+                                                    {categoryInputError}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -1082,7 +1239,10 @@ const FoodMenuDashboard = () => {
                             }}>
                                 <button
                                     type="button"
-                                    onClick={() => setShowEditModal(false)}
+                                    onClick={() => {
+                                        closeCategoryInput();
+                                        setShowEditModal(false);
+                                    }}
                                     style={{
                                         flex: 1,
                                         height: '48px',

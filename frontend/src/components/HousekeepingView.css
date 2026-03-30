@@ -298,6 +298,12 @@
     border: 1px solid #fecaca;
 }
 
+.status-pill.pending {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    color: #b45309;
+    border: 1px solid #fcd34d;
+}
+
 /* Action Buttons */
 .action-buttons {
     display: flex;
@@ -310,7 +316,7 @@
     align-items: center;
 }
 
-.action-btn {
+.hk-action-btn {
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -325,7 +331,7 @@
     font-size: 0.9rem;
 }
 
-.action-btn.pending-btn {
+.hk-action-btn.pending-btn {
     width: auto;
     min-width: 118px;
     height: 36px;
@@ -337,14 +343,14 @@
     padding: 0 12px;
 }
 
-.action-btn.pending-btn:hover {
+.hk-action-btn.pending-btn:hover {
     background: #ffedd5;
     border-color: #d97706;
     color: #92400e;
 }
 
-.action-btn.pending-btn.is-dimmed,
-.action-btn.pending-btn:disabled {
+.hk-action-btn.pending-btn.is-dimmed,
+.hk-action-btn.pending-btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
     filter: grayscale(0.15);
@@ -357,19 +363,19 @@
     width: 100%;
 }
 
-.card-action-btn.pending {
+.hk-card-action-btn.pending {
     background: #fff7ed;
     color: #b45309;
     border: 1px solid #f59e0b;
 }
 
-.card-action-btn.pending:hover {
+.hk-card-action-btn.pending:hover {
     background: #ffedd5;
     color: #92400e;
 }
 
-.card-action-btn.pending.is-dimmed,
-.card-action-btn.pending:disabled {
+.hk-card-action-btn.pending.is-dimmed,
+.hk-card-action-btn.pending:disabled {
     opacity: 0.45;
     cursor: not-allowed;
     filter: grayscale(0.15);
@@ -458,6 +464,12 @@
     border: 1px solid #fecaca;
 }
 
+.card-status.pending {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    color: #b45309;
+    border: 1px solid #fcd34d;
+}
+
 .card-body {
     display: flex;
     flex-direction: column;
@@ -487,7 +499,7 @@
     padding-top: 0.5rem;
 }
 
-.card-action-btn {
+.hk-card-action-btn {
     width: 100%;
     padding: 0.75rem 1.25rem;
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -505,10 +517,19 @@
     box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
 }
 
-.card-action-btn:hover {
+.hk-card-action-btn:hover {
     background: linear-gradient(135deg, #059669 0%, #047857 100%);
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+/* Keep housekeeping action buttons clickable even if generic styles exist elsewhere. */
+.hk-action-buttons,
+.hk-action-btn,
+.hk-card-action-btn {
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 2;
 }
 
 .grid-loading,
@@ -1080,7 +1101,7 @@
         gap: 0.45rem;
     }
 
-    .action-btn.pending-btn,
+    .hk-action-btn.pending-btn,
     .clean-btn {
         min-height: 32px;
         font-size: 0.68rem !important;
@@ -1127,7 +1148,7 @@
         font-size: 1rem;
     }
 
-    .card-action-btn {
+    .hk-card-action-btn {
         font-size: 0.78rem;
         padding: 0.62rem 0.85rem;
     }

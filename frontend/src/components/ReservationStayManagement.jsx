@@ -344,9 +344,9 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                                 guestPhone: reservation.phone,
                                 additionalGuests: reservation.additionalGuests || [],
                                 checkInDate: reservation.checkInDate ? (d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)(new Date(reservation.checkInDate)) : '',
-                                checkInTime: '14:00',
+                                checkInTime: reservation.checkInTime || getCurrentTime24(),
                                 checkOutDate: reservation.checkOutDate ? (d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)(new Date(reservation.checkOutDate)) : '',
-                                checkOutTime: '11:00',
+                                checkOutTime: reservation.checkOutTime || getCurrentTime24(),
                                 flexibleCheckout: false,
                                 roomNumber: reservation.roomNumber,
                                 roomType: reservation.roomType,
@@ -713,9 +713,9 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
 
     // Form State - Stay Details (with pre-fill support)
     const [checkInDate, setCheckInDate] = useState(prefilledData?.checkInDate || '');
-    const [checkInTime, setCheckInTime] = useState(prefilledData?.checkInTime || '14:00');
+    const [checkInTime, setCheckInTime] = useState(prefilledData?.checkInTime || getCurrentTime24());
     const [checkOutDate, setCheckOutDate] = useState(prefilledData?.checkOutDate || '');
-    const [checkOutTime, setCheckOutTime] = useState(prefilledData?.checkOutTime || '11:00');
+    const [checkOutTime, setCheckOutTime] = useState(prefilledData?.checkOutTime || getCurrentTime24());
     const [flexibleCheckout, setFlexibleCheckout] = useState(false);
 
     // Form State - Room Details (with pre-fill support)
@@ -1272,9 +1272,9 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             roomNumber: sourceReservation.rooms?.[0]?.roomNumber || '',
             roomType: sourceReservation.rooms?.[0]?.categoryId?.replace(/-/g, ' ').toUpperCase() || '',
             checkInDate: sourceReservation.checkInDate,
-            checkInTime: sourceReservation.checkInTime || '14:00',
+            checkInTime: sourceReservation.checkInTime || getCurrentTime24(),
             checkOutDate: sourceReservation.checkOutDate,
-            checkOutTime: sourceReservation.checkOutTime || '11:00',
+            checkOutTime: sourceReservation.checkOutTime || getCurrentTime24(),
             numberOfNights: sourceReservation.nights,
             numberOfAdults: sourceReservation.rooms?.[0]?.adultsCount || 1,
             numberOfChildren: sourceReservation.rooms?.[0]?.childrenCount || 0,
@@ -1601,9 +1601,9 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         setArrivalFrom('');
         setPurposeOfVisit('');
         setCheckInDate('');
-        setCheckInTime('14:00');
+        setCheckInTime(getCurrentTime24());
         setCheckOutDate('');
-        setCheckOutTime('11:00');
+        setCheckOutTime(getCurrentTime24());
         setFlexibleCheckout(false);
         setRooms([{ id: 1, categoryId: '', roomNumber: '', mealPlan: '', adultsCount: '', childrenCount: '', baseRate: 0, ratePerNight: 0, discount: 0 }]);
         setSelectedGuests([]);
@@ -1625,7 +1625,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         setPrefilledData(null);
         setErrors({});
         setIsSavingReservation(false);
-    }, []);
+    }, [getCurrentTime24]);
 
     // Handle Save Reservation
     const handleSaveReservation = async (e, status = 'RESERVED') => {
@@ -2384,11 +2384,6 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                                     {isSavingReservation ? 'Saving...' : (isEditingMode ? 'Update Reservation' : 'Create Reservation')}
                                 </button>
                             </div>
-                            {!hasPositiveAdvancePayment && (
-                                <div className="error-alert" role="alert" style={{ marginTop: '10px' }}>
-                                    Advance / Paid Amount must be a positive value. Check-In and Create Reservation stay disabled until payment is entered.
-                                </div>
-                            )}
                         </div>
 
                         {/* Guest Booking History Section - Premium Design */}

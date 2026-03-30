@@ -15,6 +15,14 @@ const housekeepingTaskSchema = new mongoose.Schema({
         enum: ["pending", "completed"],
         default: "pending"
     },
+    pendingAcknowledged: {
+        type: Boolean,
+        default: false
+    },
+    pendingAcknowledgedAt: {
+        type: Date,
+        default: null
+    },
     createdAt: {
         type: Date,
         default: Date.now
