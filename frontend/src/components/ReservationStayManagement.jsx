@@ -52,6 +52,9 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         return false;
     };
     const API_URL = `${API_URL_CONFIG}/api/bookings`;
+    const bookingApiCall = useCallback((path, options = {}) => {
+        return apiCall(`${API_URL}${path}`, options);
+    }, [API_URL]);
     const [view, setView] = useState(viewMode); // 'dashboard', 'form', 'housekeeping', or 'roomservice'
     const [prefilledData, setPrefilledData] = useState(null);
 
@@ -301,7 +304,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
 
             // Fetch from both endpoints
             const [bookingsResponse, reservationsResponse] = await Promise.all([
-                apiCall(`/list`).catch(() => ({ ok: false })),
+                bookingApiCall(`/list`).catch(() => ({ ok: false })),
                 apiCall(`/api/reservations/list`).catch(() => ({ ok: false }))
             ]);
 
@@ -1076,6 +1079,11 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         };
     }, [rooms, nights, paidAmount, paymentMode, taxExempt, manualDiscountType, manualDiscountValue, settings.roomGst, settings.roomGstSlabs, settings.roomServiceCharge, settings.inclusiveTax]);
 
+    const parsedAdvancePaid = Number(paidAmount);
+    const hasPositiveAdvancePayment = Number.isFinite(parsedAdvancePaid) && parsedAdvancePaid > 0;
+    const isCreateReservationBlocked = !isEditingMode && !hasPositiveAdvancePayment;
+    const isCheckInBlocked = !hasPositiveAdvancePayment;
+
     // Handle View Invoice
     const handleViewInvoice = useCallback((invoiceId) => {
         const invoice = invoices.find(inv => inv.invoiceId === invoiceId);
@@ -1094,7 +1102,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         let sourceReservation = targetReservation;
         try {
             if (bookingId) {
-                const latestResp = await apiCall(`/${bookingId}`);
+                const latestResp = await bookingApiCall(`/${bookingId}`);
                 const latestJson = await latestResp.json();
                 if (latestResp.ok && latestJson?.success && latestJson?.data) {
                     sourceReservation = { ...targetReservation, ...latestJson.data };
@@ -1448,7 +1456,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
 
             // Persist status change to Database
             try {
-                const response = await apiCall(`/status/${reservation.id}`, {
+                const response = await bookingApiCall(`/status/${reservation.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1525,7 +1533,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     });
 
                     if (!response.ok) {
-                        response = await apiCall(`/check-in/${reservationId}`, {
+                        response = await bookingApiCall(`/check-in/${reservationId}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(checkInPayload)
@@ -1533,7 +1541,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     }
 
                     if (!response.ok) {
-                        response = await apiCall(`/status/${reservationId}`, {
+                        response = await bookingApiCall(`/status/${reservationId}`, {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ status: 'Checked-in' })
@@ -1563,7 +1571,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     newStatus === 'CHECKED_OUT' ? 'Checked-out' :
                         'Upcoming';
 
-            const response = await apiCall(`/status/${reservationId}`, {
+            const response = await bookingApiCall(`/status/${reservationId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: bookingStatus })
@@ -1638,6 +1646,12 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
 
         if (checkOutDate <= checkInDate) {
             alert('Check-out date must be after check-in date');
+            return;
+        }
+
+        const needsAdvanceForAction = status === 'IN_HOUSE' || (!isEditingMode && status === 'RESERVED');
+        if (needsAdvanceForAction && !hasPositiveAdvancePayment) {
+            alert('Please enter a positive Advance / Paid Amount before Check-in or Create Reservation.');
             return;
         }
 
@@ -1801,7 +1815,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             setIsSavingReservation(true);
             if (isEditingMode) {
                 // Update existing booking
-                const response = await apiCall(`/update/${editingReservationId}`, {
+                const response = await bookingApiCall(`/update/${editingReservationId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(bookingData)
@@ -1823,7 +1837,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                 }
             } else {
                 // Create new booking
-                const response = await apiCall(`/add`, {
+                const response = await bookingApiCall(`/add`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(bookingData)
@@ -1841,7 +1855,12 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     }, 1500);
                 } else {
                     console.error('Server returned error:', data);
-                    setErrors({ submit: `Error creating reservation: ${data.message || 'Unknown error'}` });
+                    const backendMessage = data?.message
+                        || data?.error
+                        || (Array.isArray(data?.errors) && data.errors[0]?.msg)
+                        || (response?.status ? `Request failed with status ${response.status}` : '')
+                        || 'Unknown error';
+                    setErrors({ submit: `Error creating reservation: ${backendMessage}` });
                     return;
                 }
             }
@@ -1913,7 +1932,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         // Removed confirm pop section
 
         try {
-            const response = await apiCall(`/delete/${reservationId}`, {
+            const response = await bookingApiCall(`/delete/${reservationId}`, {
                 method: 'DELETE'
             });
 
@@ -2352,7 +2371,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                                     className="btn btn-primary"
                                     style={{ backgroundColor: '#28a745', borderColor: '#28a745', marginRight: '1rem' }}
                                     onClick={(e) => handleSaveReservation(e, 'IN_HOUSE')}
-                                    disabled={isSavingReservation}
+                                    disabled={isSavingReservation || isCheckInBlocked}
                                 >
                                     {isSavingReservation ? 'Processing...' : '✓ Check-In'}
                                 </button>
@@ -2360,11 +2379,16 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                                     type="button"
                                     className="btn btn-primary"
                                     onClick={(e) => handleSaveReservation(e, 'RESERVED')}
-                                    disabled={isSavingReservation}
+                                    disabled={isSavingReservation || isCreateReservationBlocked}
                                 >
                                     {isSavingReservation ? 'Saving...' : (isEditingMode ? 'Update Reservation' : 'Create Reservation')}
                                 </button>
                             </div>
+                            {!hasPositiveAdvancePayment && (
+                                <div className="error-alert" role="alert" style={{ marginTop: '10px' }}>
+                                    Advance / Paid Amount must be a positive value. Check-In and Create Reservation stay disabled until payment is entered.
+                                </div>
+                            )}
                         </div>
 
                         {/* Guest Booking History Section - Premium Design */}

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import Drawer from '../Drawer';
 import Toast from '../Toast';
-import { User, X, Calendar, Clock } from 'lucide-react';
+import { User } from 'lucide-react';
 import { addVisitor } from '../../services/visitorService';
 import { sanitizeIdProofInput, validateIdProofNumber } from '../../utils/idProofValidation';
+import './AddVisitorDrawer.css';
 
 const AddVisitorDrawer = ({ isOpen, onClose, reservationId, booking, onVisitorAdded }) => {
     const [formData, setFormData] = useState({
@@ -95,27 +96,6 @@ const AddVisitorDrawer = ({ isOpen, onClose, reservationId, booking, onVisitorAd
         }
     };
 
-    // Helper for input styles to match Image 2
-    const inputStyle = {
-        width: '100%',
-        padding: '12px 16px',
-        borderRadius: '8px',
-        border: '1px solid #E5E7EB', // Gray-200
-        backgroundColor: '#F9FAFB',  // Gray-50
-        fontSize: '14px',
-        color: '#1F2937',           // Gray-800
-        outline: 'none',
-        transition: 'border-color 0.2s'
-    };
-
-    const labelStyle = {
-        display: 'block',
-        fontSize: '14px',
-        fontWeight: '600',
-        color: '#374151',           // Gray-700
-        marginBottom: '6px'
-    };
-
     return (
         <>
             <Drawer
@@ -127,168 +107,116 @@ const AddVisitorDrawer = ({ isOpen, onClose, reservationId, booking, onVisitorAd
                         <span>Add Visitor</span>
                     </div>
                 }
-                width="400px" // Adjust width if needed
+                subtitle="PROCESS REQUEST"
+                icon="⚙"
+                height="premium"
             >
-                <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-
-                    <form onSubmit={handleSubmit} style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-                        {/* Visitor Name */}
-                        <div>
-                            <label style={labelStyle}>Visitor Name:</label>
-                            <input
-                                type="text"
-                                name="name"
-                                value={formData.name}
-                                onChange={handleChange}
-                                placeholder="Enter visitor's name"
-                                style={inputStyle}
-                            />
-                        </div>
-
-                        {/* Mobile Number */}
-                        <div>
-                            <label style={labelStyle}>Mobile Number</label>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <div style={{
-                                    ...inputStyle,
-                                    width: 'auto',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    fontWeight: '600',
-                                    padding: '12px'
-                                }}>
-                                    +91
-                                    <span style={{ fontSize: '10px', color: '#6B7280' }}>▼</span>
-                                </div>
+                <div className="add-visitor-shell">
+                    <form onSubmit={handleSubmit} className="add-visitor-form">
+                        <div className="add-visitor-card">
+                            <div className="visitor-field-group">
+                                <label className="visitor-label">Visitor Name:</label>
                                 <input
-                                    type="tel"
-                                    name="mobile"
-                                    value={formData.mobile}
+                                    type="text"
+                                    name="name"
+                                    value={formData.name}
                                     onChange={handleChange}
-                                    placeholder="Enter mobile number"
-                                    maxLength="10"
-                                    style={{ ...inputStyle, flex: 1 }}
+                                    placeholder="Enter visitor's name"
+                                    className="visitor-input"
                                 />
                             </div>
-                        </div>
 
-                        {/* ID Type */}
-                        <div>
-                            <label style={labelStyle}>ID Type:</label>
-                            <div style={{ position: 'relative' }}>
-                                <select
-                                    name="idType"
-                                    value={formData.idType}
-                                    onChange={handleChange}
-                                    style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}
-                                >
-                                    <option value="Aadhaar">Aadhaar Card</option>
-                                    <option value="Passport">Passport</option>
-                                    <option value="Driving License">Driving License</option>
-                                    <option value="Voter ID">Voter ID</option>
-                                    <option value="PAN Card">PAN Card</option>
-                                </select>
-                                <span style={{
-                                    position: 'absolute',
-                                    right: '16px',
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    color: '#9CA3AF',
-                                    pointerEvents: 'none'
-                                }}>›</span>
+                            <div className="visitor-field-group">
+                                <label className="visitor-label">Mobile Number</label>
+                                <div className="visitor-mobile-row">
+                                    <div className="visitor-country-code">
+                                        +91
+                                        <span className="visitor-country-arrow">▼</span>
+                                    </div>
+                                    <input
+                                        type="tel"
+                                        name="mobile"
+                                        value={formData.mobile}
+                                        onChange={handleChange}
+                                        placeholder="Enter mobile number"
+                                        maxLength="10"
+                                        className="visitor-input"
+                                    />
+                                </div>
                             </div>
-                        </div>
 
-                        {/* ID Number */}
-                        <div>
-                            <label style={labelStyle}>ID Number:</label>
-                            <input
-                                type="text"
-                                name="idNumber"
-                                value={formData.idNumber}
-                                onChange={handleChange}
-                                placeholder="Enter ID number"
-                                style={inputStyle}
-                            />
-                        </div>
+                            <div className="visitor-field-group">
+                                <label className="visitor-label">ID Type:</label>
+                                <div className="visitor-select-wrap">
+                                    <select
+                                        name="idType"
+                                        value={formData.idType}
+                                        onChange={handleChange}
+                                        className="visitor-input visitor-select"
+                                    >
+                                        <option value="Aadhaar">Aadhaar Card</option>
+                                        <option value="Passport">Passport</option>
+                                        <option value="Driving License">Driving License</option>
+                                        <option value="Voter ID">Voter ID</option>
+                                        <option value="PAN Card">PAN Card</option>
+                                    </select>
+                                    <span className="visitor-select-arrow">›</span>
+                                </div>
+                            </div>
 
-                        {/* In Time */}
-                        <div>
-                            <label style={labelStyle}>In Time:</label>
-                            <div style={{ position: 'relative' }}>
+                            <div className="visitor-field-group">
+                                <label className="visitor-label">ID Number:</label>
+                                <input
+                                    type="text"
+                                    name="idNumber"
+                                    value={formData.idNumber}
+                                    onChange={handleChange}
+                                    placeholder="Enter ID number"
+                                    className="visitor-input"
+                                />
+                            </div>
+
+                            <div className="visitor-field-group">
+                                <label className="visitor-label">In Time:</label>
                                 <input
                                     type="datetime-local"
                                     name="inTime"
                                     value={formData.inTime}
                                     onChange={handleChange}
-                                    style={{ ...inputStyle, paddingRight: '10px' }}
+                                    className="visitor-input"
                                 />
-                                {/* Optional: Custom calendar icon could be absolutely positioned if input type wasn't sufficient */}
                             </div>
-                        </div>
 
-                        {/* Out Time */}
-                        <div>
-                            <label style={labelStyle}>Out Time:</label>
-                            <div style={{ position: 'relative' }}>
+                            <div className="visitor-field-group">
+                                <label className="visitor-label">Out Time:</label>
                                 <input
                                     type="datetime-local"
                                     name="outTime"
                                     value={formData.outTime}
                                     onChange={handleChange}
-                                    style={{ ...inputStyle, paddingRight: '10px' }}
+                                    className="visitor-input"
                                 />
                             </div>
                         </div>
 
-                        {/* Footer Info */}
-                        <div style={{
-                            marginTop: 'auto',
-                            paddingTop: '20px',
-                            fontSize: '12px',
-                            color: '#6B7280',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            borderTop: '1px solid #F3F4F6'
-                        }}>
-                            <span>Reservation ID: {reservationId?.substring(0, 16)}...</span>
+                        <div className="visitor-footer-note">
+                            <span className="visitor-note-id">Reservation ID: {reservationId?.substring(0, 16)}...</span>
                             <span>Room Num: <b>{booking?.roomNumber || 'N/A'}</b></span>
                         </div>
 
-                        {/* Actions */}
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                        <div className="visitor-actions">
                             <button
                                 type="button"
                                 onClick={onClose}
                                 disabled={loading}
-                                style={{
-                                    flex: 1,
-                                    padding: '12px',
-                                    borderRadius: '8px',
-                                    border: '1px solid #E5E7EB',
-                                    backgroundColor: '#FFFFFF',
-                                    color: '#374151',
-                                    fontWeight: '600',
-                                    cursor: 'pointer'
-                                }}
+                                className="visitor-btn visitor-btn-cancel"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 disabled={loading}
-                                style={{
-                                    flex: 1,
-                                    padding: '12px',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    backgroundColor: '#E31E24', // Red-600
-                                    color: '#FFFFFF',
-                                    fontWeight: '600',
-                                    cursor: 'pointer'
-                                }}
+                                className="visitor-btn visitor-btn-save"
                             >
                                 {loading ? 'Saving...' : 'Save Visitor'}
                             </button>

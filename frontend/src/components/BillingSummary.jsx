@@ -315,13 +315,29 @@ const BillingSummary = ({
                                     className="premium-input-v2"
                                     value={paidAmount}
                                     onChange={(e) => {
-                                        const value = parseFloat(e.target.value) || 0;
+                                        const rawValue = e.target.value;
+                                        if (rawValue === '') {
+                                            onPaidAmountChange('');
+                                            return;
+                                        }
+
+                                        const value = Number(rawValue);
+                                        if (!Number.isFinite(value)) return;
+
+                                        if (value <= 0) {
+                                            onPaidAmountChange('');
+                                            return;
+                                        }
+
                                         if (value > totalAmount) {
                                             onPaidAmountChange(totalAmount);
-                                        } else {
-                                            onPaidAmountChange(e.target.value);
+                                            return;
                                         }
+
+                                        onPaidAmountChange(rawValue);
                                     }}
+                                    min="0.01"
+                                    step="0.01"
                                     placeholder="0"
                                 />
                             </div>
