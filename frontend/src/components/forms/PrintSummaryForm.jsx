@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import '../AddPayment.css';
 import { useSettings } from '../../context/SettingsContext';
 import { calculateRoomTaxBySlab } from '../../utils/roomTax';
+import { calculateReservationBillingSummary } from '../../utils/reservationBilling';
 
 const PrintSummaryForm = ({ booking, onSubmit, onCancel }) => {
     const { settings, getCurrencySymbol, getFullAddress } = useSettings();
@@ -47,6 +48,7 @@ const PrintSummaryForm = ({ booking, onSubmit, onCancel }) => {
     };
 
     const b = booking || {};
+    const cardSummary = calculateReservationBillingSummary(b, settings);
     const billing = b.billing || {};
     const nights = toNum(b.numberOfNights ?? b.nights, 1);
     const roomCount = Math.max(1, Array.isArray(b.rooms) && b.rooms.length > 0 ? b.rooms.length : toNum(b.numberOfRooms, 1));
@@ -106,7 +108,7 @@ const PrintSummaryForm = ({ booking, onSubmit, onCancel }) => {
     const derivedDiscountFromTotal = storedTotal !== undefined ? Math.max(0, grossBeforeDiscount - Number(storedTotal || 0)) : 0;
     const effectiveDiscount = discount > 0 ? discount : derivedDiscountFromTotal;
     const subtotal = Math.max(roomCharges + serviceCharge - effectiveDiscount, 0);
-    const totalAmount = Math.max(0, roomCharges + serviceCharge + tax - effectiveDiscount);
+    const totalAmount = Math.max(0, cardSummary.grandTotal);
 
     return (
         <div className="add-payment-form-premium" style={{ height: '100%', width: '100%', boxSizing: 'border-box' }}>
@@ -159,26 +161,36 @@ const PrintSummaryForm = ({ booking, onSubmit, onCancel }) => {
                         <div className="summary-column">
                             <div className="summary-item">
                                 <label>ROOM CHARGES</label>
-                                <span>{cs}{roomCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    <span>{cs}{cardSummary.roomCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
+                                {cardSummary.totalFolioCharges > 0 && (
+                                    <div className="summary-item">
+                                        <label>EXTRA CHARGES</label>
+                                        <span>{cs}{cardSummary.totalFolioCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                )}
                             <div className="summary-item">
-                                <label>SERVICE CHARGES</label>
-                                <span>{cs}{serviceCharge.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    <label>TOTAL PAID</label>
+                                    <span style={{ color: '#059669' }}>{cs}{cardSummary.totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                         </div>
                         <div className="summary-column">
-                            <div className="summary-item">
-                                <label>DISCOUNT APPLIED</label>
-                                <span style={{ color: '#059669' }}>-{cs}{effectiveDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                            <div className="summary-item">
-                                <label>SUBTOTAL</label>
-                                <span>{cs}{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                            <div className="summary-item">
-                                <label>{taxEnabled ? `TAX (${taxPct.toFixed(1)}%)` : 'TAX (disabled)'}</label>
-                                <span>{cs}{tax.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
+                                {cardSummary.totalDiscounts > 0 && (
+                                    <div className="summary-item">
+                                        <label>DISCOUNT APPLIED</label>
+                                        <span style={{ color: '#059669' }}>-{cs}{cardSummary.totalDiscounts.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                )}
+                                <div className="summary-item">
+                                    <label>GRAND TOTAL</label>
+                                    <span>{cs}{cardSummary.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="summary-item">
+                                    <label>BALANCE DUE</label>
+                                    <span style={{ color: cardSummary.balance > 0 ? '#e11d48' : '#059669' }}>
+                                        {cs}{cardSummary.balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                </div>
                         </div>
                     </div>
                 </div>
