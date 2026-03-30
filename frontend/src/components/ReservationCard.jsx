@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import StatusBadge from './StatusBadge';
 import { useSettings } from '../context/SettingsContext';
+import { calculateReservationBillingSummary } from '../utils/reservationBilling';
 
 const ReservationCard = ({ reservation, onUpdateStatus, onEdit, onGenerateInvoice = () => { }, onSelect, isSelected, onActionSelect }) => {
     const { getCurrencySymbol, settings } = useSettings();
@@ -44,110 +45,12 @@ const ReservationCard = ({ reservation, onUpdateStatus, onEdit, onGenerateInvoic
 
     // Enhanced Billing Calculation for both Single and Multi-Room
     const billingSummary = React.useMemo(() => {
-        const transactions = reservation.transactions || [];
-        const toNum = (value, fallback = 0) => {
-            const parsed = Number(value);
-            return Number.isFinite(parsed) ? parsed : fallback;
-        };
-
-        const nights = Math.max(1, toNum(reservation?.duration?.nights ?? reservation?.nights, 1));
-        const baseRoomGross = toNum(
-            reservation?.roomCharges
-            ?? reservation?.billing?.roomCharges
-            ?? reservation?.billing?.roomChargesAmount,
-            toNum(reservation?.pricePerNight ?? reservation?.billing?.roomRate ?? reservation?.rooms?.[0]?.ratePerNight, 0) * nights
-        );
-
-        const roomTax = toNum(
-            reservation?.tax
-            ?? reservation?.taxAmount
-            ?? reservation?.billing?.tax
-            ?? reservation?.billing?.taxAmount,
-            0
-        );
-
-        const roomService = toNum(
-            reservation?.serviceCharge
-            ?? reservation?.serviceChargeAmount
-            ?? reservation?.billing?.serviceCharge
-            ?? reservation?.billing?.serviceChargeAmount,
-            Math.round((baseRoomGross * (toNum(settings?.roomServiceCharge, 0) / 100)) * 100) / 100
-        );
-
-        const roomDiscount = toNum(
-            reservation?.discount
-            ?? reservation?.discountAmount
-            ?? reservation?.billing?.discount
-            ?? reservation?.billing?.discountAmount,
-            0
-        );
-
-        const computedRoomFinal = Math.max(0, baseRoomGross + roomTax + roomService - roomDiscount);
-
-        const isRoomChargeTransaction = (t) => {
-            const text = `${t?.particulars || ''} ${t?.description || ''}`.toLowerCase();
-            return t?.type?.toLowerCase() === 'charge' && (
-                text.includes('room tariff') ||
-                text.includes('room rent') ||
-                text.includes('room charges') ||
-                text.includes('room stay') ||
-                String(t?.particulars || '').toLowerCase().includes('room')
-            );
-        };
-
-        const hasRoomChargeTx = transactions.some(t => Number(t.folioId || 0) === 0 && isRoomChargeTransaction(t));
-        
-        // 1. Room Charges aligned with folio room display logic
-        let roomCharges = computedRoomFinal;
-        if (isMultiRoom && !hasRoomChargeTx) {
-            roomCharges = reservation.rooms.reduce((sum, room) => {
-                return sum + ((toNum(room.ratePerNight) || 0) * nights) - (toNum(room.discount) || 0);
-            }, 0);
-        }
-
-        // 2. Extra Charges (Folio Postings)
-        // Group charges by primary vs others for Single Room view, or combine for summary
-        const primaryFolioId = 0;
-        
-        const primaryExtraCharges = transactions
-            .filter(t => Number(t.folioId || 0) === primaryFolioId && 
-                        t.type?.toLowerCase() === 'charge' &&
-                        !isRoomChargeTransaction(t))
-            .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
-
-        const otherFolioCharges = transactions
-            .filter(t => Number(t.folioId || 0) !== primaryFolioId && 
-                        t.type?.toLowerCase() === 'charge' &&
-                        !isRoomChargeTransaction(t))
-            .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
-
-        const totalFolioCharges = primaryExtraCharges + otherFolioCharges;
-
-        const totalDiscounts = transactions
-            .filter(t => t.type?.toLowerCase() === 'discount')
-            .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
-
-        // 3. Paid Amount
-        const totalPaid = transactions
-            .filter(t => t.type?.toLowerCase() === 'payment')
-            .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
-
-        // 4. Grand Totals
-        const grandTotal = Math.max(0, roomCharges + totalFolioCharges - totalDiscounts);
-        const balance = grandTotal - totalPaid;
-
+        const summary = calculateReservationBillingSummary(reservation, settings);
         return {
-            roomCharges,
-            primaryExtraCharges,
-            otherFolioCharges,
-            totalFolioCharges,
-            totalDiscounts,
-            totalPaid,
-            grandTotal,
-            balance,
-            transactionCount: transactions.length
+            ...summary,
+            transactionCount: Array.isArray(reservation?.transactions) ? reservation.transactions.length : 0
         };
-    }, [reservation, isMultiRoom, settings?.roomServiceCharge]);
+    }, [reservation, settings?.roomServiceCharge]);
 
     const totals = billingSummary; // Re-alias for compatibility if needed
 

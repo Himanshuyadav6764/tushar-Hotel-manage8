@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { calculateRoomTaxBySlab } from '../utils/roomTax';
+import { calculateReservationBillingSummary } from '../utils/reservationBilling';
 
 const PrintTemplates = ({ type, data, booking }) => {
     const { settings, getCurrencySymbol, formatDate, getFullAddress } = useSettings();
@@ -172,6 +173,9 @@ const PrintTemplates = ({ type, data, booking }) => {
         booking?.balanceAmount,
         billing?.balanceAmount
     ) ?? Math.max(totalAmount - paidAmount, 0);
+
+    const cardSummary = calculateReservationBillingSummary(booking || {}, settings || {});
+    const summaryDiscount = Math.max(cardSummary.roomDiscount || 0, cardSummary.totalDiscounts || 0);
 
     const pageStyle = `@media print { @page { size: ${cfg.pageSize}; margin: ${isNarrow ? '4mm' : '10mm'}; } }`;
 
@@ -512,11 +516,11 @@ const PrintTemplates = ({ type, data, booking }) => {
         paymentSplitTotals: {}
     });
 
-    const fallbackSubTotal = totals.subTotal > 0 ? totals.subTotal : subtotal;
-    const fallbackPaid = totals.paid > 0 ? totals.paid : paidAmount;
-    const fallbackBalance = Math.max(0, fallbackSubTotal - fallbackPaid);
+    const fallbackSubTotal = Math.max(0, cardSummary.grandTotal || (totals.subTotal > 0 ? totals.subTotal : subtotal));
+    const fallbackPaid = Math.max(0, cardSummary.totalPaid || (totals.paid > 0 ? totals.paid : paidAmount));
+    const fallbackBalance = Math.max(0, cardSummary.balance ?? (fallbackSubTotal - fallbackPaid));
     const dueTotal = Math.max(0, fallbackSubTotal);
-    const resolvedBalanceDue = Math.max(0, pickNumber(
+    const resolvedBalanceDue = Math.max(0, cardSummary.balance ?? pickNumber(
         booking?.folioRemainingAmount,
         booking?.remainingAmount,
         billing?.remainingAmount,
@@ -605,11 +609,11 @@ const PrintTemplates = ({ type, data, booking }) => {
             }}>
                 <div style={{ border: '1px solid #ddd', padding: isNarrow ? '6px' : '10px' }}>
                     <div style={{ fontWeight: 700, marginBottom: '6px', textTransform: 'uppercase', fontSize: isNarrow ? '9px' : '11px' }}>Charges Breakup</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Base Amount</span><strong>{amount(roomCharges)}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Discount</span><strong style={{ color: '#059669' }}>-{amount(effectiveDiscountAmount)}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Service</span><strong>{amount(serviceCharge)}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Room GST (Tax avg slab)</span><strong>{amount(taxAmount)}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #ddd', marginTop: '4px', paddingTop: '4px' }}><span>Total Taxes</span><strong>{amount(taxAmount)}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Base Amount</span><strong>{amount(cardSummary.roomBaseAmount || roomCharges)}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Discount</span><strong style={{ color: '#059669' }}>-{amount(summaryDiscount)}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Service</span><strong>{amount(cardSummary.roomService || serviceCharge)}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Room GST (Tax avg slab)</span><strong>{amount(cardSummary.roomTax || taxAmount)}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #ddd', marginTop: '4px', paddingTop: '4px' }}><span>Total Taxes</span><strong>{amount(cardSummary.roomTax || taxAmount)}</strong></div>
                 </div>
 
                 <div style={{ border: '1px solid #ddd', padding: isNarrow ? '6px' : '10px' }}>
@@ -646,19 +650,27 @@ const PrintTemplates = ({ type, data, booking }) => {
                             Room Charges ({safeText(booking?.roomType || booking?.rooms?.[0]?.categoryId, 'Room')}) x {nights}
                         </td>
                         <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>
-                            {amount(roomCharges)}
+                            {amount(cardSummary.roomCharges || roomCharges)}
                         </td>
                     </tr>
+                    {cardSummary.totalFolioCharges > 0 && (
+                        <tr>
+                            <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Extra Charges</td>
+                            <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>
+                                {amount(cardSummary.totalFolioCharges)}
+                            </td>
+                        </tr>
+                    )}
                     <tr>
                         <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Service Charges</td>
                         <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>
-                            {amount(serviceCharge)}
+                            {amount(cardSummary.roomService || serviceCharge)}
                         </td>
                     </tr>
                     <tr>
                         <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Discount Applied</td>
                         <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee', color: '#059669', fontWeight: 700 }}>
-                            -{amount(effectiveDiscountAmount)}
+                            -{amount(summaryDiscount)}
                         </td>
                     </tr>
                     <tr>
