@@ -3528,7 +3528,7 @@ const GuestMealService = () => {
             {
                 showCloseModal && closeTableData && (
                     <div className="modal-overlay">
-                        <div className="modal-content" style={{ width: '420px', padding: '0', overflow: 'hidden' }}>
+                        <div className="modal-content" style={{ width: 'min(420px, calc(100vw - 24px))', padding: '0', overflow: 'hidden' }}>
                             <div className="modal-header" style={{ padding: '20px 24px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h2 style={{ fontSize: '1.25rem', fontWeight: '800', margin: 0 }}>Settlement Summary</h2>
                                 <button className="close-btn" onClick={() => setShowCloseModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.8rem', cursor: 'pointer', color: '#9ca3af', padding: '0 4px' }}>&times;</button>
@@ -3559,9 +3559,9 @@ const GuestMealService = () => {
                                 </div>
                             </div>
 
-                            <div className="modal-footer" style={{ padding: '16px 24px', background: '#f9fafb', borderTop: '1px solid #f3f4f6', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                                <button className="btn btn-secondary" onClick={() => setShowCloseModal(false)}>Back</button>
-                                <button className="btn btn-primary" style={{ backgroundColor: '#E31E24' }} onClick={handleCloseSubmit}>Close & Release Table</button>
+                            <div className="modal-footer settlement-modal-footer" style={{ padding: '16px 24px', background: '#f9fafb', borderTop: '1px solid #f3f4f6' }}>
+                                <button className="btn btn-secondary settlement-modal-action-btn" onClick={() => setShowCloseModal(false)}>Back</button>
+                                <button className="btn btn-primary settlement-modal-action-btn settlement-modal-primary-btn" onClick={handleCloseSubmit}>Close & Release Table</button>
                             </div>
                         </div>
                     </div>

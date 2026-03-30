@@ -150,9 +150,14 @@ const UniversalReport = ({ type }) => {
         const optionList = [];
 
         if (filterName !== 'Metric') {
+            const allLabel = filterName === 'Status'
+                ? 'All Status'
+                : filterName === 'Category'
+                    ? 'All Categories'
+                    : `All ${filterName}s`;
             optionList.push({
                 value: 'All',
-                label: filterName === 'Status' ? 'All Status' : `All ${filterName}s`
+                label: allLabel
             });
         }
 
@@ -506,7 +511,50 @@ const UniversalReport = ({ type }) => {
 
     // Derived dynamic items
     const selectedCategory = filters['Category'] || 'All';
-    const dynamicCategories = ['Starters', 'Main Course', 'Breakfast', 'Rice', 'Desserts', 'Beverages', 'Chinese', 'Continental'];
+    const dynamicCategories = useMemo(() => {
+        if (type !== 'reports-sales') return [];
+
+        const categorySet = new Set();
+        menuItems.forEach((item) => {
+            const category = String(item?.category || '').trim();
+            if (category) categorySet.add(category);
+        });
+
+        if (!categorySet.size) return [];
+
+        return Array.from(categorySet).sort((a, b) => a.localeCompare(b));
+    }, [menuItems, type]);
+
+    const dynamicItems = useMemo(() => {
+        if (type !== 'reports-sales') return [];
+
+        const filtered = selectedCategory === 'All'
+            ? menuItems
+            : menuItems.filter(i => String(i?.category || '').trim() === String(selectedCategory).trim());
+
+        const nameSet = new Set();
+        filtered.forEach((item) => {
+            const name = String(item?.itemName || '').trim();
+            if (name) nameSet.add(name);
+        });
+
+        return Array.from(nameSet).sort((a, b) => a.localeCompare(b));
+    }, [menuItems, selectedCategory, type]);
+
+    useEffect(() => {
+        if (type !== 'reports-sales') return;
+
+        const currentCategory = filters['Category'] || 'All';
+        if (currentCategory !== 'All' && !dynamicCategories.includes(currentCategory)) {
+            setFilters(prev => ({ ...prev, Category: 'All', Item: 'All' }));
+            return;
+        }
+
+        const currentItem = filters['Item'] || 'All';
+        if (currentItem !== 'All' && !dynamicItems.includes(currentItem)) {
+            setFilters(prev => ({ ...prev, Item: 'All' }));
+        }
+    }, [type, filters, dynamicCategories, dynamicItems]);
 
     const getOptionsForFilter = (filterName) => {
         if (type === 'reports-analytics' && filterName === 'Metric') {
@@ -578,11 +626,7 @@ const UniversalReport = ({ type }) => {
         if (type === 'reports-sales') {
             if (filterName === 'Category') return dynamicCategories;
             if (filterName === 'Item') {
-                if (!menuItems.length) return ['No Items Loaded'];
-                const filtered = selectedCategory === 'All'
-                    ? menuItems
-                    : menuItems.filter(i => i.category === selectedCategory);
-                return filtered.map(item => item.itemName);
+                return dynamicItems;
             }
         }
 
@@ -1816,7 +1860,13 @@ const UniversalReport = ({ type }) => {
                                                                 type="button"
                                                                 className={`responsive-select-option ${isActive ? 'active' : ''}`}
                                                                 onClick={() => {
-                                                                    setFilters({ ...filters, [filter]: opt.value });
+                                                                    setFilters((prev) => {
+                                                                        const next = { ...prev, [filter]: opt.value };
+                                                                        if (type === 'reports-sales' && filter === 'Category') {
+                                                                            next['Item'] = 'All';
+                                                                        }
+                                                                        return next;
+                                                                    });
                                                                     setOpenFilterDropdown(null);
                                                                 }}
                                                                 role="option"

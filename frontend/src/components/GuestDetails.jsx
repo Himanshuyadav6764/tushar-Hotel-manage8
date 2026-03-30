@@ -62,7 +62,7 @@ const GuestProfileCard = ({ guest, label, index }) => {
                         <span className="detail-value">{guest.companyName}</span>
                     </div>
                 )}
-                <div className="detail-item" style={{ gridColumn: 'span 3' }}>
+                <div className="detail-item detail-item-full">
                     <span className="detail-label">Address</span>
                     <span className="detail-value">{fullAddress || '-'}</span>
                 </div>
@@ -118,7 +118,7 @@ const GuestDetails = ({ reservation }) => {
             {/* Additional Information (notes / special requests) */}
             <h3 className="details-section-title" style={{ marginTop: '24px' }}>Additional Information</h3>
             <div className="details-grid">
-                <div className="detail-item" style={{ gridColumn: 'span 3' }}>
+                <div className="detail-item detail-item-full">
                     <span className="detail-label">Special Requests / Notes</span>
                     <span className="detail-value">{reservation.notes || reservation.specialRequests || '-'}</span>
                 </div>

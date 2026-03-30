@@ -883,6 +883,34 @@
     background-color: var(--color-primary-dark);
 }
 
+.settlement-modal-footer {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    align-items: stretch;
+    flex-wrap: wrap;
+}
+
+.settlement-modal-action-btn {
+    flex: 1 1 160px;
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.2;
+    padding: 10px 12px;
+}
+
+.settlement-modal-primary-btn {
+    background-color: #E31E24;
+}
+
+.settlement-modal-primary-btn:hover {
+    background-color: #c71b20;
+}
+
 /* ============== RIGHT SIDE DRAWER FOR ADD TABLE ============== */
 .drawer-overlay {
     position: fixed;
@@ -1998,6 +2026,14 @@
     }
 
     .gms-filter-dropdown {
+        flex: 1 1 100%;
+    }
+
+    .settlement-modal-footer {
+        justify-content: stretch;
+    }
+
+    .settlement-modal-action-btn {
         flex: 1 1 100%;
     }
 }
