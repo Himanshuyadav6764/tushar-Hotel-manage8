@@ -96,7 +96,9 @@ const Features = () => {
                     <div className="features-grid-container">
                         {featureData.map((item, index) => (
                             <div className="feature-card" key={index}>
-                                <img src={item.img} alt={item.title} />
+                                <div className="feature-img-wrap">
+                                    <img src={item.img} alt="feature" />
+                                </div>
                             </div>
                         ))}
                     </div>

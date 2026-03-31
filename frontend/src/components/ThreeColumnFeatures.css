@@ -24,17 +24,21 @@
     flex-direction: column;
     justify-content: flex-start;
     height: 100%;
-    /* Fill grid cell */
-
-    /* Feature: equal padding if needed? User said "Ensure all three cards have equal padding." 
-     But current design has no border/bg, so padding is internal. 
-     If cards had bg, padding would be on .feature-col. 
-     Assuming transparent cards, padding is 0. */
-    padding: 0;
-
-    /* fade-in animation basics */
+    background: #fff;
+    border: 2px solid #e63946;
+    border-radius: 12px;
+    padding: 30px;
+    /* 🔥 Static 3D Red Shadow - Always Lifted */
+    box-shadow: 0 12px 0 #e63946;
+    transform: translateY(-6px);
+    transition: all 0.2s ease-out;
     opacity: 0;
     animation: fadeUp 0.8s ease-out forwards;
+}
+
+.feature-col:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 16px 0 #e63946;
 }
 
 /* Staggered animation */
@@ -102,9 +106,8 @@
 
 .feature-heading {
     font-size: 24px;
-    font-weight: 700;
-    color: #E11D48;
-    /* Brand Red */
+    font-weight: 800;
+    color: #000;
     margin: 0;
     line-height: 1.3;
 }
@@ -113,13 +116,11 @@
 
 .feature-desc {
     font-size: 16px;
-    color: #4B5563;
+    color: #000;
+    font-weight: 600;
     line-height: 1.6;
     margin-top: 0;
-
-    /* ALIGNMENT FIX: Indent to align with heading text */
-    /* Circle (60px) + Gap (16px) = 76px */
-    padding-left: 76px;
+    padding-left: 0;
 }
 
 /* ================= ANIMATION ================= */

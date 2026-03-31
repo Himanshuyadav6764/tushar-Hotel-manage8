@@ -70,7 +70,7 @@ const Pricing = () => {
     ];
 
     return (
-        <div style={{ paddingTop: "20px", paddingBottom: "100px", minHeight: "100vh", background: "#fff6f7" }}>
+        <div style={{ paddingTop: "20px", paddingBottom: "100px", minHeight: "100vh", background: "#fff2f5" }}>
             <div className="container" style={{ textAlign: "center" }}>
                 <Reveal width="100%">
                     <h1 style={{ fontSize: "42px", fontWeight: "700", marginBottom: "20px" }}>
@@ -95,12 +95,15 @@ const Pricing = () => {
                                 background: "#fff",
                                 padding: "40px",
                                 borderRadius: "20px",
-                                border: plan.recommended ? "2px solid #e11d48" : "1px solid #eee",
+                                border: "2px solid #e63946",
                                 position: "relative",
                                 height: "100%",
                                 display: "flex",
                                 flexDirection: "column",
-                                boxShadow: "0 10px 30px rgba(0,0,0,0.05)"
+                                /* 🔥 Red 3D - Always Lifted */
+                                boxShadow: "0 12px 0 #e63946",
+                                transform: "translateY(-6px)",
+                                transition: "all 0.2s ease-out"
                             }}>
                                 {plan.recommended && (
                                     <div style={{

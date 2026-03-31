@@ -32,12 +32,22 @@
 
 .testimonial-card {
     background: white;
+    border: 2px solid #e63946;
     border-radius: 20px;
     padding: 3rem;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    /* 🔥 Static 3D Red Shadow - Always Lifted */
+    box-shadow: 0 12px 0 #e63946;
+    transform: translateY(-6px);
     display: flex;
     gap: 3rem;
     align-items: center;
+    transition: all 0.2s ease-out;
+    opacity: 1 !important;
+}
+
+.testimonial-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 16px 0 #e63946;
 }
 
 .testimonial-image {
@@ -115,18 +125,22 @@
 
 .stat-card-horizontal {
     background: white;
+    border: 2px solid #e63946;
     border-radius: 16px;
     padding: 2rem;
     display: flex;
     align-items: center;
     gap: 1.5rem;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-    transition: all 0.3s;
+    /* 🔥 Static 3D Red Shadow - Always Lifted */
+    box-shadow: 0 8px 0 #e63946;
+    transform: translateY(-4px);
+    transition: all 0.2s ease-out;
+    opacity: 1 !important;
 }
 
 .stat-card-horizontal:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    transform: translateY(-8px);
+    box-shadow: 0 12px 0 #e63946;
 }
 
 .stat-icon-svg {

@@ -11,10 +11,10 @@
 /* 2️⃣ HEADER STYLE (Premium Look) */
 .why-section h2 {
     font-size: 42px;
-    font-weight: 700;
+    font-weight: 800;
     text-align: center;
     margin-bottom: 10px;
-    color: #111827;
+    color: #000;
 }
 
 .why-section h2 span {
@@ -60,6 +60,11 @@
     display: none;
 }
 
+.features-grid {
+    grid-template-columns: 1fr;
+    gap: 3rem;
+}
+
 .c-center {
     width: 100%;
     height: auto;
@@ -75,14 +80,17 @@
 .why-card {
     position: absolute;
     width: 300px;
-    /* equal size for all */
     height: auto;
-    background: transparent !important;
-    box-shadow: none !important;
-    border: none !important;
+    background: #fff;
+    border-radius: 12px;
+    border: 2px solid #e63946;
+    /* 🔥 Static 3D Red Shadow - Always Lifted */
+    box-shadow: 0 12px 0 #e63946;
+    transform: translateY(-6px);
     padding: 0;
-    transition: transform 0.3s ease, filter 0.3s ease;
+    transition: all 0.2s ease-out;
     z-index: 5;
+    overflow: hidden;
 }
 
 .why-card img {
@@ -134,16 +142,14 @@
 
 /* Specific hover for centered card: LIFT + FADE, no X shift */
 .why-card.card-bottom-center:hover {
-    transform: translateX(-50%) translateY(-6px) !important;
-    opacity: 0.75;
-    box-shadow: none !important;
+    transform: translateX(-50%) translateY(-10px);
+    box-shadow: 0 16px 0 #e63946;
 }
 
 /* 9️⃣ HOVER FIX (NO JUMP) */
 .why-card:not(.card-bottom-center):hover {
-    transform: translateY(-6px);
-    /* same as other cards */
-    box-shadow: none !important;
+    transform: translateY(-10px);
+    box-shadow: 0 16px 0 #e63946;
 }
 
 /* Disable hover on center */
@@ -223,13 +229,16 @@
         left: auto !important;
         right: auto !important;
         bottom: auto !important;
-        transform: none !important;
-        margin-bottom: 0;
-        width: 80%;
+        transform: translateY(-6px) !important;
+        margin-bottom: 24px;
+        width: 85%;
+        box-shadow: 0 10px 0 #e63946 !important;
+        border: 2px solid #e63946 !important;
     }
 
     .why-card:hover {
-        transform: none;
+        transform: translateY(-8px) !important;
+        box-shadow: 0 14px 0 #e63946 !important;
     }
 
     .card-bottom-center {

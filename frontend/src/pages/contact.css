@@ -17,49 +17,25 @@
 ───────────────────────── */
 .c-info-card {
     position: relative;
-    background: linear-gradient(135deg,
-            #c11e38 0%,
-            #e11d48 55%,
-            #f87491 85%,
-            #ffd6de 100%);
-    border-radius: 24px;
+    background: #e63946; /* Solid Red */
+    border: 3px solid #ffccd5; /* Lighter red border for contrast on red bg */
+    border-radius: 12px;
     padding: 44px 36px;
     overflow: hidden;
     color: #fff;
-    box-shadow:
-        0 24px 56px rgba(225, 29, 72, 0.35),
-        0 6px 20px rgba(0, 0, 0, 0.18);
+    box-shadow: 10px 10px 0px #e63946; /* Shadow matches user request */
     min-height: 480px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    transition: none;
 }
 
 
 /* Glowing blob top-right */
-.c-info-card::before {
-    content: "";
-    position: absolute;
-    top: -70px;
-    right: -70px;
-    width: 230px;
-    height: 230px;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.25), transparent 70%);
-    border-radius: 50%;
-    pointer-events: none;
-}
-
-/* Decorative circle bottom-left */
+.c-info-card::before,
 .c-info-card::after {
-    content: "";
-    position: absolute;
-    bottom: -50px;
-    left: -50px;
-    width: 170px;
-    height: 170px;
-    background: rgba(225, 29, 72, 0.12);
-    border-radius: 50%;
-    pointer-events: none;
+    display: none; /* Removed blurry glow elements */
 }
 
 .c-info-title {
@@ -186,12 +162,10 @@ a.c-info-value:hover {
 ───────────────────────── */
 .c-form-card {
     background: #fff;
-    border-radius: 24px;
+    border: 3px solid #e63946; /* Red border */
+    border-radius: 12px;
     padding: 30px 32px;
-    box-shadow:
-        0 16px 48px rgba(0, 0, 0, 0.07),
-        0 3px 10px rgba(225, 29, 72, 0.05);
-    border: 1px solid rgba(225, 29, 72, 0.07);
+    box-shadow: 10px 10px 0px #e63946; /* Solid red shadow */
 }
 
 .c-form-title {

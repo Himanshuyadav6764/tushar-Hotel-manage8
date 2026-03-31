@@ -2,36 +2,10 @@
     width: 100%;
     position: relative;
     overflow-x: hidden;
-    background: linear-gradient(to bottom,
-            #ffffff 0%,
-            #fff5f7 30%,
-            #fde8ef 60%,
-            #ffffff 100%);
+    background: #fff2f5;
 }
 
-.about-page::before {
-    content: "";
-    position: absolute;
-    top: 400px;
-    left: -200px;
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.7), transparent 70%);
-    border-radius: 50%;
-    z-index: 0;
-}
-
-.about-page::after {
-    content: "";
-    position: absolute;
-    bottom: 200px;
-    right: -250px;
-    width: 700px;
-    height: 700px;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.6), transparent 70%);
-    border-radius: 50%;
-    z-index: 0;
-}
+/* Removed blurry background glows for absolute clarity */
 
 /* Container */
 .about-container {
@@ -48,33 +22,11 @@
     padding: 20px 20px 30px;
     text-align: center;
     position: relative;
-    background: linear-gradient(135deg, #fff, #ffe4e6);
+    background: #fff2f5;
     overflow: hidden;
 }
 
-.about-hero::before {
-    content: "";
-    position: absolute;
-    top: -150px;
-    right: -150px;
-    width: 500px;
-    height: 500px;
-    background: radial-gradient(circle, rgba(225, 29, 72, 0.15), transparent 70%);
-    border-radius: 50%;
-    z-index: 0;
-}
-
-.about-hero::after {
-    content: "";
-    position: absolute;
-    bottom: -200px;
-    left: -200px;
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(circle, rgba(244, 63, 94, 0.15), transparent 70%);
-    border-radius: 50%;
-    z-index: 0;
-}
+/* Removed hero glows for sharpness */
 
 .about-hero h1,
 .about-hero p {
@@ -133,16 +85,12 @@
 .timeline-container::before {
     content: "";
     position: absolute;
-    top: -20px;
-    /* Heading ke just neeche start */
-    bottom: 0;
-    /* Last card ke baad zyada lamba nahi jayega */
+    top: 0;
     left: 50%;
-    transform: translateX(-50%);
     width: 4px;
-    background: linear-gradient(to bottom, #ff2e63, #d90429);
-    border-radius: 4px;
-    z-index: 1;
+    height: 100%;
+    background: #e63946;
+    transform: translateX(-50%);
 }
 
 .timeline-dot {
@@ -207,12 +155,15 @@
 }
 
 .timeline-card {
-    background: #f9fafb;
+    background: #fff;
     padding: 28px;
     border-radius: 20px;
     width: 420px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-    transition: all 0.35s ease;
+    border: 2px solid #e63946;
+    /* 🔥 Red 3D - Always Lifted */
+    box-shadow: 0 12px 0 #e63946;
+    transform: translateY(-6px);
+    transition: all 0.2s ease-out;
     text-align: left;
     position: relative;
     z-index: 5;
@@ -232,8 +183,8 @@
 }
 
 .timeline-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+    transform: translateY(-10px);
+    box-shadow: 0 16px 0 #e63946;
 }
 
 /* ================= TEAM ================= */
@@ -241,7 +192,7 @@
 .about-team {
     padding: 100px 20px;
     text-align: center;
-    background: #fff;
+    background: #fff2f5;
     position: relative;
     z-index: 1;
 }
@@ -272,15 +223,16 @@
     background: #fff;
     border-radius: 30px;
     overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    border: 2px solid #e63946;
+    /* 🔥 Red 3D - Always Lifted */
+    box-shadow: 0 12px 0 #e63946;
+    transform: translateY(-6px);
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    border: 1px solid rgba(225, 29, 72, 0.05);
 }
 
 .team-card:hover {
     transform: translateY(-15px);
-    box-shadow: 0 25px 50px rgba(225, 29, 72, 0.1);
-    border-color: rgba(225, 29, 72, 0.2);
+    box-shadow: 0 20px 0 #e63946;
 }
 
 .team-image {
@@ -331,25 +283,47 @@
 @media (max-width: 768px) {
     .team-grid {
         grid-template-columns: repeat(2, 1fr);
-        gap: 18px;
+        gap: 20px;
     }
 
     .about-team {
-        padding: 70px 14px;
+        padding: 50px 14px;
     }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 500px) {
     .team-grid {
         grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
     }
 
     .team-card {
-        width: 100%;
+        border-radius: 20px;
+        box-shadow: 0 8px 0 #e63946;
+        transform: translateY(-4px);
     }
 
-    .about-container {
-        padding: 0 14px;
+    .team-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 0 #e63946;
+    }
+
+    .team-image {
+        aspect-ratio: 1 / 1.25; /* Even taller portrait to show whole person */
+    }
+
+    .team-info {
+        padding: 8px 6px;
+    }
+
+    .team-info h4 {
+        font-size: 16px;
+        margin-bottom: 2px;
+    }
+
+    .team-info span {
+        font-size: 11px;
+        letter-spacing: 0.5px;
     }
 }
 
@@ -358,7 +332,7 @@
 .about-why {
     padding: 120px 0;
     text-align: center;
-    background: linear-gradient(180deg, #fff7f9 0%, #fff 100%);
+    background: #fff2f5;
     position: relative;
     overflow: hidden;
 }
@@ -408,15 +382,13 @@
 }
 
 .why-card {
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: #fff;
     padding: 50px 30px;
     border-radius: 30px;
-    /* Large rounded corners */
-    border: 1px solid rgba(225, 29, 72, 0.15);
-    /* Subtle pink-purple border */
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.02);
+    border: 2px solid #e63946;
+    /* 🔥 Red 3D - Always Lifted */
+    box-shadow: 0 12px 0 #e63946;
+    transform: translateY(-6px);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
@@ -446,12 +418,8 @@
 }
 
 .why-card:hover {
-    transform: translateY(-10px);
-    /* Card lifts */
-    background: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 25px 60px rgba(225, 29, 72, 0.12);
-    /* Increased glow */
-    border-color: rgba(225, 29, 72, 0.4);
+    transform: translateY(-15px);
+    box-shadow: 0 20px 0 #e63946;
 }
 
 @media (max-width: 1024px) {
@@ -551,6 +519,7 @@
 }
 
 @media (max-width: 600px) {
+
     .timeline-item,
     .timeline-item.left,
     .timeline-item.right {
