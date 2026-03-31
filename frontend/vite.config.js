@@ -10,9 +10,10 @@ export default defineConfig(({ mode }) => {
     envDir: './',
     server: {
       port: 3000,
+      host: '0.0.0.0', // Important for Codespaces to map network properly
       proxy: {
         '/api': {
-          target: 'http://localhost:5000',
+          target: 'http://127.0.0.1:5000', // Use IPv4 specifically to prevent 502/500 proxy ECONNREFUSED issues in Node 18+
           changeOrigin: true,
           secure: false,
         },

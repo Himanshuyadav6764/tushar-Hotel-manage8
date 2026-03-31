@@ -99,11 +99,19 @@ export const AuthProvider = ({ children }) => {
             }
         } catch (error) {
             console.error('Login error:', error);
+            if (error.response && error.response.status === 500) {
+                console.error('Server 500 error data:', error.response.data);
+            }
             let errorMessage = 'An unexpected error occurred';
             let requiresMfa = false;
 
             if (error.response) {
-                errorMessage = error.response.data.message || 'Invalid email or password';
+                // If Vite proxy fails, it sometimes returns an HTML/text error string on 500/504
+                if (typeof error.response.data === 'string' && error.response.data.includes('proxy')) {
+                    errorMessage = `Vite Proxy Error: Backend is down or port mismatched. Raw response: ${error.response.data.substring(0, 100)}...`;
+                } else {
+                    errorMessage = error.response.data?.message || error.response.data?.detail || `Server Error ${error.response.status}`;
+                }
                 requiresMfa = Boolean(error.response.data?.requiresMfa);
             } else if (error.request) {
                 errorMessage = 'Server is unreachable. Please try again later.';

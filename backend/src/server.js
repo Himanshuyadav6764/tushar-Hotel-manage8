@@ -56,11 +56,11 @@ app.use(cors({
             return callback(null, true);
         }
 
-        if (allowedOrigins.includes(origin)) {
+        if (!isProduction) {
             return callback(null, true);
         }
 
-        if (!isProduction && allowedOrigins.length === 0) {
+        if (allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
 

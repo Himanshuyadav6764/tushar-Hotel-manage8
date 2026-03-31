@@ -161,14 +161,24 @@ const hotelSchema = new mongoose.Schema({
 
 // Method to check if subscription is expired
 hotelSchema.methods.isSubscriptionExpired = function() {
-    return new Date() > this.subscription.expiryDate;
+    const expiryDate = this?.subscription?.expiryDate;
+    if (!expiryDate) {
+        return false;
+    }
+    return new Date() > new Date(expiryDate);
 };
 
 // Method to check if subscription is expiring soon (within 7 days)
 hotelSchema.methods.isExpiringSoon = function() {
+    const expiryDate = this?.subscription?.expiryDate;
+    if (!expiryDate) {
+        return false;
+    }
+
     const sevenDaysFromNow = new Date();
     sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
-    return this.subscription.expiryDate <= sevenDaysFromNow && this.subscription.expiryDate > new Date();
+    const expiry = new Date(expiryDate);
+    return expiry <= sevenDaysFromNow && expiry > new Date();
 };
 
 hotelSchema.pre('validate', function (next) {

@@ -121,6 +121,19 @@ const ensureDefaultHotel = async () => {
     return hotel;
 };
 
+const buildDefaultSubscription = () => {
+    const now = new Date();
+    const nextYear = new Date(now);
+    nextYear.setFullYear(now.getFullYear() + 1);
+
+    return {
+        plan: 'premium',
+        startDate: now,
+        expiryDate: nextYear,
+        isActive: true
+    };
+};
+
 const resolveSeededEmails = () => {
     return [
         process.env.BIREENA_SUPER_ADMIN_EMAIL,
@@ -423,8 +436,57 @@ const loginUser = async (req, res) => {
 
             if (!hotel.dbName) {
                 hotel.dbName = await buildUniqueTenantDbName(hotel);
-                await hotel.save();
+                await Hotel.updateOne(
+                    { _id: hotel._id },
+                    { $set: { dbName: hotel.dbName } }
+                );
                 console.log(`[Auth] Auto-initialized tenant dbName for hotel ${hotel._id}: ${hotel.dbName}`);
+            }
+
+            // Backward compatibility: older hotel records may miss subscription fields.
+            const hasValidSubscription = hotel.subscription
+                && hotel.subscription.startDate
+                && hotel.subscription.expiryDate
+                && typeof hotel.subscription.isActive === 'boolean';
+
+            if (!hasValidSubscription) {
+                hotel.subscription = {
+                    ...buildDefaultSubscription(),
+                    ...(hotel.subscription || {})
+                };
+
+                if (!hotel.subscription.startDate) {
+                    hotel.subscription.startDate = new Date();
+                }
+
+                if (!hotel.subscription.expiryDate) {
+                    const nextYear = new Date();
+                    nextYear.setFullYear(nextYear.getFullYear() + 1);
+                    hotel.subscription.expiryDate = nextYear;
+                }
+
+                if (typeof hotel.subscription.isActive !== 'boolean') {
+                    hotel.subscription.isActive = true;
+                }
+
+                if (!hotel.subscription.plan) {
+                    hotel.subscription.plan = 'premium';
+                }
+
+                await Hotel.updateOne(
+                    { _id: hotel._id },
+                    {
+                        $set: {
+                            subscription: {
+                                plan: hotel.subscription.plan,
+                                startDate: hotel.subscription.startDate,
+                                expiryDate: hotel.subscription.expiryDate,
+                                isActive: hotel.subscription.isActive
+                            }
+                        }
+                    }
+                );
+                console.log(`[Auth] Auto-repaired subscription fields for hotel ${hotel._id}`);
             }
 
             // Check if hotel is active
@@ -478,7 +540,16 @@ const loginUser = async (req, res) => {
         });
     } catch (error) {
         console.error('[Auth] Login error:', error.message);
-        res.status(500).json({ message: 'Server error during login' });
+        if (error && error.stack) {
+            console.error(error.stack);
+        }
+
+        // Always include detail right now to debug the 500 error
+        res.status(500).json({
+            message: 'Server error during login',
+            detail: error.message,
+            stack: error.stack
+        });
     }
 };
 
