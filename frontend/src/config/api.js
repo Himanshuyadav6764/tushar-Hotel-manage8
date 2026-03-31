@@ -1,9 +1,28 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const isDev = import.meta.env.DEV;
+const configuredApiUrl = String(import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+
+// In development, prefer same-origin `/api` so Vite proxy is used.
+const API_URL = configuredApiUrl || (isDev ? '' : 'http://localhost:5000');
+
+const DEV_LOCAL_FALLBACKS = ['http://localhost:5000', 'http://localhost:5001'];
+
+const normalizeEndpoint = (endpoint) => {
+    if (!endpoint) return '/';
+    if (endpoint.startsWith('http')) return endpoint;
+    return endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+};
+
+const buildUrl = (base, endpoint) => {
+    if (endpoint.startsWith('http')) return endpoint;
+    return base ? `${base}${endpoint}` : endpoint;
+};
 
 export default API_URL;
 
 export const apiCall = async (endpoint, options = {}) => {
-    try {
+    const normalizedEndpoint = normalizeEndpoint(endpoint);
+
+    const fetchWithHeaders = async (url) => {
         const savedUser = localStorage.getItem('authUser');
         let authHeaders = {};
 
@@ -23,15 +42,32 @@ export const apiCall = async (endpoint, options = {}) => {
             ...options.headers
         };
 
-        const finalUrl = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
-
-        const response = await fetch(finalUrl, {
+        return fetch(url, {
             ...options,
             headers
         });
+    };
+
+    try {
+        const primaryUrl = buildUrl(API_URL, normalizedEndpoint);
+        const response = await fetchWithHeaders(primaryUrl);
         
         return response;
     } catch (error) {
+        // Dev fallback: if primary request failed at network level, try common local ports.
+        if (isDev && !normalizedEndpoint.startsWith('http') && error instanceof TypeError) {
+            const fallbackBases = DEV_LOCAL_FALLBACKS.filter((base) => base !== API_URL);
+
+            for (const base of fallbackBases) {
+                try {
+                    const fallbackUrl = buildUrl(base, normalizedEndpoint);
+                    return await fetchWithHeaders(fallbackUrl);
+                } catch (fallbackError) {
+                    // Keep trying other candidates.
+                }
+            }
+        }
+
         console.error('API call error:', error);
         throw error;
     }

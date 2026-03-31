@@ -27,6 +27,11 @@ const isLocalRequest = (req) => {
         || ip.endsWith('::ffff:127.0.0.1');
 };
 
+// Helper to get client IP safely
+const getClientIp = (req) => {
+    return req.ip || req.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || req.connection?.remoteAddress || req.socket?.remoteAddress || 'unknown';
+};
+
 // General API rate limiter
 // Development: relaxed
 // Production: practical default, configurable via env
@@ -37,6 +42,7 @@ const limiter = disableGeneralRateLimit
         max: generalMaxRequests,
         standardHeaders: true,
         legacyHeaders: false,
+        keyGenerator: getClientIp,
         skip: (req) => {
             const path = String(req.path || '');
             // Never throttle local development requests and keep modal list flows responsive.
@@ -55,39 +61,48 @@ const limiter = disableGeneralRateLimit
 // Login route limiter - stricter to prevent brute force
 // Development: relaxed (50 attempts / 15 min)
 // Production: strict (10 attempts / 15 min)
-const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: isDev ? 50 : 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        success: false,
-        message: 'Too many login attempts, please try again after 15 minutes'
-    }
-});
+const loginLimiter = disableGeneralRateLimit
+    ? (req, res, next) => next()
+    : rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: isDev ? 50 : 10,
+        standardHeaders: true,
+        legacyHeaders: false,
+        keyGenerator: getClientIp,
+        message: {
+            success: false,
+            message: 'Too many login attempts, please try again after 15 minutes'
+        }
+    });
 
 // Super admin panel limiter - protects dashboard APIs from abuse.
-const superAdminLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000,
-    max: isDev ? 300 : 120,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        success: false,
-        message: 'Too many super admin requests, please try again in a few minutes'
-    }
-});
+const superAdminLimiter = disableGeneralRateLimit
+    ? (req, res, next) => next()
+    : rateLimit({
+        windowMs: 10 * 60 * 1000,
+        max: isDev ? 300 : 120,
+        standardHeaders: true,
+        legacyHeaders: false,
+        keyGenerator: getClientIp,
+        message: {
+            success: false,
+            message: 'Too many super admin requests, please try again in a few minutes'
+        }
+    });
 
 // Extra strict limiter for high-risk super admin actions.
-const superAdminCriticalLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000,
-    max: isDev ? 40 : 15,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        success: false,
-        message: 'Too many critical admin actions, please wait and try again'
-    }
-});
+const superAdminCriticalLimiter = disableGeneralRateLimit
+    ? (req, res, next) => next()
+    : rateLimit({
+        windowMs: 10 * 60 * 1000,
+        max: isDev ? 40 : 15,
+        standardHeaders: true,
+        legacyHeaders: false,
+        keyGenerator: getClientIp,
+        message: {
+            success: false,
+            message: 'Too many critical admin actions, please wait and try again'
+        }
+    });
 
 module.exports = { limiter, loginLimiter, superAdminLimiter, superAdminCriticalLimiter };
