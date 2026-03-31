@@ -17,6 +17,7 @@ body {
   padding: 0;
   min-height: 100%;
   scrollbar-gutter: stable;
+  background-color: #fff2f5;
 }
 
 body {
@@ -121,7 +122,6 @@ body:not(.public-page) *::-webkit-scrollbar {
 
 body {
   color: #1f2937;
-  background: #ffffff;
 }
 
 /* Compact admin dropdown system: keep triggers and lists uniformly small across the app */
@@ -236,7 +236,7 @@ body:not(.public-page) .filter-options .menu-item {
 }
 
 .landing-page {
-  background: linear-gradient(to bottom, #ffffff 0%, #f5f6f8 100%);
+  background: #fff2f5;
 }
 
 
@@ -617,6 +617,7 @@ body:not(.public-page) .filter-options .menu-item {
   margin-top: 70px;
   position: relative;
   overflow: hidden;
+  background: #fff2f5;
 }
 
 
@@ -739,7 +740,7 @@ body:not(.public-page) .filter-options .menu-item {
 /* Trusted Section */
 .trusted-section {
   padding: 6px 20px;
-  background: #ffffff;
+  background: #fff2f5;
   text-align: center;
 }
 
@@ -794,7 +795,7 @@ body:not(.public-page) .filter-options .menu-item {
 /* Features Section */
 .pos-features {
   padding: 6px 20px 100px;
-  background: #ffffff;
+  background: #fff2f5;
   text-align: center;
 }
 
@@ -829,7 +830,7 @@ h2 {
 /* Billing Section */
 .billing-section {
   padding: 6px 20px 100px;
-  background: #ffffff;
+  background: #fff2f5;
 }
 
 .billing-container {
@@ -889,7 +890,7 @@ h2 {
 /* Inventory Section */
 .inventory-section {
   padding: 6px 20px 100px;
-  background: #ffffff;
+  background: #fff2f5;
 }
 
 .inventory-container {
@@ -948,7 +949,7 @@ h2 {
 /* Reports Section */
 .reports-section {
   padding: 6px 20px 100px;
-  background: #ffffff;
+  background: #fff2f5;
 }
 
 .reports-container {
@@ -1007,7 +1008,7 @@ h2 {
 /* Ordering Section */
 .ordering-section {
   padding: 6px 20px 100px;
-  background: #ffffff;
+  background: #fff2f5;
 }
 
 .ordering-container {
@@ -1065,7 +1066,7 @@ h2 {
 
 .marketplace-section {
   padding: 6px 20px 80px;
-  background: #ffffff;
+  background: #fff2f5;
   text-align: center;
 }
 
@@ -1150,7 +1151,7 @@ h2 {
 /* Integrations Section */
 .integrations-section {
   padding: 6px 20px 80px;
-  background: #ffffff;
+  background: #fff2f5;
 }
 
 .integrations-top {
@@ -1255,7 +1256,7 @@ h2 {
 /* Outlet Types Section */
 .outlet-section {
   padding: 6px 20px 80px;
-  background: #ffffff;
+  background: #fff2f5;
   text-align: center;
 }
 
@@ -1324,7 +1325,7 @@ h2 {
 /* Testimonials Section */
 .testimonial-section {
   padding: 6px 20px 80px;
-  background: #ffffff;
+  background: #fff2f5;
 }
 
 .testimonial-section .container {
@@ -1453,7 +1454,7 @@ h2 {
 /* Ratings Section */
 .ratings-section {
   padding: 6px 20px;
-  background: #f9fafb;
+  background: #fff2f5;
 }
 
 .ratings-grid {
@@ -1489,7 +1490,7 @@ h2 {
 /* Demo Section */
 .demo-section {
   padding: 6px 20px 80px;
-  background: #ffffff;
+  background: #fff2f5;
 }
 
 .demo-container {
@@ -1958,6 +1959,7 @@ body {
 }
 
 @media (min-width: 1400px) {
+
   .admin-layout .reservation-management-container,
   .admin-layout .room-setup-container,
   .admin-layout .dashboard-home {

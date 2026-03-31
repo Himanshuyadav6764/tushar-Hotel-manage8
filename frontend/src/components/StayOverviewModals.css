@@ -17,7 +17,8 @@
     background: white;
     border-radius: 8px;
     padding: 20px 30px;
-    min-width: 400px;
+    min-width: 320px;
+    max-width: 95%;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
@@ -73,8 +74,9 @@
     background: white;
     border-radius: 8px;
     padding: 0;
-    min-width: 600px;
-    max-width: 700px;
+    width: 95%;
+    max-width: 600px;
+    min-width: 320px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
@@ -190,7 +192,49 @@
     color: white;
 }
 
-/* Available Cell Hover Effect */
 .grid-cell.available-cell:hover {
     background: rgba(59, 74, 158, 0.1);
+}
+
+/* Responsive Overrides */
+@media (max-width: 768px) {
+    .modal-content-stay, 
+    .modal-content-quick {
+        width: 95%;
+        min-width: auto;
+        padding: 0;
+    }
+
+    .modal-body-quick {
+        padding: 15px;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    .form-row-quick {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .modal-footer-quick, 
+    .modal-actions-stay {
+        flex-direction: column;
+        padding: 15px;
+        gap: 10px;
+    }
+
+    .btn-confirm-quick, 
+    .btn-cancel-quick, 
+    .btn-quick-reservation, 
+    .btn-cancel-stay {
+        width: 100%;
+        padding: 12px;
+    }
+
+    .modal-header-stay {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 15px;
+    }
 }

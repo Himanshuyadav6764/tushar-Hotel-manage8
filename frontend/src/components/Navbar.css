@@ -6,7 +6,8 @@
   text-align: center;
   font-size: 14px;
   font-weight: 500;
-  background: linear-gradient(90deg, #c11e38 0%, #e11d48 65%, #ffffff 100%);
+  background: #e11d48;
+  /* Solid color to remove gradient blur */
   color: #fff;
   z-index: 1001;
 }
@@ -21,7 +22,8 @@
   position: sticky;
   top: 0;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border-bottom: 2px solid #f3f4f6;
+  /* Sharp border instead of blurry shadow */
   z-index: 1000;
 }
 
@@ -31,6 +33,9 @@
   justify-content: space-between;
   height: 80px;
   padding: 0;
+  /* Remove redundant padding */
+  max-width: 1360px;
+  margin: 0 auto;
   width: 100%;
 }
 
@@ -39,16 +44,19 @@
 .logo-link {
   display: flex;
   align-items: center;
+  background: #fff;
+  padding: 4px 0;
+  /* Removed horizontal padding to align with container edge */
+  border-radius: 8px;
 }
 
 .navbar-logo {
-  height: 68px;
+  height: 55px;
+  /* Size for desktop */
   width: auto;
-  object-fit: contain;
-  margin-right: 0;
-  margin-left: 0;
-  mix-blend-mode: multiply;
-  filter: brightness(1.2) contrast(1.1) saturate(1.8);
+  filter: saturate(1.8) contrast(1.1) brightness(1.05);
+  /* Boosted red to match 'image 1' style */
+  transition: transform 0.3s ease;
 }
 
 /* ================= NAV MENU ================= */

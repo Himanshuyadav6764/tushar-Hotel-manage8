@@ -2,6 +2,7 @@
     padding: 0 0 60px;
     margin-top: -20px;
     position: relative;
+    background: #fff2f5;
     /* Soft transition for entry */
     opacity: 0;
     transform: translateY(40px);
@@ -47,19 +48,24 @@
 .faq-question {
     padding: 20px 25px;
     font-size: 18px;
-    font-weight: 600;
+    font-weight: 800;
     cursor: pointer;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(220, 20, 60, 0.05);
-    /* Set hover color to default permanent background */
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(220, 20, 60, 0.1);
-    /* Subtle red border */
-    border-radius: 16px;
-    transition: background 0.3s ease;
-    color: #333;
+    background: #fff;
+    border: 2px solid #e63946;
+    border-radius: 12px;
+    /* 🔥 Red 3D Shadow - Always Lifted */
+    box-shadow: 0 8px 0 #e63946;
+    transform: translateY(-4px);
+    transition: all 0.2s ease-out;
+    color: #000;
+}
+
+.faq-question:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 0 #e63946;
 }
 
 .faq-answer {

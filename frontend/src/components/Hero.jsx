@@ -11,9 +11,7 @@ const Hero = () => {
 
                 <div className="hero-text hero-left">
                     <h1 className="hero-title">
-                        <span className="line line-1">Smart Hotel</span>
-                        <br />
-                        <span className="line line-1b">Management Software</span>
+                        <span className="line line-1">Smart Hotel Management Software</span>
                         <br />
                         <span className="hero-accent line line-2">with KOT</span>
                     </h1>

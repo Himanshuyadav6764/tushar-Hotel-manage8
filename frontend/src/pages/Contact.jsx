@@ -161,25 +161,23 @@ const Contact = () => {
                     </Reveal>
                 </div>
 
-                {/* GOOGLE MAP SECTION — untouched */}
+            </div> {/* End of Container */}
+            
+            {/* GOOGLE MAP SECTION — 3D Neubrutalist Style */}
+            <div className="container" style={{ maxWidth: "1200px", marginTop: "80px" }}>
                 <Reveal delay={0.4} width="100%">
                     <div style={{
-                        marginTop: "60px",
-                        borderRadius: "20px",
+                        borderRadius: "12px",
                         overflow: "hidden",
-                        boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
-                        border: "4px solid #fff",
-                        width: "98vw",
-                        maxWidth: "98vw",
-                        marginLeft: "0",
-                        position: "relative",
-                        left: "50%",
-                        transform: "translateX(-50%)"
+                        border: "3px solid #e11d48",
+                        boxShadow: "10px 10px 0px #e11d48",
+                        width: "100%",
+                        background: "#fff"
                     }}>
                         <iframe
-                            src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d460653.7187557657!2d85.091635!3d25.576418!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x43d931ec9b428883%3A0xa1137df98dfedf57!2sBireena%20Info%20Tech!5e0!3m2!1sen!2sin!4v1771606201876!5m2!1sen!2sin"
+                            src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d460653.7187557657!2d85.091635!3d25.576418!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x43d931ec9b428883%3A0xa1137df98dfedf57!2sBireena%20Info%20Tech!5e0!3m2!1sen!2sin!4v1711606201876!5m2!1sen!2sin"
                             width="100%"
-                            height="300"
+                            height="450"
                             style={{ border: 0, display: "block" }}
                             allowFullScreen=""
                             loading="lazy"

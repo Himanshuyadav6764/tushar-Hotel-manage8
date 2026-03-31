@@ -55,17 +55,42 @@
 
 /* Card Style (Strict) */
 .service-card {
-    background: transparent !important;
-    box-shadow: none !important;
-    border: none !important;
-    padding: 0;
+    background: #fff !important;
+    border: 2px solid #e63946 !important;
+    border-radius: 16px;
+    padding: 15px;
     width: 350px;
     height: auto;
-    transition: transform 0.4s ease, opacity 0.4s ease;
+    /* 🔥 Static 3D - Always Lifted - Red Shadow */
+    box-shadow: 0 12px 0 #e63946 !important;
+    transform: translateY(-6px);
+    transition: all 0.2s ease-out;
+    opacity: 1 !important; /* Ensure visible */
+    font-weight: bold;
+    color: #000;
+}
 
-    /* Reveal Animation Starts invisible */
-    opacity: 0;
-    transform: translateY(30px);
+.faq-question {
+    padding: 20px 25px;
+    font-size: 18px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+    border: 2px solid #e63946;
+    border-radius: 12px;
+    /* 🔥 Red 3D Shadow */
+    box-shadow: 0 8px 0 #e63946;
+    transform: translateY(-4px);
+    transition: all 0.2s ease-out;
+    color: #000;
+}
+
+.faq-question:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 0 #e63946;
 }
 
 .service-card:hover {
@@ -89,6 +114,7 @@
 /* Ensure hover still works after animation */
 .service-card.show:hover {
     transform: translateY(-10px);
+    box-shadow: 0 16px 0 #e63946 !important;
 }
 
 /* Responsive */

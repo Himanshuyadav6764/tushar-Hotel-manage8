@@ -17,35 +17,9 @@
 }
 
 /* Optional soft background wavy shapes to mimic the illustration */
-.login-page-wrapper::before {
-    content: "";
-    position: absolute;
-    bottom: -10%;
-    left: 0;
-    width: 100%;
-    height: 40%;
-    background: radial-gradient(ellipse at 50% 100%, rgba(225, 29, 72, 0.15) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 1;
-}
-
-/* Adding building silhouettes like the image */
+.login-page-wrapper::before,
 .login-page-wrapper::after {
-    content: "";
-    position: absolute;
-    bottom: 0px;
-    right: 15%;
-    width: 50vw;
-    height: 40vh;
-    background-image: repeating-linear-gradient(transparent,
-            transparent 10px,
-            rgba(255, 255, 255, 0.4) 10px,
-            rgba(255, 255, 255, 0.4) 20px);
-    mask-image: linear-gradient(to top, rgba(0, 0, 0, 1) 30%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 1) 30%, transparent 100%);
-    opacity: 0.15;
-    z-index: 1;
-    pointer-events: none;
+    display: none; /* Removed blurry glows and silhouettes for maximum clarity */
 }
 
 .login-container {
@@ -128,17 +102,12 @@
     max-width: 440px;
     background: #ffffff;
     padding: 30px;
-    border-radius: 20px;
+    border-radius: 12px;
     margin-top: 0;
-    box-shadow:
-        0 10px 40px rgba(0, 0, 0, 0.05),
-        0 0 40px rgba(255, 76, 117, 0.5),
-        /* Initial Pink Glow */
-        inset 0 0 0 2px rgba(255, 255, 255, 0.5);
-    transition: transform 0.3s ease;
+    border: 3px solid #e63946; /* Red border as requested */
+    box-shadow: 10px 10px 0px #e63946; /* Solid red 3D shadow */
     position: relative;
-    border: 1px solid rgba(226, 232, 240, 0.6);
-    animation: glowPulse 4s infinite alternate ease-in-out;
+    /* Removed animation and blurry shadows */
 }
 
 @keyframes glowPulse {
