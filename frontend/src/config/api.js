@@ -2,7 +2,7 @@ const isDev = import.meta.env.DEV;
 const configuredApiUrl = String(import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
 
 // In development, prefer same-origin `/api` so Vite proxy is used.
-const API_URL = configuredApiUrl || (isDev ? '' : 'http://localhost:5000');
+const API_URL = configuredApiUrl || '';
 
 const DEV_LOCAL_FALLBACKS = ['http://localhost:5000', 'http://localhost:5001'];
 
