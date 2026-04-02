@@ -293,6 +293,22 @@
     font-size: 1.5rem;
     font-weight: 700;
     color: #111827;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.split-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    text-transform: uppercase;
 }
 
 .menu-trigger {
@@ -643,6 +659,17 @@
     align-items: center;
     gap: 6px;
     color: #6b7280;
+    font-weight: 500;
+}
+
+.split-meta-row {
+    margin-top: 2px;
+    gap: 10px;
+}
+
+.split-meta-text {
+    color: #6b7280;
+    font-size: 0.78rem;
     font-weight: 500;
 }
 

@@ -5,6 +5,18 @@ import { useSettings } from '../../context/SettingsContext';
 const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
     const { getCurrencySymbol } = useSettings();
     const cs = getCurrencySymbol();
+    const [resolvedBookingStatus, setResolvedBookingStatus] = useState('');
+
+    const normalizeStatusToken = (value = '') => String(value).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const inHouseTokens = new Set(['INHOUSE', 'CHECKEDIN']);
+    const statusCandidates = [
+        booking?.status,
+        booking?.bookingStatus,
+        booking?.reservationStatus,
+        resolvedBookingStatus
+    ].map(normalizeStatusToken);
+    const hasActiveCheckIn = Boolean(booking?.actualCheckIn) && !Boolean(booking?.actualCheckOut);
+    const isInHouseBooking = statusCandidates.some((token) => inHouseTokens.has(token)) || hasActiveCheckIn;
 
     const formatDateForInput = (dateStr) => {
         if (!dateStr) return '';
@@ -17,6 +29,8 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
     const [showSummaryModal, setShowSummaryModal] = useState(false);
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [availabilityWarning, setAvailabilityWarning] = useState('');
+    const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -25,6 +39,7 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
                 const result = await response.json();
                 if (result.success) {
                     const data = result.data;
+                    setResolvedBookingStatus(data?.status || '');
                     setFormData({
                         newCheckInDate: formatDateForInput(data.checkInDate),
                         newCheckInTime: data.checkInTime || '14:00',
@@ -84,6 +99,51 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
         }
     }, [formData, booking.totalAmount, booking.grandTotal]);
 
+    useEffect(() => {
+        if (!formData) return;
+
+        const timer = setTimeout(async () => {
+            const bookingId = booking?._id || booking?.id;
+            if (!bookingId) return;
+
+            const payload = isInHouseBooking
+                ? {
+                    newCheckOutTime: formData.newCheckOutTime,
+                    reason: formData.reason || 'Checkout time extension',
+                    validateOnly: true
+                }
+                : {
+                    ...formData,
+                    newGrandTotal: summary?.grandTotal,
+                    nights: summary?.nights,
+                    reason: formData.reason || 'Stay Amendment',
+                    validateOnly: true
+                };
+
+            try {
+                setIsCheckingAvailability(true);
+                setAvailabilityWarning('');
+                const response = await apiCall(`/api/reservations/amend/${bookingId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                if (!response.ok) {
+                    const warningMessage = result?.message || 'Already booked this time. Please pick another slot.';
+                    setAvailabilityWarning(warningMessage);
+                }
+            } catch (err) {
+                console.error('Availability validation failed:', err);
+            } finally {
+                setIsCheckingAvailability(false);
+            }
+        }, 350);
+
+        return () => clearTimeout(timer);
+    }, [formData, summary, booking?._id, booking?.id, isInHouseBooking]);
+
     if (loading || !formData || !summary) {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
@@ -97,16 +157,20 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
     const validate = () => {
         const newErrors = {};
         if (!formData) return false;
-        const checkIn = new Date(formData.newCheckInDate);
-        const checkOut = new Date(formData.newCheckOutDate);
+        const checkIn = new Date(`${formData.newCheckInDate}T${formData.newCheckInTime || '14:00'}`);
+        const checkOut = new Date(`${formData.newCheckOutDate}T${formData.newCheckOutTime || '11:00'}`);
 
-        if (checkOut <= checkIn) newErrors.checkOutDate = 'Check-out must be after check-in';
-        if (formData.adults < 1) newErrors.adults = 'At least 1 adult required';
-        if (summary.nights < 1) newErrors.nights = 'Stay must be at least 1 night';
-        if (formData.ratePerNight <= 0) newErrors.ratePerNight = 'Rate must be greater than 0';
-        if (parseFloat(formData.discount) < 0) newErrors.discount = 'Discount cannot be negative';
-        const roomTotal = (parseFloat(formData.ratePerNight) || 0) * summary.nights;
-        if (parseFloat(formData.discount) > roomTotal) newErrors.discount = 'Discount exceeds room total';
+        if (checkOut <= checkIn) newErrors.checkOutTime = 'Check-out must be after check-in';
+        if (availabilityWarning) newErrors.checkOutTime = availabilityWarning;
+
+        if (!isInHouseBooking) {
+            if (formData.adults < 1) newErrors.adults = 'At least 1 adult required';
+            if (summary.nights < 1) newErrors.nights = 'Stay must be at least 1 night';
+            if (formData.ratePerNight <= 0) newErrors.ratePerNight = 'Rate must be greater than 0';
+            if (parseFloat(formData.discount) < 0) newErrors.discount = 'Discount cannot be negative';
+            const roomTotal = (parseFloat(formData.ratePerNight) || 0) * summary.nights;
+            if (parseFloat(formData.discount) > roomTotal) newErrors.discount = 'Discount exceeds room total';
+        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -136,11 +200,20 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
     const handleFinalConfirm = async () => {
         setIsSubmitting(true);
         try {
+            const payload = isInHouseBooking
+                ? {
+                    newCheckOutTime: formData.newCheckOutTime,
+                    reason: formData.reason || 'Checkout time extension'
+                }
+                : {
+                    ...formData,
+                    newGrandTotal: summary.grandTotal,
+                    nights: summary.nights,
+                    reason: formData.reason || 'Stay Amendment'
+                };
+
             await onSubmit({
-                ...formData,
-                newGrandTotal: summary.grandTotal,
-                nights: summary.nights,
-                reason: formData.reason || 'Stay Amendment'
+                ...payload
             });
         } catch (err) {
             console.error(err);
@@ -171,68 +244,100 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
                         </div>
                     </div>
 
-                    {/* Date Section */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                        <div>
-                            <label style={labelStyle}>New Check-in Date</label>
-                            <input type="date" name="newCheckInDate" value={formData.newCheckInDate} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700' }} />
-                        </div>
-                        <div>
-                            <label style={labelStyle}>New Check-out Date</label>
-                            <input type="date" name="newCheckOutDate" value={formData.newCheckOutDate} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700', borderColor: errors.checkOutDate ? '#EF4444' : '#E2E8F0' }} />
-                            {errors.checkOutDate && <div style={errorStyle}>{errors.checkOutDate}</div>}
-                        </div>
-                    </div>
-
-                    {/* Time Section */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                        <div>
-                            <label style={labelStyle}>Check-in Time</label>
-                            <input type="time" name="newCheckInTime" value={formData.newCheckInTime} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700' }} />
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Check-out Time</label>
-                            <input type="time" name="newCheckOutTime" value={formData.newCheckOutTime} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700' }} />
-                        </div>
-                    </div>
-
-                    {/* Occupancy Section */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                        <div>
-                            <label style={labelStyle}>Adults</label>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{ ...boxStyle, flex: 1, display: 'flex', justifyContent: 'center', fontWeight: '800' }}>{formData.adults}</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <button type="button" onClick={() => handleCounter('adults', 1)} style={{ ...boxStyle, padding: '4px 8px', lineHeight: 1, cursor: 'pointer' }}>+</button>
-                                    <button type="button" onClick={() => handleCounter('adults', -1)} style={{ ...boxStyle, padding: '4px 8px', lineHeight: 1, cursor: 'pointer' }}>-</button>
+                    {isInHouseBooking ? (
+                        <>
+                            <div style={{ backgroundColor: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: '12px', padding: '10px 12px', fontSize: '12px', color: '#9A3412', fontWeight: 700 }}>
+                                In-House amendment allows only check-out time extension. The system will block updates that clash with the next booking.
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div>
+                                    <label style={labelStyle}>Check-out Date</label>
+                                    <input type="date" name="newCheckOutDate" value={formData.newCheckOutDate} disabled style={{ ...boxStyle, width: '100%', fontWeight: '700', backgroundColor: '#F8FAFC' }} />
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>New Check-out Time</label>
+                                    <input type="time" name="newCheckOutTime" value={formData.newCheckOutTime} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700', borderColor: errors.checkOutTime ? '#EF4444' : '#E2E8F0' }} />
+                                    {errors.checkOutTime && <div style={errorStyle}>{errors.checkOutTime}</div>}
                                 </div>
                             </div>
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Children</label>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{ ...boxStyle, flex: 1, display: 'flex', justifyContent: 'center', fontWeight: '800' }}>{formData.children}</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <button type="button" onClick={() => handleCounter('children', 1)} style={{ ...boxStyle, padding: '4px 8px', lineHeight: 1, cursor: 'pointer' }}>+</button>
-                                    <button type="button" onClick={() => handleCounter('children', -1)} style={{ ...boxStyle, padding: '4px 8px', lineHeight: 1, cursor: 'pointer' }}>-</button>
+                        </>
+                    ) : (
+                        <>
+                            {/* Date Section */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div>
+                                    <label style={labelStyle}>New Check-in Date</label>
+                                    <input type="date" name="newCheckInDate" value={formData.newCheckInDate} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700' }} />
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>New Check-out Date</label>
+                                    <input type="date" name="newCheckOutDate" value={formData.newCheckOutDate} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700', borderColor: errors.checkOutDate ? '#EF4444' : '#E2E8F0' }} />
+                                    {errors.checkOutDate && <div style={errorStyle}>{errors.checkOutDate}</div>}
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* Pricing Section */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                        <div>
-                            <label style={labelStyle}>Rate per Night ({cs})</label>
-                            <input type="number" name="ratePerNight" value={formData.ratePerNight} onChange={handleChange} min="0" style={{ ...boxStyle, width: '100%', fontWeight: '800', borderColor: errors.ratePerNight ? '#EF4444' : '#E2E8F0' }} />
-                            {errors.ratePerNight && <div style={errorStyle}>{errors.ratePerNight}</div>}
+                            {/* Time Section */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div>
+                                    <label style={labelStyle}>Check-in Time</label>
+                                    <input type="time" name="newCheckInTime" value={formData.newCheckInTime} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700' }} />
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Check-out Time</label>
+                                    <input type="time" name="newCheckOutTime" value={formData.newCheckOutTime} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700', borderColor: errors.checkOutTime ? '#EF4444' : '#E2E8F0' }} />
+                                    {errors.checkOutTime && <div style={errorStyle}>{errors.checkOutTime}</div>}
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {(availabilityWarning || isCheckingAvailability) && (
+                        <div style={{ backgroundColor: availabilityWarning ? '#FEF2F2' : '#EFF6FF', border: `1px solid ${availabilityWarning ? '#FCA5A5' : '#BFDBFE'}`, borderRadius: '12px', padding: '10px 12px', fontSize: '12px', color: availabilityWarning ? '#B91C1C' : '#1D4ED8', fontWeight: 700 }}>
+                            {availabilityWarning || 'Checking room time availability...'}
                         </div>
-                        <div>
-                            <label style={labelStyle}>Discount ({cs})</label>
-                            <input type="number" name="discount" value={formData.discount} onChange={handleChange} min="0" style={{ ...boxStyle, width: '100%', fontWeight: '800', borderColor: errors.discount ? '#EF4444' : '#E2E8F0' }} />
-                            {errors.discount && <div style={errorStyle}>{errors.discount}</div>}
-                        </div>
-                    </div>
+                    )}
+
+                    {!isInHouseBooking && (
+                        <>
+                            {/* Occupancy Section */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div>
+                                    <label style={labelStyle}>Adults</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ ...boxStyle, flex: 1, display: 'flex', justifyContent: 'center', fontWeight: '800' }}>{formData.adults}</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <button type="button" onClick={() => handleCounter('adults', 1)} style={{ ...boxStyle, padding: '4px 8px', lineHeight: 1, cursor: 'pointer' }}>+</button>
+                                            <button type="button" onClick={() => handleCounter('adults', -1)} style={{ ...boxStyle, padding: '4px 8px', lineHeight: 1, cursor: 'pointer' }}>-</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Children</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ ...boxStyle, flex: 1, display: 'flex', justifyContent: 'center', fontWeight: '800' }}>{formData.children}</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <button type="button" onClick={() => handleCounter('children', 1)} style={{ ...boxStyle, padding: '4px 8px', lineHeight: 1, cursor: 'pointer' }}>+</button>
+                                            <button type="button" onClick={() => handleCounter('children', -1)} style={{ ...boxStyle, padding: '4px 8px', lineHeight: 1, cursor: 'pointer' }}>-</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Pricing Section */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div>
+                                    <label style={labelStyle}>Rate per Night ({cs})</label>
+                                    <input type="number" name="ratePerNight" value={formData.ratePerNight} onChange={handleChange} min="0" style={{ ...boxStyle, width: '100%', fontWeight: '800', borderColor: errors.ratePerNight ? '#EF4444' : '#E2E8F0' }} />
+                                    {errors.ratePerNight && <div style={errorStyle}>{errors.ratePerNight}</div>}
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Discount ({cs})</label>
+                                    <input type="number" name="discount" value={formData.discount} onChange={handleChange} min="0" style={{ ...boxStyle, width: '100%', fontWeight: '800', borderColor: errors.discount ? '#EF4444' : '#E2E8F0' }} />
+                                    {errors.discount && <div style={errorStyle}>{errors.discount}</div>}
+                                </div>
+                            </div>
+                        </>
+                    )}
 
                     {/* Reason for Amendment */}
                     <div>
@@ -253,6 +358,23 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
                             <span>Nights: {summary.nights}</span>
                             <span>Tax ({formData.taxPercentage}%): {cs}{summary.tax.toLocaleString()}</span>
                         </div>
+                        {isInHouseBooking ? (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', opacity: 0.85 }}>
+                                <span>Check-out</span>
+                                <span style={{ fontWeight: 700 }}>{formData.newCheckOutDate} {formData.newCheckOutTime}</span>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', opacity: 0.85 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>Check-in</span>
+                                    <span style={{ fontWeight: 700 }}>{formData.newCheckInDate} {formData.newCheckInTime}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>Check-out</span>
+                                    <span style={{ fontWeight: 700 }}>{formData.newCheckOutDate} {formData.newCheckOutTime}</span>
+                                </div>
+                            </div>
+                        )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                             <div>
                                 <span style={{ fontSize: '11px', fontWeight: '800', opacity: 0.6, display: 'block' }}>OLD GRAND TOTAL</span>

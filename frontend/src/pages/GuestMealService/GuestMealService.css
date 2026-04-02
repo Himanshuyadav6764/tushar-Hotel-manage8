@@ -1746,18 +1746,41 @@
 
 /* Split Table Premium Styling */
 .split-table-premium {
-    width: 420px !important;
+    width: 440px !important;
+    border: 1px solid #fecdd3;
+    background: linear-gradient(180deg, #fff7f8 0%, #ffffff 32%);
+}
+
+.split-feedback-card {
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 14px;
+}
+
+.split-feedback-card.error {
+    background: #fff1f2;
+    border: 1px solid #fda4af;
+    color: #be123c;
+}
+
+.split-feedback-card.success {
+    background: #f0fdf4;
+    border: 1px solid #86efac;
+    color: #166534;
 }
 
 .split-info-card {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #f9fafb;
+    background: #ffffff;
     padding: 16px;
     border-radius: 12px;
     margin-bottom: 24px;
-    border: 1px solid #f3f4f6;
+    border: 1px solid #fecdd3;
+    box-shadow: 0 6px 14px rgba(225, 29, 72, 0.08);
 }
 
 .info-item {
@@ -1770,7 +1793,7 @@
 .info-item .label {
     font-size: 11px;
     font-weight: 700;
-    color: #6b7280;
+    color: #9f1239;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -1778,13 +1801,13 @@
 .info-item .value {
     font-size: 20px;
     font-weight: 800;
-    color: #111827;
+    color: #be123c;
 }
 
 .info-divider {
     width: 2px;
     height: 32px;
-    background: #e5e7eb;
+    background: #fecdd3;
 }
 
 .sub-tables-premium-container {
@@ -1802,26 +1825,27 @@
 }
 
 .sub-name-tag {
-    background: #f8fafc;
-    color: #0f172a;
+    background: #fff1f2;
+    color: #9f1239;
     font-size: 14px;
     font-weight: 800;
     text-align: center;
     padding: 12px 0;
     border-radius: 8px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #fecdd3;
 }
 
 .sub-input-premium {
     width: 100%;
     padding: 12px;
     border-radius: 8px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #fecdd3;
     font-size: 14px;
     font-weight: 600;
-    color: #111827;
+    color: #1f2937;
     text-align: center;
     transition: all 0.2s;
+    background: #ffffff;
 }
 
 .sub-input-premium:focus {
@@ -1834,7 +1858,7 @@
     width: 100%;
     padding: 12px;
     border-radius: 8px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #fecdd3;
     font-size: 14px;
     font-weight: 600;
     color: #4b5563;
