@@ -83,6 +83,99 @@ const buildPaymentSplitDescription = (splits) => {
         .join(' | ');
 };
 
+const DEFAULT_CHECKIN_TIME = '14:00';
+const DEFAULT_CHECKOUT_TIME = '11:00';
+const REQUIRED_ROOM_GAP_MINUTES = 30;
+const ACTIVE_STAY_STATUSES = [
+    'Upcoming', 'UPCOMING',
+    'Confirmed', 'CONFIRMED',
+    'Pending', 'PENDING',
+    'Reserved', 'RESERVED',
+    'Checked-in', 'CHECKED-IN',
+    'CheckedIn', 'CHECKEDIN',
+    'IN_HOUSE'
+];
+
+const normalizeStatus = (status) => String(status || '').trim().toUpperCase();
+
+const toDatePart = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
+const toTimePart = (value, fallback) => {
+    const source = String(value || '').trim();
+    const match = source.match(/^(\d{2}:\d{2})/);
+    return match ? match[1] : fallback;
+};
+
+const combineDateTime = (dateValue, timeValue, fallbackTime) => {
+    const datePart = toDatePart(dateValue);
+    if (!datePart) return null;
+    const timePart = toTimePart(timeValue, fallbackTime);
+    const combined = new Date(`${datePart}T${timePart}:00`);
+    return Number.isNaN(combined.getTime()) ? null : combined;
+};
+
+const getDayBounds = (dateValue) => {
+    const datePart = toDatePart(dateValue);
+    if (!datePart) return null;
+    return {
+        start: new Date(`${datePart}T00:00:00`),
+        end: new Date(`${datePart}T23:59:59.999`)
+    };
+};
+
+const findConflictingBookingByRoom = async ({ roomNumber, checkInDate, checkOutDate, checkInTime, checkOutTime, excludeBookingId }) => {
+    const proposedStart = combineDateTime(checkInDate, checkInTime, DEFAULT_CHECKIN_TIME);
+    const proposedEnd = combineDateTime(checkOutDate, checkOutTime, DEFAULT_CHECKOUT_TIME);
+    if (!proposedStart || !proposedEnd || proposedEnd <= proposedStart) {
+        return { error: 'Invalid stay window provided' };
+    }
+
+    const boundsStart = getDayBounds(proposedStart);
+    const boundsEnd = getDayBounds(proposedEnd);
+    if (!boundsStart || !boundsEnd) {
+        return { error: 'Invalid stay dates provided' };
+    }
+
+    const query = {
+        $and: [
+            { $or: [{ roomNumber }, { 'rooms.roomNumber': roomNumber }] },
+            { status: { $in: ACTIVE_STAY_STATUSES } },
+            { checkOutDate: { $gte: boundsStart.start } },
+            { checkInDate: { $lte: boundsEnd.end } }
+        ]
+    };
+
+    if (excludeBookingId) {
+        query.$and.push({ _id: { $ne: excludeBookingId } });
+    }
+
+    const potentialConflicts = await Booking.find(query)
+        .select('bookingId checkInDate checkOutDate scheduledCheckInTime scheduledCheckOutTime checkInTime checkOutTime');
+
+    const conflictingBooking = potentialConflicts.find((other) => {
+        const otherStart = combineDateTime(other.checkInDate, other.scheduledCheckInTime || other.checkInTime, DEFAULT_CHECKIN_TIME);
+        const otherEnd = combineDateTime(other.checkOutDate, other.scheduledCheckOutTime || other.checkOutTime, DEFAULT_CHECKOUT_TIME);
+        if (!otherStart || !otherEnd) return false;
+
+        // Enforce minimum turnaround gap both ways between two stays.
+        const requiredGapMs = REQUIRED_ROOM_GAP_MINUTES * 60 * 1000;
+        const proposedEndsBeforeOther = (proposedEnd.getTime() + requiredGapMs) <= otherStart.getTime();
+        const otherEndsBeforeProposed = (otherEnd.getTime() + requiredGapMs) <= proposedStart.getTime();
+
+        // Conflict unless one stay ends at least REQUIRED_ROOM_GAP_MINUTES before the other starts.
+        return !(proposedEndsBeforeOther || otherEndsBeforeProposed);
+    });
+
+    return { conflictingBooking };
+};
+
 
 // Get all bookings
 exports.getBookings = async (req, res) => {
@@ -197,20 +290,23 @@ exports.addBooking = async (req, res) => {
                         });
                     }
 
-                    // B. Check Booking Overlaps
-                    const bookingOverlap = await Booking.findOne({
-                        $and: [
-                            { $or: [{ roomNumber }, { "rooms.roomNumber": roomNumber }] },
-                            { status: { $in: ['Upcoming', 'Checked-in', 'RESERVED', 'IN_HOUSE', 'CheckedIn', 'Reserved'] } },
-                            { checkInDate: { $lt: checkOut } },
-                            { checkOutDate: { $gt: checkIn } }
-                        ]
+                    // B. Check Booking Overlaps (time-aware and boundary-safe)
+                    const overlapResult = await findConflictingBookingByRoom({
+                        roomNumber,
+                        checkInDate: bookingData.checkInDate,
+                        checkOutDate: bookingData.checkOutDate,
+                        checkInTime: bookingData.scheduledCheckInTime || bookingData.checkInTime,
+                        checkOutTime: bookingData.scheduledCheckOutTime || bookingData.checkOutTime
                     });
 
-                    if (bookingOverlap) {
+                    if (overlapResult.error) {
+                        return res.status(400).json({ success: false, message: overlapResult.error });
+                    }
+
+                    if (overlapResult.conflictingBooking) {
                         return res.status(409).json({
                             success: false,
-                            message: `Room ${roomNumber} is already booked between ${new Date(bookingOverlap.checkInDate).toLocaleDateString()} and ${new Date(bookingOverlap.checkOutDate).toLocaleDateString()}.`
+                            message: `Already booked this time. Room ${roomNumber} needs at least ${REQUIRED_ROOM_GAP_MINUTES} minutes gap between check-out and next check-in.`
                         });
                     }
                 }
@@ -257,20 +353,23 @@ exports.addBooking = async (req, res) => {
                     });
                 }
 
-                // B. Check Booking Overlaps
-                const bookingOverlap = await Booking.findOne({
-                    $and: [
-                        { $or: [{ roomNumber: bookingData.roomNumber }, { "rooms.roomNumber": bookingData.roomNumber }] },
-                        { status: { $in: ['Upcoming', 'Checked-in', 'RESERVED', 'IN_HOUSE', 'CheckedIn', 'Reserved'] } },
-                        { checkInDate: { $lt: checkOut } },
-                        { checkOutDate: { $gt: checkIn } }
-                    ]
+                // B. Check Booking Overlaps (time-aware and boundary-safe)
+                const overlapResult = await findConflictingBookingByRoom({
+                    roomNumber: bookingData.roomNumber,
+                    checkInDate: bookingData.checkInDate,
+                    checkOutDate: bookingData.checkOutDate,
+                    checkInTime: bookingData.scheduledCheckInTime || bookingData.checkInTime,
+                    checkOutTime: bookingData.scheduledCheckOutTime || bookingData.checkOutTime
                 });
 
-                if (bookingOverlap) {
+                if (overlapResult.error) {
+                    return res.status(400).json({ success: false, message: overlapResult.error });
+                }
+
+                if (overlapResult.conflictingBooking) {
                     return res.status(409).json({
                         success: false,
-                        message: `Room ${bookingData.roomNumber} is already booked between ${new Date(bookingOverlap.checkInDate).toLocaleDateString()} and ${new Date(bookingOverlap.checkOutDate).toLocaleDateString()}.`
+                        message: `Already booked this time. Room ${bookingData.roomNumber} needs at least ${REQUIRED_ROOM_GAP_MINUTES} minutes gap between check-out and next check-in.`
                     });
                 }
 
@@ -391,6 +490,51 @@ exports.updateBooking = async (req, res) => {
         if (req.body.advancePaid !== undefined) booking.billing.paidAmount = Number(req.body.advancePaid) || 0;
         if (req.body.totalAmount !== undefined || req.body.advancePaid !== undefined) {
             booking.billing.balanceAmount = (Number(booking.billing.totalAmount) || 0) - (Number(booking.billing.paidAmount) || 0);
+        }
+
+        const requestedStatus = normalizeStatus(req.body.status || booking.status);
+        if (ACTIVE_STAY_STATUSES.includes(requestedStatus)) {
+            const roomNumbersToValidate = new Set();
+            if (Array.isArray(req.body.rooms) && req.body.rooms.length > 0) {
+                req.body.rooms
+                    .map((room) => room?.roomNumber)
+                    .filter((roomNo) => roomNo && roomNo !== 'TBD')
+                    .forEach((roomNo) => roomNumbersToValidate.add(roomNo));
+            }
+
+            if (roomNumbersToValidate.size === 0) {
+                const proposedRoomNumber = req.body.roomNumber || booking.roomNumber;
+                if (proposedRoomNumber && proposedRoomNumber !== 'TBD') {
+                    roomNumbersToValidate.add(proposedRoomNumber);
+                }
+            }
+
+            const proposedCheckInDate = req.body.checkInDate || booking.checkInDate;
+            const proposedCheckOutDate = req.body.checkOutDate || booking.checkOutDate;
+            const proposedCheckInTime = req.body.scheduledCheckInTime || req.body.checkInTime || booking.scheduledCheckInTime || booking.checkInTime;
+            const proposedCheckOutTime = req.body.scheduledCheckOutTime || req.body.checkOutTime || booking.scheduledCheckOutTime || booking.checkOutTime;
+
+            for (const roomNo of roomNumbersToValidate) {
+                const overlapResult = await findConflictingBookingByRoom({
+                    roomNumber: roomNo,
+                    checkInDate: proposedCheckInDate,
+                    checkOutDate: proposedCheckOutDate,
+                    checkInTime: proposedCheckInTime,
+                    checkOutTime: proposedCheckOutTime,
+                    excludeBookingId: booking._id
+                });
+
+                if (overlapResult.error) {
+                    return res.status(400).json({ success: false, message: overlapResult.error });
+                }
+
+                if (overlapResult.conflictingBooking) {
+                    return res.status(409).json({
+                        success: false,
+                        message: `Already booked this time. Room ${roomNo} needs at least ${REQUIRED_ROOM_GAP_MINUTES} minutes gap between check-out and next check-in.`
+                    });
+                }
+            }
         }
 
         // Update only provided fields
@@ -1329,6 +1473,33 @@ exports.amendBookingStay = async (req, res) => {
     try {
         const Booking = require('../models/Booking');
         const booking = await Booking.findById(req.params.id);
+        const normalizeStatus = (status) => String(status || '').trim().toUpperCase();
+        const inHouseStatuses = ['CHECKED-IN', 'CHECKEDIN', 'IN_HOUSE'];
+        const CHECKIN_DEFAULT_TIME = '14:00';
+        const CHECKOUT_DEFAULT_TIME = '11:00';
+
+        const toDatePart = (value) => {
+            const d = new Date(value);
+            if (Number.isNaN(d.getTime())) return null;
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
+
+        const toTimePart = (value, fallback) => {
+            const source = String(value || '').trim();
+            const match = source.match(/^(\d{2}:\d{2})/);
+            return match ? match[1] : fallback;
+        };
+
+        const combineDateTime = (dateValue, timeValue, fallbackTime) => {
+            const datePart = toDatePart(dateValue);
+            if (!datePart) return null;
+            const timePart = toTimePart(timeValue, fallbackTime);
+            const combined = new Date(`${datePart}T${timePart}:00`);
+            return Number.isNaN(combined.getTime()) ? null : combined;
+        };
 
         if (!booking) {
             // Check if it's in the Reservation model instead
@@ -1374,8 +1545,74 @@ exports.amendBookingStay = async (req, res) => {
             newGrandTotal,
             nights,
             discount,
-            reason
+            reason,
+            validateOnly
         } = req.body;
+
+        const normalizedBookingStatus = normalizeStatus(booking.status);
+        const isInHouseBooking = inHouseStatuses.includes(normalizedBookingStatus);
+
+        if (isInHouseBooking && (newCheckInDate || newCheckInTime)) {
+            return res.status(400).json({
+                success: false,
+                message: 'In-house amendment allows only checkout time changes.'
+            });
+        }
+
+        const currentCheckInTime = booking.scheduledCheckInTime || booking.checkInTime || (booking.actualCheckIn ? booking.actualCheckIn.toTimeString().slice(0, 5) : CHECKIN_DEFAULT_TIME);
+        const currentCheckOutTime = booking.scheduledCheckOutTime || booking.checkOutTime || (booking.actualCheckOut ? booking.actualCheckOut.toTimeString().slice(0, 5) : CHECKOUT_DEFAULT_TIME);
+
+        const proposedCheckInDate = isInHouseBooking ? booking.checkInDate : (newCheckInDate || booking.checkInDate);
+        const proposedCheckOutDate = newCheckOutDate || booking.checkOutDate;
+        const proposedCheckInTime = isInHouseBooking ? currentCheckInTime : (newCheckInTime || currentCheckInTime);
+        const proposedCheckOutTime = newCheckOutTime || currentCheckOutTime;
+
+        const proposedCheckInDateTime = combineDateTime(proposedCheckInDate, proposedCheckInTime, CHECKIN_DEFAULT_TIME);
+        const proposedCheckOutDateTime = combineDateTime(proposedCheckOutDate, proposedCheckOutTime, CHECKOUT_DEFAULT_TIME);
+
+        if (!proposedCheckInDateTime || !proposedCheckOutDateTime) {
+            return res.status(400).json({ success: false, message: 'Invalid check-in/check-out date or time provided.' });
+        }
+
+        if (proposedCheckOutDateTime <= proposedCheckInDateTime) {
+            return res.status(400).json({ success: false, message: 'Check-out date/time must be after check-in date/time.' });
+        }
+
+        if (isInHouseBooking && newCheckOutDate && toDatePart(newCheckOutDate) !== toDatePart(booking.checkOutDate)) {
+            return res.status(400).json({ success: false, message: 'In-house amendment cannot change check-out date.' });
+        }
+
+        let conflictingBooking = null;
+        const roomNoForValidation = booking.roomNumber || booking.rooms?.[0]?.roomNumber;
+        if (roomNoForValidation) {
+            const overlapResult = await findConflictingBookingByRoom({
+                roomNumber: roomNoForValidation,
+                checkInDate: proposedCheckInDate,
+                checkOutDate: proposedCheckOutDate,
+                checkInTime: proposedCheckInTime,
+                checkOutTime: proposedCheckOutTime,
+                excludeBookingId: booking._id
+            });
+
+            if (overlapResult.error) {
+                return res.status(400).json({ success: false, message: overlapResult.error });
+            }
+            conflictingBooking = overlapResult.conflictingBooking;
+        }
+
+        if (conflictingBooking) {
+            return res.status(409).json({
+                success: false,
+                message: `Already booked this time. Room ${roomNoForValidation} needs at least ${REQUIRED_ROOM_GAP_MINUTES} minutes gap between check-out and next check-in. Conflicting booking: ${conflictingBooking.bookingId || conflictingBooking._id}.`
+            });
+        }
+
+        if (validateOnly) {
+            return res.status(200).json({
+                success: true,
+                message: `Time slot is available with required ${REQUIRED_ROOM_GAP_MINUTES} minutes room gap.`
+            });
+        }
 
         // Capture old data for audit log
         const oldData = {
@@ -1388,16 +1625,26 @@ exports.amendBookingStay = async (req, res) => {
         };
 
         // Update stay details
-        if (newCheckInDate) booking.checkInDate = new Date(newCheckInDate);
-        if (newCheckOutDate) booking.checkOutDate = new Date(newCheckOutDate);
-        if (newCheckInTime) booking.scheduledCheckInTime = newCheckInTime;
-        if (newCheckOutTime) booking.scheduledCheckOutTime = newCheckOutTime;
+        booking.checkInDate = new Date(proposedCheckInDate);
+        booking.checkOutDate = new Date(proposedCheckOutDate);
+        if (proposedCheckInTime) {
+            booking.scheduledCheckInTime = proposedCheckInTime;
+            booking.checkInTime = proposedCheckInTime;
+        }
+        if (proposedCheckOutTime) {
+            booking.scheduledCheckOutTime = proposedCheckOutTime;
+            booking.checkOutTime = proposedCheckOutTime;
+        }
 
         // Update occupancy
         if (!booking.duration) booking.duration = {};
         if (adults !== undefined) booking.duration.adults = Number(adults);
         if (children !== undefined) booking.duration.children = Number(children);
-        booking.numberOfGuests = (Number(adults) || 0) + (Number(children) || 0);
+        if (adults !== undefined || children !== undefined) {
+            const finalAdults = adults !== undefined ? Number(adults) : (booking.duration.adults || 1);
+            const finalChildren = children !== undefined ? Number(children) : (booking.duration.children || 0);
+            booking.numberOfGuests = Math.max(0, finalAdults) + Math.max(0, finalChildren);
+        }
 
         // Update pricing and handle folio adjustments
         if (!booking.billing) booking.billing = {};
@@ -1406,15 +1653,16 @@ exports.amendBookingStay = async (req, res) => {
 
         // Financial Adjustment Logic
         const oldTotal = booking.billing.totalAmount || 0;
-        const targetTotal = Number(newGrandTotal);
+        const hasTargetTotal = newGrandTotal !== undefined && newGrandTotal !== null && Number.isFinite(Number(newGrandTotal));
+        const targetTotal = hasTargetTotal ? Number(newGrandTotal) : oldTotal;
         const difference = targetTotal - oldTotal;
 
-        if (difference !== 0) {
+        if (hasTargetTotal && difference !== 0) {
             if (!booking.transactions) booking.transactions = [];
 
             booking.transactions.push({
                 type: difference > 0 ? 'Charge' : 'Adjustment',
-                notes: `Stay amended from ${oldData.nights} to ${nights} nights at ₹${ratePerNight}/night. ${reason || ''}`,
+                notes: `Stay amended from ${oldData.nights} to ${nights ?? oldData.nights} nights at ₹${ratePerNight ?? oldData.ratePerNight}/night. ${reason || ''}`,
                 amount: Math.abs(difference),
                 date: new Date()
             });

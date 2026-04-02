@@ -437,7 +437,7 @@ const CashierSection = () => {
                 <div className="stats-wrapper">
                     <div className="stat-card total">
                         <div className="stat-card-inner">
-                            <span className="stat-label">TOTAL COLLECTION TODAY</span>
+                            <span className="stat-label">TOTAL COLLECTION (LAST 24 HOURS)</span>
                             <span className="stat-value">{cs}{stats.totalCollection.toFixed(2)}</span>
                         </div>
                     </div>

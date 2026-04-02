@@ -356,6 +356,9 @@ const GuestMealService = () => {
     const [showSplitModal, setShowSplitModal] = useState(false);
     const [splitTableId, setSplitTableId] = useState(null);
     const [splitParts, setSplitParts] = useState(2);
+    const [isSplitSubmitting, setIsSplitSubmitting] = useState(false);
+    const [splitFeedback, setSplitFeedback] = useState({ type: '', message: '' });
+    const [closeSplitConfirmTable, setCloseSplitConfirmTable] = useState(null);
     // Verify User State
     const [showVerifyModal, setShowVerifyModal] = useState(false);
     const [verifyPhoneInput, setVerifyPhoneInput] = useState('');
@@ -477,6 +480,11 @@ const GuestMealService = () => {
         // Prevent sending if already sent (pending payment/billed)
         if (table.status === 'Billed' || table.orderStatus === 'Pending Payment') {
             showToast('Already Sent', 'Bill is already with cashier');
+            return;
+        }
+
+        if (table.orderStatus !== 'Served') {
+            showToast('Send Disabled', 'Send is allowed only when order turns green (Served).');
             return;
         }
 
@@ -636,10 +644,76 @@ const GuestMealService = () => {
         }
     };
 
+    const executeCloseSplitGroup = async (table) => {
+        try {
+            const targetId = table.tableId || table._id;
+            if (!targetId) {
+                showToast('Close Split Failed', 'Table ID is missing.');
+                return;
+            }
+
+            const closeSplitEndpoints = [
+                `/api/guest-meal/tables/${targetId}/close-split`,
+                `/api/tables/${targetId}/close-split`
+            ];
+
+            let closed = false;
+            let lastErrorMessage = 'Unable to close split table.';
+
+            for (const endpoint of closeSplitEndpoints) {
+                const response = await apiCall(endpoint, { method: 'POST' });
+                const responseText = await response.text();
+
+                let data = null;
+                try {
+                    data = responseText ? JSON.parse(responseText) : null;
+                } catch {
+                    data = null;
+                }
+
+                if (response.ok && data?.success) {
+                    closed = true;
+                    showToast('Split Closed', data.message || 'Split closed successfully.');
+                    fetchTables();
+                    break;
+                }
+
+                if (response.status !== 404) {
+                    lastErrorMessage = data?.message || responseText || 'Unable to close split table.';
+                }
+            }
+
+            if (!closed) {
+                throw new Error(lastErrorMessage);
+            }
+        } catch (error) {
+            console.error('Close split error:', error);
+            showToast('Close Split Failed', error.message || 'Unable to close split table right now.');
+        }
+    };
+
+    const handleCloseSplitGroup = (table) => {
+        const targetId = table?.tableId || table?._id;
+        if (!targetId) {
+            showToast('Close Split Failed', 'Table ID is missing.');
+            return;
+        }
+        setCloseSplitConfirmTable(table);
+    };
+
+    const handleConfirmCloseSplit = async () => {
+        if (!closeSplitConfirmTable) return;
+        const selectedTable = closeSplitConfirmTable;
+        setCloseSplitConfirmTable(null);
+        await executeCloseSplitGroup(selectedTable);
+    };
+
     // Handle Menu Action
     const handleMenuAction = (action, table) => {
         if (action === 'Split Table') {
             openSplitModal(table);
+        } else if (action === 'Close Split') {
+            handleCloseSplitGroup(table);
         } else if (action === 'Edit Table') {
             openEditTableModal(table);
         } else if (action === 'Delete Table') {
@@ -913,6 +987,7 @@ const GuestMealService = () => {
     const openSplitModal = (table) => {
         setSplitTableId(table.tableId || table._id);
         setSplitParts(2);
+        setSplitFeedback({ type: '', message: '' });
 
         const guests = table.guests || table.capacity;
         const initialSubTables = [
@@ -960,9 +1035,75 @@ const GuestMealService = () => {
     };
 
     // Submit Split
-    const handleSplitSubmit = () => {
-        showToast('Split Ready', 'Split configuration saved.');
-        setShowSplitModal(false);
+    const handleSplitSubmit = async () => {
+        const currentTable = tables.find((t) => (t.tableId || t._id) === splitTableId);
+        if (!currentTable) {
+            setSplitFeedback({ type: 'error', message: 'Selected table not found. Please refresh and try again.' });
+            return;
+        }
+
+        const normalizedSubTables = splitSubTables.map((sub) => ({
+            name: String(sub.name || '').trim(),
+            guests: Number(sub.guests) || 0,
+            waiter: String(sub.waiter || '').trim()
+        }));
+
+        if (normalizedSubTables.some((sub) => !sub.name || sub.guests < 1)) {
+            setSplitFeedback({ type: 'error', message: 'Each sub-table needs valid name and minimum 1 seat.' });
+            return;
+        }
+
+        const totalSeats = normalizedSubTables.reduce((sum, sub) => sum + sub.guests, 0);
+        const parentCapacity = Number(currentTable.capacity || 0);
+        if (totalSeats !== parentCapacity) {
+            setSplitFeedback({ type: 'error', message: `Total seats (${totalSeats}) must match parent capacity (${parentCapacity}).` });
+            return;
+        }
+
+        setIsSplitSubmitting(true);
+        setSplitFeedback({ type: '', message: '' });
+        try {
+            const response = await apiCall(`/api/guest-meal/tables/${splitTableId}/split`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ splitParts, subTables: normalizedSubTables })
+            });
+
+            let data;
+            try {
+                data = await response.json();
+            } catch {
+                data = { success: false, message: 'Invalid split response from server' };
+            }
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Unable to split table');
+            }
+
+            const created = Array.isArray(data.data) ? data.data : [];
+            setTables((prevTables) => {
+                const withoutParent = prevTables.filter((t) => (t.tableId || t._id) !== splitTableId);
+                return sortTablesForDisplay([...withoutParent, ...created]);
+            });
+
+            setStatusFilter('All');
+            setTypeFilter('All');
+            setLocationFilter('All');
+            setSearchQuery('');
+
+            showToast('Split Success', data.message || 'Table split successfully.');
+            setShowSplitModal(false);
+            setSplitTableId(null);
+            setSplitSubTables([]);
+            setSplitFeedback({ type: '', message: '' });
+
+            fetchTables();
+        } catch (error) {
+            setSplitFeedback({ type: 'error', message: error.message || 'Unable to split table right now.' });
+            showToast('Split Failed', error.message || 'Unable to split table right now.');
+        } finally {
+            setIsSplitSubmitting(false);
+        }
     };
 
     // Move Guests
@@ -2590,7 +2731,7 @@ const GuestMealService = () => {
             {/* Split Table Modal */}
             {
                 showSplitModal && (
-                    <div className="add-payment-overlay" onClick={() => setShowSplitModal(false)}>
+                    <div className="add-payment-overlay" onClick={() => { setShowSplitModal(false); setSplitFeedback({ type: '', message: '' }); }}>
                         <div className="add-payment-modal split-table-premium" onClick={(e) => e.stopPropagation()}>
                             {/* Modern Premium Header */}
                             <div className="premium-payment-header">
@@ -2601,12 +2742,18 @@ const GuestMealService = () => {
                                     <h3>Split Table - {tables.find(t => t.tableId === splitTableId)?.tableName}</h3>
                                     <span>TABLE CONFIGURATION</span>
                                 </div>
-                                <button className="premium-close-btn" onClick={() => setShowSplitModal(false)}>
+                                <button className="premium-close-btn" onClick={() => { setShowSplitModal(false); setSplitFeedback({ type: '', message: '' }); }}>
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                 </button>
                             </div>
 
                             <div className="add-payment-body">
+                                {splitFeedback.message && (
+                                    <div className={`split-feedback-card ${splitFeedback.type === 'error' ? 'error' : 'success'}`}>
+                                        {splitFeedback.message}
+                                    </div>
+                                )}
+
                                 {/* Capacity Summary Info */}
                                 <div className="split-info-card">
                                     <div className="info-item">
@@ -2668,8 +2815,8 @@ const GuestMealService = () => {
                             </div>
 
                             <div className="payment-modal-footer">
-                                <button className="btn-secondary" onClick={() => setShowSplitModal(false)}>CANCEL</button>
-                                <button className="btn-primary" onClick={handleSplitSubmit}>
+                                <button className="btn-secondary" onClick={() => { setShowSplitModal(false); setSplitFeedback({ type: '', message: '' }); }}>CANCEL</button>
+                                <button className="btn-primary" onClick={handleSplitSubmit} disabled={isSplitSubmitting}>
                                     <span>CONFIRM SPLIT</span>
                                 </button>
                             </div>
@@ -2677,6 +2824,41 @@ const GuestMealService = () => {
                     </div>
                 )
             }
+
+            {/* Close Split Confirmation Card */}
+            {closeSplitConfirmTable && (
+                <div className="add-payment-overlay" onClick={() => setCloseSplitConfirmTable(null)}>
+                    <div className="add-payment-modal" onClick={(e) => e.stopPropagation()} style={{ width: '460px' }}>
+                        <div className="premium-payment-header">
+                            <div className="header-icon-wrap">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 9v4"></path>
+                                    <path d="M12 17h.01"></path>
+                                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                </svg>
+                            </div>
+                            <div className="header-text">
+                                <h3>Close Split Table</h3>
+                                <span>{closeSplitConfirmTable.parentTableName || closeSplitConfirmTable.tableName}</span>
+                            </div>
+                            <button className="premium-close-btn" onClick={() => setCloseSplitConfirmTable(null)}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+
+                        <div className="add-payment-body">
+                            <div className="split-feedback-card error" style={{ marginBottom: 0 }}>
+                                This will remove all split cards and restore the parent table.
+                            </div>
+                        </div>
+
+                        <div className="payment-modal-footer">
+                            <button className="btn-secondary" onClick={() => setCloseSplitConfirmTable(null)}>CANCEL</button>
+                            <button className="btn-primary" onClick={handleConfirmCloseSplit}>CONFIRM CLOSE SPLIT</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
 
 
@@ -3681,6 +3863,10 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
     }
     const statusToUse = computedStatus;
     const styles = getStatusStyles(statusToUse);
+    const isPendingBlink = statusToUse !== 'Available' && statusToUse !== 'Reserved' && table.orderStatus === 'Pending';
+    const isRedBlink = statusToUse !== 'Available' && statusToUse !== 'Reserved' && (table.orderStatus === 'Preparing' || table.orderStatus === 'Ready');
+    const isGreenBlink = statusToUse !== 'Available' && statusToUse !== 'Reserved' && table.orderStatus === 'Served';
+    const canSendToCashier = statusToUse === 'Running' && isGreenBlink;
 
     const [elapsedTime, setElapsedTime] = useState(table.duration || 0);
 
@@ -3739,9 +3925,9 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                 transform: showMenu ? 'translateY(-2px)' : 'none'
             }}
         >
-            {statusToUse !== 'Available' && statusToUse !== 'Reserved' && table.orderStatus === 'Pending' && <div className="blink-dot blink-yellow-real" title="Order Pending"></div>}
-            {statusToUse !== 'Available' && statusToUse !== 'Reserved' && (table.orderStatus === 'Preparing' || table.orderStatus === 'Ready') && <div className="blink-dot blink-red-real" title="Preparing"></div>}
-            {statusToUse !== 'Available' && statusToUse !== 'Reserved' && table.orderStatus === 'Served' && <div className="blink-dot blink-green-real" title="Ready / Served"></div>}
+            {isPendingBlink && <div className="blink-dot blink-yellow-real" title="Order Pending"></div>}
+            {isRedBlink && <div className="blink-dot blink-red-real" title="Preparing"></div>}
+            {isGreenBlink && <div className="blink-dot blink-green-real" title="Ready / Served"></div>}
 
             <div className="table-topbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -3786,7 +3972,10 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                                     <>
                                         <MenuItem icon="🚶" label="Walk-in" color="#10b981" weight="600" onClick={(e) => handleAction('Walk-in', e)} />
                                         {settings.billingRules?.splitBill !== false && (
-                                            <MenuItem icon="✂" label="Split Table" onClick={(e) => handleAction('Split Table', e)} />
+                                            !table.isSplitChild && <MenuItem icon="✂" label="Split Table" onClick={(e) => handleAction('Split Table', e)} />
+                                        )}
+                                        {table.isSplitChild && (
+                                            <MenuItem icon="🧩" label="Close Split" color="#E31E24" onClick={(e) => handleAction('Close Split', e)} />
                                         )}
                                         <MenuItem icon="↔" label="Move Guests" onClick={(e) => handleAction('Move Guests', e)} />
                                         {settings.billingRules?.mergeTable !== false && (
@@ -3973,14 +4162,20 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                 {(statusToUse === 'Running') && (
                     <button
                         onClick={(e) => onSendToCashier(e, table)}
-                        title="Send final bill to cashier"
+                        disabled={!canSendToCashier}
+                        title={canSendToCashier ? 'Send final bill to cashier' : 'Send unlocks only on green status'}
                         style={{
                             padding: '8px 16px', borderRadius: '8px',
-                            background: '#E31E24', color: 'white', border: 'none',
-                            fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem',
-                            boxShadow: '0 2px 4px rgba(220, 38, 38, 0.3)',
+                            background: canSendToCashier ? '#E31E24' : '#d1d5db',
+                            color: canSendToCashier ? 'white' : '#6b7280',
+                            border: 'none',
+                            fontWeight: '700',
+                            cursor: canSendToCashier ? 'pointer' : 'not-allowed',
+                            fontSize: '0.85rem',
+                            boxShadow: canSendToCashier ? '0 2px 4px rgba(220, 38, 38, 0.3)' : 'none',
                             transition: 'all 0.2s ease',
-                            whiteSpace: 'nowrap'
+                            whiteSpace: 'nowrap',
+                            opacity: canSendToCashier ? 1 : 0.85
                         }}
                     >
                         Send

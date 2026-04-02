@@ -3,6 +3,9 @@ const Table = require('../models/Table');
 const GuestMealOrder = require('../models/Order');
 const MenuItem = require('../models/Menu');
 const Room = require('../models/Room');
+const Transaction = require('../models/Transaction');
+
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // ============================================================================
 // TABLE MANAGEMENT CONTROLLERS
@@ -34,6 +37,9 @@ exports.getAllTables = async (req, res) => {
             currentOrderId: table.currentOrderId,
             orderStatus: table.currentOrderId ? table.currentOrderId.status : null,
             mergedTableIds: table.mergedTableIds || [],
+            isSplitChild: !!table.isSplitChild,
+            parentTableName: table.parentTableName || '',
+            assignedWaiter: table.assignedWaiter || '',
             amount: table.runningOrderAmount || 0,
             duration: table.getOrderDuration() || 0,
             createdAt: table.createdAt,
@@ -49,6 +55,251 @@ exports.getAllTables = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error fetching tables',
+            error: error.message
+        });
+    }
+};
+
+// Split one table into multiple child tables.
+exports.splitTable = async (req, res) => {
+    try {
+        const { tableId } = req.params;
+        const { subTables = [] } = req.body || {};
+
+        if (!Array.isArray(subTables) || subTables.length < 2) {
+            return res.status(400).json({ success: false, message: 'At least 2 sub-tables are required' });
+        }
+
+        const parentTable = await Table.findById(tableId);
+        if (!parentTable) {
+            return res.status(404).json({ success: false, message: 'Table not found' });
+        }
+
+        let hasActiveOrder = false;
+        if (parentTable.currentOrderId) {
+            const order = await GuestMealOrder.findById(parentTable.currentOrderId).select('status').lean();
+            const activeOrderStatuses = ['Pending', 'Active', 'Confirmed', 'Preparing', 'Ready', 'Started', 'Served', 'Pending Payment', 'Billed'];
+            hasActiveOrder = !!(order && activeOrderStatuses.includes(order.status));
+
+            // Auto-clean stale link when order is already closed/completed/cancelled.
+            if (!hasActiveOrder) {
+                parentTable.currentOrderId = null;
+                parentTable.runningOrderAmount = 0;
+                parentTable.guests = 0;
+                parentTable.orderStartTime = null;
+                if (parentTable.status !== 'Available') parentTable.status = 'Available';
+                await parentTable.save();
+            }
+        }
+
+        if (hasActiveOrder || (parentTable.runningOrderAmount || 0) > 0 || ['Running', 'Occupied', 'Billed'].includes(parentTable.status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Only free tables can be split. Please close active order first.'
+            });
+        }
+
+        const normalizedRows = subTables.map((row) => ({
+            name: String(row?.name || '').trim(),
+            guests: Number(row?.guests) || 0,
+            waiter: String(row?.waiter || '').trim()
+        }));
+
+        if (normalizedRows.some((row) => !row.name || row.guests < 1)) {
+            return res.status(400).json({ success: false, message: 'Each sub-table must have a name and seats >= 1' });
+        }
+
+        const totalSeats = normalizedRows.reduce((sum, row) => sum + row.guests, 0);
+        if (totalSeats !== Number(parentTable.capacity || 0)) {
+            return res.status(400).json({
+                success: false,
+                message: `Total split seats (${totalSeats}) must match parent capacity (${parentTable.capacity})`
+            });
+        }
+
+        const payloadNameSet = new Set();
+        for (const row of normalizedRows) {
+            const key = row.name.toLowerCase();
+            if (payloadNameSet.has(key)) {
+                return res.status(400).json({ success: false, message: `Duplicate sub-table name: ${row.name}` });
+            }
+            payloadNameSet.add(key);
+
+            const existing = await Table.findOne({
+                _id: { $ne: parentTable._id },
+                tableName: { $regex: new RegExp(`^${escapeRegex(row.name)}$`, 'i') }
+            }).lean();
+            if (existing) {
+                return res.status(409).json({ success: false, message: `Table name ${row.name} already exists` });
+            }
+        }
+
+        const maxTable = await Table.findOne().sort({ tableNumber: -1 }).select('tableNumber').lean();
+        let nextTableNumber = Number(maxTable?.tableNumber || 0) + 1;
+
+        const childRows = normalizedRows.map((row) => ({
+            tableName: row.name,
+            tableNumber: nextTableNumber++,
+            capacity: row.guests,
+            guests: 0,
+            type: parentTable.type || 'General',
+            location: parentTable.location || 'Main Hall',
+            status: 'Available',
+            assignedWaiter: row.waiter || '',
+            isSplitChild: true,
+            parentTableName: parentTable.tableName
+        }));
+
+        const created = await Table.insertMany(childRows);
+        await Table.findByIdAndDelete(parentTable._id);
+
+        const formatted = created.map((table) => ({
+            _id: table._id,
+            tableId: table._id,
+            tableNumber: table.tableNumber,
+            tableName: table.tableName,
+            type: table.type,
+            location: table.location || 'Main Hall',
+            status: table.status,
+            capacity: table.capacity,
+            guests: table.guests,
+            reservations: table.reservations || [],
+            runningOrderAmount: table.runningOrderAmount || 0,
+            mergedTableIds: table.mergedTableIds || [],
+            isSplitChild: !!table.isSplitChild,
+            parentTableName: table.parentTableName || '',
+            assignedWaiter: table.assignedWaiter || '',
+            amount: table.runningOrderAmount || 0,
+            duration: 0,
+            createdAt: table.createdAt,
+            updatedAt: table.updatedAt
+        }));
+
+        return res.status(200).json({
+            success: true,
+            message: `Table ${parentTable.tableName} split into ${formatted.length} tables`,
+            data: formatted
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: 'Error splitting table', error: error.message });
+    }
+};
+
+// Close split group and restore original parent table.
+exports.closeSplitTable = async (req, res) => {
+    try {
+        const { tableId } = req.params;
+        const selectedTable = await Table.findById(tableId);
+
+        if (!selectedTable) {
+            return res.status(404).json({ success: false, message: 'Table not found' });
+        }
+
+        if (!selectedTable.isSplitChild || !selectedTable.parentTableName) {
+            return res.status(400).json({
+                success: false,
+                message: 'Selected table is not a split child table'
+            });
+        }
+
+        const parentTableName = String(selectedTable.parentTableName).trim();
+        const splitChildren = await Table.find({
+            isSplitChild: true,
+            parentTableName
+        });
+
+        if (!splitChildren.length) {
+            return res.status(404).json({
+                success: false,
+                message: 'No split child tables found for this parent'
+            });
+        }
+
+        const activeOrderStatuses = ['Pending', 'Active', 'Confirmed', 'Preparing', 'Ready', 'Started', 'Served', 'Pending Payment', 'Billed'];
+        const busyTables = [];
+
+        for (const child of splitChildren) {
+            let hasActiveOrder = false;
+            if (child.currentOrderId) {
+                const order = await GuestMealOrder.findById(child.currentOrderId).select('status').lean();
+                hasActiveOrder = !!(order && activeOrderStatuses.includes(order.status));
+
+                // Auto-clean stale order link if order is already closed/completed/cancelled.
+                if (!hasActiveOrder) {
+                    child.currentOrderId = null;
+                    child.runningOrderAmount = 0;
+                    child.guests = 0;
+                    child.orderStartTime = null;
+                }
+            }
+
+            const normalizedStatus = String(child.status || '').toLowerCase();
+            const isBusyStatus = ['running', 'occupied', 'billed'].includes(normalizedStatus);
+            const hasAmount = Number(child.runningOrderAmount || 0) > 0;
+
+            if (hasActiveOrder || isBusyStatus || hasAmount) {
+                busyTables.push(child);
+                continue;
+            }
+
+            // Normalize free split child state before close.
+            if (child.status !== 'Available') {
+                child.status = 'Available';
+            }
+            await child.save();
+        }
+
+        if (busyTables.length > 0) {
+            return res.status(409).json({
+                success: false,
+                message: `Cannot close split while tables are active: ${busyTables.map((t) => t.tableName).join(', ')}`
+            });
+        }
+
+        const parentAlreadyExists = await Table.findOne({
+            tableName: new RegExp(`^${escapeRegex(parentTableName)}$`, 'i'),
+            type: selectedTable.type || 'General',
+            isSplitChild: { $ne: true }
+        }).lean();
+
+        if (parentAlreadyExists) {
+            // Idempotent close: if parent already exists from prior partial close, remove children and finish.
+            await Table.deleteMany({ _id: { $in: splitChildren.map((child) => child._id) } });
+            return res.status(200).json({
+                success: true,
+                message: `Split already closed. Parent table ${parentTableName} is available.`,
+                data: parentAlreadyExists
+            });
+        }
+
+        const totalCapacity = splitChildren.reduce((sum, child) => sum + Number(child.capacity || 0), 0);
+        const highestTable = await Table.findOne().sort({ tableNumber: -1 }).select('tableNumber').lean();
+        const nextTableNumber = Number(highestTable?.tableNumber || 0) + 1;
+
+        const restoredParent = await Table.create({
+            tableName: parentTableName,
+            tableNumber: nextTableNumber,
+            capacity: totalCapacity,
+            guests: 0,
+            status: 'Available',
+            type: selectedTable.type || 'General',
+            location: selectedTable.location || 'Main Hall',
+            assignedWaiter: '',
+            isSplitChild: false,
+            parentTableName: ''
+        });
+
+        await Table.deleteMany({ _id: { $in: splitChildren.map((child) => child._id) } });
+
+        return res.status(200).json({
+            success: true,
+            message: `Split closed successfully. Restored table ${parentTableName}`,
+            data: restoredParent
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Error closing split table',
             error: error.message
         });
     }
@@ -1063,19 +1314,22 @@ exports.getDashboardStats = async (req, res) => {
         const runningTables = await Table.countDocuments({ status: 'Running' });
         const billedTables = await Table.countDocuments({ status: 'Billed' });
 
-        // Get today's revenue
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        // Rolling 24-hour window keeps cashier cards stable across refresh/timezone changes.
+        const now = new Date();
+        const since24h = new Date(now.getTime() - (24 * 60 * 60 * 1000));
 
-        const todayClosed = await GuestMealOrder.find({
+        const recentClosed = await GuestMealOrder.find({
             status: 'Closed',
-            closedAt: { $gte: today }
-        });
+            $or: [
+                { closedAt: { $gte: since24h } },
+                { closedAt: { $exists: false }, updatedAt: { $gte: since24h } },
+                { closedAt: null, updatedAt: { $gte: since24h } }
+            ]
+        }).select('revenue finalAmount paymentMethod paymentSplits closedAt updatedAt');
 
-        const totalRevenue = todayClosed.reduce((sum, order) => sum + order.revenue, 0);
-        const totalOrders = await GuestMealOrder.countDocuments({ status: 'Closed', closedAt: { $gte: today } });
+        const totalRevenue = recentClosed.reduce((sum, order) => sum + Number(order.revenue || order.finalAmount || 0), 0);
+        const totalOrders = recentClosed.length;
 
-        // Calculate payment breakdowns for today
         const collections = {
             Cash: 0,
             UPI: 0,
@@ -1084,12 +1338,60 @@ exports.getDashboardStats = async (req, res) => {
             Room: 0
         };
 
-        todayClosed.forEach(order => {
-            const method = order.paymentMethod;
-            if (method && collections.hasOwnProperty(method)) {
-                collections[method] += order.finalAmount || 0;
-            } else if (method === 'Room Billing') {
-                collections.Room += order.finalAmount || 0;
+        const normalizeMode = (value = '') => {
+            const lower = String(value).toLowerCase().trim();
+            if (lower === 'cash') return 'Cash';
+            if (lower === 'upi') return 'UPI';
+            if (lower === 'card') return 'Card';
+            if (lower === 'room billing' || lower === 'room') return 'Room';
+            if (lower === 'online') return 'Online';
+            return null;
+        };
+
+        // Primary source for cashier-mode collections: immutable Transaction entries.
+        const recentRestaurantTransactions = await Transaction.find({
+            type: 'Income',
+            category: 'Restaurant',
+            status: { $ne: 'Failed' },
+            date: { $gte: since24h }
+        }).select('amount paymentMethod');
+
+        recentRestaurantTransactions.forEach((txn) => {
+            const key = normalizeMode(txn.paymentMethod);
+            const amount = Number(txn.amount || 0);
+            if (key && ['Cash', 'UPI', 'Card', 'Online'].includes(key) && amount > 0) {
+                collections[key] += amount;
+            }
+        });
+
+        const hasRestaurantTransactions = recentRestaurantTransactions.length > 0;
+
+        recentClosed.forEach((order) => {
+            const payable = Number(order.finalAmount || order.revenue || 0);
+            const splits = Array.isArray(order.paymentSplits) ? order.paymentSplits : [];
+
+            // Room-billed amounts are not present in Transaction model, keep them from order records.
+            if (normalizeMode(order.paymentMethod) === 'Room') {
+                collections.Room += payable;
+                return;
+            }
+
+            if (splits.length > 0) {
+                if (hasRestaurantTransactions) return;
+                splits.forEach((split) => {
+                    const key = normalizeMode(split?.mode);
+                    const amount = Number(split?.amount || 0);
+                    if (key && ['Cash', 'UPI', 'Card', 'Online'].includes(key) && amount > 0) {
+                        collections[key] += amount;
+                    }
+                });
+                return;
+            }
+
+            const key = normalizeMode(order.paymentMethod);
+            // Fallback for legacy orders where transaction row may be missing.
+            if (!hasRestaurantTransactions && key && ['Cash', 'UPI', 'Card', 'Online'].includes(key)) {
+                collections[key] += payable;
             }
         });
 
@@ -1102,7 +1404,10 @@ exports.getDashboardStats = async (req, res) => {
                 billedTables,
                 totalRevenue,
                 totalOrders,
-                collections
+                collections,
+                windowHours: 24,
+                windowStart: since24h,
+                windowEnd: now
             }
         });
     } catch (error) {
@@ -1477,6 +1782,9 @@ exports.settleOrder = async (req, res) => {
 
             order.paymentMethod = isSplitPayment ? 'Mixed' : paymentMode; // Cash, Card, UPI, or Mixed
             order.paymentStatus = 'Completed';
+            order.paymentSplits = isSplitPayment
+                ? normalizedSplits
+                : [{ mode: normalizePaymentMethod(paymentMode), amount: Number(amount || order.finalAmount || 0) }];
             applySettledBillMeta();
 
             // Also record in overall cashier Transaction model

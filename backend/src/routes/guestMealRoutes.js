@@ -30,6 +30,12 @@ router.post('/tables/initialize', guestMealController.initializeTables);
 // Merge tables
 router.post('/tables/merge', guestMealController.mergeTables);
 
+// Split table into sub-tables
+router.post('/tables/:tableId/split', guestMealController.splitTable);
+
+// Close split and restore parent table
+router.post('/tables/:tableId/close-split', guestMealController.closeSplitTable);
+
 // Release/Unmerge tables
 router.post('/tables/:tableId/release', guestMealController.releaseTable);
 

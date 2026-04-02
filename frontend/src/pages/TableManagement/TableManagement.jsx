@@ -62,6 +62,8 @@ const TableManagement = () => {
     const [splitTableId, setSplitTableId] = useState(null);
     const [splitParts, setSplitParts] = useState(2);
     const [splitSubTables, setSplitSubTables] = useState([]);
+    const [isSplitSubmitting, setIsSplitSubmitting] = useState(false);
+    const [closeSplitConfirmTable, setCloseSplitConfirmTable] = useState(null);
 
     // Reservation Modal State
     const [showReservationModal, setShowReservationModal] = useState(false);
@@ -189,6 +191,8 @@ const TableManagement = () => {
         console.log(`Action: ${action} on Table: ${table.tableName}`);
         if (action === 'Split Table') {
             openSplitModal(table);
+        } else if (action === 'Close Split') {
+            handleCloseSplit(table);
         } else if (action === 'Reserve Table') {
             setSelectedTableForReservation(table);
             setShowReservationModal(true);
@@ -196,6 +200,49 @@ const TableManagement = () => {
             setSelectedTableForList(table);
             setShowReservationListModal(true);
         }
+    };
+
+    const executeCloseSplit = async (table) => {
+        if (!table?.isSplitChild) {
+            setErrorMessage('Only split child tables can be closed from this action.');
+            setTimeout(() => setErrorMessage(''), 3000);
+            return;
+        }
+
+        try {
+            const response = await apiCall(`/api/tables/${table._id}/close-split`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Failed to close split table');
+            }
+
+            setSuccessMessage(data.message || 'Split table closed successfully');
+            setTimeout(() => setSuccessMessage(''), 3000);
+            fetchTables();
+        } catch (error) {
+            console.error('Error closing split table:', error);
+            setErrorMessage(error.message || 'Failed to close split table.');
+            setTimeout(() => setErrorMessage(''), 3500);
+        }
+    };
+
+    const handleCloseSplit = (table) => {
+        if (!table?.isSplitChild) {
+            setErrorMessage('Only split child tables can be closed from this action.');
+            setTimeout(() => setErrorMessage(''), 3000);
+            return;
+        }
+        setCloseSplitConfirmTable(table);
+    };
+
+    const handleConfirmCloseSplit = async () => {
+        if (!closeSplitConfirmTable) return;
+        const targetTable = closeSplitConfirmTable;
+        setCloseSplitConfirmTable(null);
+        await executeCloseSplit(targetTable);
     };
 
     // Open Split Modal
@@ -244,10 +291,81 @@ const TableManagement = () => {
     };
 
     // Submit Split
-    const handleSplitSubmit = () => {
-        setSuccessMessage('Split functionality to be integrated with backend');
-        setTimeout(() => setSuccessMessage(''), 3000);
-        setShowSplitModal(false);
+    const handleSplitSubmit = async () => {
+        const currentTable = tables.find(t => t._id === splitTableId);
+        if (!currentTable) {
+            setErrorMessage('Selected table not found. Please refresh and try again.');
+            setTimeout(() => setErrorMessage(''), 3000);
+            return;
+        }
+
+        const normalizedSubTables = splitSubTables.map((sub) => ({
+            name: String(sub.name || '').trim(),
+            guests: Number(sub.guests) || 0,
+            waiter: String(sub.waiter || '').trim()
+        }));
+
+        if (normalizedSubTables.some((sub) => !sub.name || sub.guests < 1)) {
+            setErrorMessage('Each split table needs a name and minimum 1 seat.');
+            setTimeout(() => setErrorMessage(''), 3000);
+            return;
+        }
+
+        const totalGuests = normalizedSubTables.reduce((sum, sub) => sum + sub.guests, 0);
+        if (totalGuests !== Number(currentTable.capacity || 0)) {
+            setErrorMessage(`Total seats (${totalGuests}) must be exactly ${currentTable.capacity}.`);
+            setTimeout(() => setErrorMessage(''), 3500);
+            return;
+        }
+
+        setIsSplitSubmitting(true);
+        try {
+            const response = await apiCall(`/api/tables/${splitTableId}/split`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    splitParts,
+                    subTables: normalizedSubTables
+                })
+            });
+            let data = null;
+            try {
+                data = await response.json();
+            } catch {
+                data = { success: false, message: 'Invalid server response while splitting table' };
+            }
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Split failed');
+            }
+
+            const createdSubTables = Array.isArray(data.data) ? data.data : [];
+            setTables((prev) => {
+                const filtered = prev.filter((table) => table._id !== splitTableId);
+                return [...filtered, ...createdSubTables];
+            });
+
+            setSuccessMessage(data.message || `Table split into ${createdSubTables.length} cards successfully`);
+            setTimeout(() => setSuccessMessage(''), 3000);
+
+            // Make sure freshly split child cards are visible even when filters were narrowing results.
+            setStatusFilter('All');
+            setTypeFilter('All Types');
+            setSearchQuery('');
+
+            setShowSplitModal(false);
+            setSplitTableId(null);
+            setSplitSubTables([]);
+
+            // Re-sync from backend to ensure stable ordering and latest data.
+            fetchTables();
+        } catch (error) {
+            console.error('Error splitting table:', error);
+            setErrorMessage(error.message || 'Failed to split table. Please try again.');
+            setTimeout(() => setErrorMessage(''), 3500);
+        } finally {
+            setIsSplitSubmitting(false);
+        }
     };
 
     // Submit Reservation
@@ -748,6 +866,40 @@ const TableManagement = () => {
                 />
             )}
 
+            {closeSplitConfirmTable && (
+                <div className="add-payment-overlay" onClick={() => setCloseSplitConfirmTable(null)}>
+                    <div className="add-payment-modal" onClick={(e) => e.stopPropagation()} style={{ width: '460px' }}>
+                        <div className="premium-payment-header">
+                            <div className="header-icon-wrap">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 9v4"></path>
+                                    <path d="M12 17h.01"></path>
+                                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                </svg>
+                            </div>
+                            <div className="header-text">
+                                <h3>Close Split Table</h3>
+                                <span>{closeSplitConfirmTable.parentTableName || closeSplitConfirmTable.tableName}</span>
+                            </div>
+                            <button className="premium-close-btn" onClick={() => setCloseSplitConfirmTable(null)}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+
+                        <div className="add-payment-body">
+                            <div className="split-feedback-card error" style={{ marginBottom: 0 }}>
+                                This will remove all split cards and restore the parent table.
+                            </div>
+                        </div>
+
+                        <div className="payment-modal-footer">
+                            <button className="btn-secondary" onClick={() => setCloseSplitConfirmTable(null)}>CANCEL</button>
+                            <button className="btn-primary" onClick={handleConfirmCloseSplit}>CONFIRM CLOSE SPLIT</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Split Modal */}
             {showSplitModal && (
                 <div className="add-payment-overlay" onClick={() => setShowSplitModal(false)}>
@@ -829,7 +981,7 @@ const TableManagement = () => {
 
                         <div className="payment-modal-footer">
                             <button className="btn-secondary" onClick={() => setShowSplitModal(false)}>CANCEL</button>
-                            <button className="btn-primary" onClick={handleSplitSubmit}>
+                            <button className="btn-primary" onClick={handleSplitSubmit} disabled={isSplitSubmitting}>
                                 <span>CONFIRM SPLIT</span>
                             </button>
                         </div>
@@ -894,7 +1046,10 @@ const TableCard = ({ table, onMenuAction }) => {
     return (
         <div className={`table-card ${statusClass}`}>
             <div className="card-header">
-                <span className="table-number">{table.tableName}</span>
+                <span className="table-number">
+                    {table.tableName}
+                    {table.isSplitChild && <span className="split-chip">Split</span>}
+                </span>
                 <div className="menu-container" ref={menuRef}>
                     <div className="menu-trigger" onClick={() => setShowMenu(!showMenu)}>
                         ⋮
@@ -907,9 +1062,16 @@ const TableCard = ({ table, onMenuAction }) => {
                             <div className="menu-item" onClick={() => handleAction('Reservation List')}>
                                 <span>📋</span> Reservation List
                             </div>
-                            <div className="menu-item" onClick={() => handleAction('Split Table')}>
-                                <span>🪓</span> Split Table
-                            </div>
+                            {!table.isSplitChild && (
+                                <div className="menu-item" onClick={() => handleAction('Split Table')}>
+                                    <span>🪓</span> Split Table
+                                </div>
+                            )}
+                            {table.isSplitChild && (
+                                <div className="menu-item" onClick={() => handleAction('Close Split')}>
+                                    <span>🧩</span> Close Split
+                                </div>
+                            )}
                             <div className="menu-item" onClick={() => handleAction('Move Guests')}>
                                 <span>➡️</span> Move Guests
                             </div>
@@ -938,6 +1100,13 @@ const TableCard = ({ table, onMenuAction }) => {
                     <span className="amount">{cs} {table.runningOrderAmount || 0}</span>
                     <span className="duration">{timeInfo}</span>
                 </div>
+
+                {table.assignedWaiter && (
+                    <div className="info-row split-meta-row">
+                        <span className="split-meta-text">Waiter: {table.assignedWaiter}</span>
+                        {table.parentTableName && <span className="split-meta-text">From: {table.parentTableName}</span>}
+                    </div>
+                )}
             </div>
 
             <div className="card-footer">
