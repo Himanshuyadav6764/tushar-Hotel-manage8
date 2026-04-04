@@ -113,6 +113,9 @@ exports.getAllTables = async (req, res) => {
             currentOrderId: table.currentOrderId,
             orderStatus: table.currentOrderId ? table.currentOrderId.status : null,
             mergedTableIds: table.mergedTableIds || [],
+            isSplitChild: Boolean(table.isSplitChild),
+            parentTableId: table.parentTableId || null,
+            splitChildTableIds: table.splitChildTableIds || [],
             amount: table.runningOrderAmount || 0,
             duration: table.getOrderDuration() || 0,
             createdAt: table.createdAt,
@@ -128,6 +131,113 @@ exports.getAllTables = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error fetching tables',
+            error: error.message
+        });
+    }
+};
+
+// Split one table into multiple sub tables (e.g. T1-A, T1-B)
+exports.splitTable = async (req, res) => {
+    try {
+        const { sourceTableId, subTables } = req.body;
+
+        if (!sourceTableId || !Array.isArray(subTables) || subTables.length < 2) {
+            return res.status(400).json({
+                success: false,
+                message: 'Source table and at least 2 sub tables are required'
+            });
+        }
+
+        const sourceTable = await Table.findById(sourceTableId);
+        if (!sourceTable) {
+            return res.status(404).json({ success: false, message: 'Source table not found' });
+        }
+
+        if (sourceTable.isSplitChild) {
+            return res.status(400).json({ success: false, message: 'Split child table cannot be split again' });
+        }
+
+        if (Array.isArray(sourceTable.splitChildTableIds) && sourceTable.splitChildTableIds.length > 0) {
+            return res.status(400).json({ success: false, message: 'Table is already split. Merge first.' });
+        }
+
+        const existingTables = await Table.find({}, { tableName: 1, tableNumber: 1 });
+        const existingNames = new Set(existingTables.map(t => String(t.tableName || '').trim().toLowerCase()));
+        const usedNumbers = new Set(existingTables.map(t => Number(t.tableNumber)).filter(Number.isFinite));
+
+        const normalizedSubs = subTables.map((sub, idx) => {
+            const suffix = String.fromCharCode(65 + idx);
+            const fallbackName = `${sourceTable.tableName}-${suffix}`;
+            const requestedName = String(sub?.name || '').trim();
+            const finalName = requestedName || fallbackName;
+
+            return {
+                name: finalName,
+                guests: Math.max(1, Number(sub?.guests || 1)),
+                waiter: String(sub?.waiter || '').trim()
+            };
+        });
+
+        const duplicateNames = new Set();
+        for (const sub of normalizedSubs) {
+            const key = sub.name.toLowerCase();
+            if (existingNames.has(key) || duplicateNames.has(key)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Table name "${sub.name}" already exists. Please rename split tables.`
+                });
+            }
+            duplicateNames.add(key);
+        }
+
+        let nextTableNumber = Math.max(0, ...Array.from(usedNumbers)) + 1;
+        const childDocs = [];
+
+        for (const sub of normalizedSubs) {
+            while (usedNumbers.has(nextTableNumber)) {
+                nextTableNumber += 1;
+            }
+            usedNumbers.add(nextTableNumber);
+
+            childDocs.push({
+                tableName: sub.name,
+                tableNumber: nextTableNumber,
+                capacity: sub.guests,
+                status: sourceTable.status === 'Billed' ? 'Available' : sourceTable.status,
+                guests: sub.guests,
+                type: sourceTable.type || 'General',
+                location: sourceTable.location || 'Main Hall',
+                isSplitChild: true,
+                parentTableId: sourceTable._id,
+                splitChildTableIds: [],
+                reservations: []
+            });
+
+            nextTableNumber += 1;
+        }
+
+        const createdChildren = await Table.insertMany(childDocs);
+
+        sourceTable.splitChildTableIds = createdChildren.map(t => t._id);
+        sourceTable.status = 'Available';
+        sourceTable.guests = 0;
+        sourceTable.currentOrderId = null;
+        sourceTable.runningOrderAmount = 0;
+        sourceTable.orderStartTime = null;
+        await sourceTable.save();
+
+        return res.status(200).json({
+            success: true,
+            message: `Table split into ${createdChildren.length} sub tables`,
+            data: {
+                parentTable: sourceTable,
+                splitTables: createdChildren
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Error splitting table',
             error: error.message
         });
     }
@@ -555,6 +665,64 @@ exports.releaseTable = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error releasing table',
+            error: error.message
+        });
+    }
+};
+
+// Merge all split children back into the parent table
+exports.mergeSplitTables = async (req, res) => {
+    try {
+        const { tableId } = req.body;
+
+        if (!tableId) {
+            return res.status(400).json({ success: false, message: 'tableId is required' });
+        }
+
+        const table = await Table.findById(tableId);
+        if (!table) {
+            return res.status(404).json({ success: false, message: 'Table not found' });
+        }
+
+        const parentId = table.isSplitChild ? table.parentTableId : table._id;
+        if (!parentId) {
+            return res.status(400).json({ success: false, message: 'Split parent table not found' });
+        }
+
+        const parentTable = await Table.findById(parentId);
+        if (!parentTable) {
+            return res.status(404).json({ success: false, message: 'Parent table not found' });
+        }
+
+        let childIds = Array.isArray(parentTable.splitChildTableIds) ? parentTable.splitChildTableIds : [];
+        if (childIds.length === 0) {
+            const childRows = await Table.find({ parentTableId: parentTable._id, isSplitChild: true }, { _id: 1 });
+            childIds = childRows.map(row => row._id);
+        }
+
+        if (childIds.length === 0) {
+            return res.status(400).json({ success: false, message: 'No split tables found to merge' });
+        }
+
+        await Table.deleteMany({ _id: { $in: childIds } });
+
+        parentTable.splitChildTableIds = [];
+        parentTable.status = 'Available';
+        parentTable.guests = 0;
+        parentTable.currentOrderId = null;
+        parentTable.runningOrderAmount = 0;
+        parentTable.orderStartTime = null;
+        await parentTable.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Split tables merged successfully',
+            data: parentTable
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Error merging split tables',
             error: error.message
         });
     }

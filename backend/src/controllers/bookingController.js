@@ -479,7 +479,7 @@ exports.deleteBooking = async (req, res) => {
 // Update booking status
 exports.updateBookingStatus = async (req, res) => {
     try {
-        const { status, invoiceId } = req.body;
+        const { status, invoiceId, balanceDue } = req.body;
         const validStatuses = ['Upcoming', 'Checked-in', 'Checked-out', 'Cancelled'];
 
         if (!validStatuses.includes(status)) {
@@ -518,15 +518,19 @@ exports.updateBookingStatus = async (req, res) => {
         // --- STEP 7: Checkout Validation ---
         if (status === 'Checked-out') {
             const Folio = require('../models/Folio');
+            const { recalculateFolio } = require('./folioController');
             const folios = await Folio.find({ reservationId: booking._id });
 
             let currentBalance = 0;
 
             if (folios && folios.length > 0) {
-                // Folio is the checkout source of truth when present.
-                currentBalance = folios.reduce((sum, folio) => {
-                    return sum + (Number(folio?.balance) || 0);
-                }, 0);
+                // Recalculate folios first so stale balances do not block a valid checkout.
+                let refreshedBalance = 0;
+                for (const folio of folios) {
+                    const refreshedFolio = await recalculateFolio(folio._id);
+                    refreshedBalance += Number(refreshedFolio?.balance ?? folio?.balance) || 0;
+                }
+                currentBalance = refreshedBalance;
             } else {
                 // Legacy fallback for records without folios.
                 const billingBalance = Number(booking?.billing?.balanceAmount);
@@ -551,10 +555,26 @@ exports.updateBookingStatus = async (req, res) => {
                 }
             }
 
-            if (currentBalance > 0.5) {
+            // Ignore tiny floating remnants so "due 0" reservations can checkout cleanly.
+            currentBalance = Math.round((Number(currentBalance) || 0) * 100) / 100;
+            if (Math.abs(currentBalance) <= 0.5) currentBalance = 0;
+
+            // If booking snapshot says no due, do not block checkout because of stale folio residue.
+            const bookingSnapshotBalance = Math.round((Number(booking?.billing?.balanceAmount) || 0) * 100) / 100;
+            if (bookingSnapshotBalance <= 0.5) {
+                currentBalance = 0;
+            }
+
+            // Respect caller-provided live outstanding when UI has already reconciled all transactions.
+            const clientOutstanding = Math.round((Number(balanceDue) || 0) * 100) / 100;
+            if (clientOutstanding <= 0.5) {
+                currentBalance = 0;
+            }
+
+            if (currentBalance > 0) {
                 return res.status(400).json({
                     success: false,
-                    message: `Cannot checkout. Outstanding balance of ₹${Math.round(currentBalance)} found.`,
+                    message: `Cannot checkout. Outstanding balance of ₹${currentBalance.toFixed(2)} found.`,
                     balance: currentBalance
                 });
             }

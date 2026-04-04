@@ -1,0 +1,45 @@
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #e10613 0%, #cc0410 65%, #b8020d 100%);
+}
+
+.app-splash-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  animation: splashFadeUp 650ms ease-out;
+  text-align: center;
+}
+
+.app-splash-logo {
+  width: min(58vw, 250px);
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  filter: drop-shadow(0 14px 20px rgba(0, 0, 0, 0.35));
+}
+
+.app-splash-title {
+  color: #ffffff;
+  font-size: clamp(1.6rem, 5vw, 2.1rem);
+  letter-spacing: 0.08em;
+  font-weight: 800;
+  margin: 0;
+}
+
+@keyframes splashFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
