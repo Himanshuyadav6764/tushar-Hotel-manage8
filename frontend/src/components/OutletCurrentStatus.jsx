@@ -49,6 +49,12 @@ const OutletCurrentStatus = () => {
         load: 'Low', staffLoad: 'Normal', delayRisk: 'Minimal', 
         ...statusData?.taKitchen 
     };
+    const online = { total: 0, pending: 0, ready: 0, completed: 0, completionRate: 0, ...statusData?.online };
+    const onlineKitchen = {
+        pending: 0, preparing: 0, ready: 0, avgPrepTime: 0,
+        load: 'Low', staffLoad: 'Normal', delayRisk: 'Minimal',
+        ...statusData?.onlineKitchen
+    };
 
     return (
         <div className="outlet-status-container">
@@ -390,25 +396,25 @@ const OutletCurrentStatus = () => {
                         </div>
                         <div className="stats-row">
                             <div className="status-card highlight-blue">
-                                <div className="status-value">0</div>
+                                <div className="status-value">{online.total}</div>
                                 <div className="status-label">Total Orders</div>
                             </div>
                             <div className="status-card highlight-orange">
-                                <div className="status-value">0</div>
+                                <div className="status-value">{online.pending}</div>
                                 <div className="status-label">Pending</div>
                             </div>
                             <div className="status-card highlight-green">
-                                <div className="status-value">0</div>
+                                <div className="status-value">{online.completed}</div>
                                 <div className="status-label">Completed</div>
                             </div>
                         </div>
                         <div className="occupancy-meter">
                             <div className="meter-label">
                                 <span>Completion Rate</span>
-                                <span>0%</span>
+                                <span>{online.completionRate}%</span>
                             </div>
                             <div className="meter-bg">
-                                <div className="meter-fill" style={{ width: '0%' }}></div>
+                                <div className="meter-fill" style={{ width: `${online.completionRate}%` }}></div>
                             </div>
                         </div>
                     </div>
@@ -419,15 +425,15 @@ const OutletCurrentStatus = () => {
                         </div>
                         <div className="stats-row">
                             <div className="status-card highlight-orange">
-                                <div className="status-value">0</div>
+                                <div className="status-value">{onlineKitchen.pending}</div>
                                 <div className="status-label">KOT Pending</div>
                             </div>
                             <div className="status-card highlight-yellow">
-                                <div className="status-value">0</div>
+                                <div className="status-value">{onlineKitchen.preparing}</div>
                                 <div className="status-label">Preparing</div>
                             </div>
                             <div className="status-card highlight-green">
-                                <div className="status-value">0</div>
+                                <div className="status-value">{onlineKitchen.ready}</div>
                                 <div className="status-label">Ready</div>
                             </div>
                         </div>
@@ -435,7 +441,7 @@ const OutletCurrentStatus = () => {
                             <div className="metric-icon">⏱</div>
                             <div className="metric-details">
                                 <span className="label">Avg. Prep Time</span>
-                                <span className="value">0 mins</span>
+                                <span className="value">{onlineKitchen.avgPrepTime} mins</span>
                             </div>
                         </div>
                     </div>
@@ -447,20 +453,26 @@ const OutletCurrentStatus = () => {
                         <div className="indicators-row">
                             <div className="indicator-col">
                                 <div className="indicator-label">Kitchen Load</div>
-                                <div className="indicator-tag load-low">Low</div>
+                                <div className={`indicator-tag load-${(onlineKitchen.load || 'Low').toLowerCase()}`}>{onlineKitchen.load}</div>
                             </div>
                             <div className="indicator-col">
                                 <div className="indicator-label">Staff Load</div>
-                                <div className="indicator-tag staff-normal">Normal</div>
+                                <div className={`indicator-tag staff-${(onlineKitchen.staffLoad || 'Normal').toLowerCase()}`}>{onlineKitchen.staffLoad}</div>
                             </div>
                             <div className="indicator-col">
                                 <div className="indicator-label">Delay Risk</div>
-                                <div className="indicator-tag risk-minimal">Minimal</div>
+                                <div className={`indicator-tag risk-${(onlineKitchen.delayRisk || 'Minimal').toLowerCase()}`}>{onlineKitchen.delayRisk}</div>
                             </div>
                         </div>
                         <div className="operational-tips">
                             <span className="tip-icon">💡</span>
-                            <p>Healthy: Online order operations are running smoothly.</p>
+                            <p>
+                                {onlineKitchen.delayRisk === 'High'
+                                    ? "Critical: Online queue is high. Keep dispatch and kitchen sync active."
+                                    : onlineKitchen.delayRisk === 'Moderate'
+                                        ? "Notice: Online demand is moderate. Monitor prep timers closely."
+                                        : "Healthy: Online order operations are running smoothly."}
+                            </p>
                         </div>
                     </div>
                 </div>

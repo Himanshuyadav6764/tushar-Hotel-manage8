@@ -506,6 +506,11 @@ const AdminDashboard = () => {
         } else if (menuId === 'room-service') {
             setMenuNow('room-service');
             navigate(`${prefix}/room-service`);
+        } else if (menuId === 'online-order-nav') {
+            setMenuNow('online-order-nav');
+            navigate(`${prefix}/view-order`, {
+                state: { activeFilter: 'Online Order', activeMenu: 'online-order-nav' }
+            });
         } else if (menuId === 'food-order') {
             setMenuNow('food-order');
             navigate(`${prefix}/food-order`);
@@ -821,6 +826,7 @@ const AdminDashboard = () => {
             noPadding={
                 activeMenu === 'stay-overview' ||
                 activeMenu === 'view-order' ||
+                activeMenu === 'online-order-nav' ||
                 activeMenu === 'food-order' ||
                 activeMenu === 'reservation-card' ||
                 activeMenu === 'company' ||
@@ -959,7 +965,7 @@ const AdminDashboard = () => {
 
             {/* View Order Page */}
             {
-                activeMenu === 'view-order' && (
+                (activeMenu === 'view-order' || activeMenu === 'online-order-nav') && (
                     <ViewOrderPage />
                 )
             }
@@ -1797,14 +1803,25 @@ const AdminDashboard = () => {
                                             <polyline points="23 4 23 10 17 10"></polyline>
                                             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
                                         </svg>
-                                        Print
+                                        Regenerate
                                     </button>
                                 </div>
 
                                 {/* Note Section */}
                                 <div className="qr-note-section">
                                     <p><strong>Note:</strong> Please make sure to generate every room's QR separately.</p>
-                                    <p>Click <a href={qrModalData.qrData.scanUrl} target="_blank" rel="noopener noreferrer">here</a> to open the app.</p>
+                                    <p>You can still use mobile QR scan, or open order flow directly from the link below.</p>
+                                    {qrModalData?.qrData?.scanUrl && (
+                                        <p>
+                                            <a
+                                                href={qrModalData.qrData.scanUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                Click here to order
+                                            </a>
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Branding Footer */}

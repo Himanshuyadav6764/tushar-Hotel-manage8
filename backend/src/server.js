@@ -220,15 +220,28 @@ const isPublicApiRoute = (req) => {
         || path === '/auth/register'
         || path === '/chatbot/chat'
         || (method === 'GET' && path.startsWith('/hotel/settings'))
+        || (method === 'GET' && path === '/menu/list')
         || path === '/qr/send-otp'
         || path === '/qr/verify-otp'
+        || path === '/qr/verify-booking'
         || path.startsWith('/qr/room-details/')
+        || (method === 'POST' && path === '/guest-meal/orders/create')
+        || (method === 'PUT' && /^\/guest-meal\/orders\/[^/]+\/items$/.test(path))
+        || (method === 'GET' && path === '/guest-meal/orders/guest/latest')
+        || (method === 'GET' && /^\/guest-meal\/orders\/[^/]+$/.test(path))
+        || (method === 'POST' && /^\/guest-meal\/orders\/[^/]+\/cancel-by-guest$/.test(path))
     );
 };
 
 // Default-deny API access: every endpoint requires auth unless explicitly public.
 app.use('/api', (req, res, next) => {
     if (isPublicApiRoute(req)) {
+        // Public endpoints are also used by logged-in staff.
+        // If Authorization is present, run auth middleware so controllers can use req.user.
+        const authHeader = String(req.headers.authorization || '');
+        if (authHeader.toLowerCase().startsWith('bearer ')) {
+            return protect(req, res, next);
+        }
         return next();
     }
     return protect(req, res, next);

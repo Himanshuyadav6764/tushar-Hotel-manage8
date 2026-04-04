@@ -4,6 +4,7 @@ import API_URL, { apiCall } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import ReservationListModal from '../../components/ReservationListModal';
+import OrderNotificationPanel from '../../components/OrderNotificationPanel';
 import './GuestMealService.css';
 
 // MenuItem helper component for premium feel
@@ -738,7 +739,7 @@ const GuestMealService = () => {
                 setTables(prev => prev.map(t => (t.tableId === tableToVerify.tableId || t._id === tableToVerify._id) ? { ...t, status: 'Occupied' } : t));
 
                 // Navigate with guest details
-                navigate('/admin/dashboard', {
+                navigate('/admin/food-order', {
                     state: {
                         activeMenu: 'food-order',
                         orderMode: 'dinein',
@@ -1353,7 +1354,7 @@ const GuestMealService = () => {
                 setShowMergeModal(false);
 
                 // Navigate to POS with the updated table info
-                navigate('/admin/dashboard', {
+                navigate('/admin/food-order', {
                     state: {
                         activeMenu: 'food-order',
                         orderMode: 'dinein',
@@ -1759,7 +1760,7 @@ const GuestMealService = () => {
         }
 
         // Navigate to food order
-        navigate('/admin/dashboard', {
+        navigate('/admin/food-order', {
             state: {
                 activeMenu: 'food-order',
                 orderMode: 'dinein', // Lock to Dine In only
@@ -1919,12 +1920,15 @@ const GuestMealService = () => {
                         <h1 className="gms-page-title">Dining Dashboard</h1>
                         <p className="gms-subtitle">Manage your restaurant tables and reservations</p>
                     </div>
-                    <button
-                        className="btn btn-primary add-table-btn-gms"
-                        onClick={openCreateTableModal}
-                    >
-                        + ADD TABLE
-                    </button>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+                        <OrderNotificationPanel scope="table-view" />
+                        <button
+                            className="btn btn-primary add-table-btn-gms"
+                            onClick={openCreateTableModal}
+                        >
+                            + ADD TABLE
+                        </button>
+                    </div>
                 </div>
 
                 <div className="gms-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>

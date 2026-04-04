@@ -34,6 +34,7 @@ import HotelDetails from './pages/SuperAdmin/HotelDetails'
 import ActivityMonitoring from './pages/SuperAdmin/ActivityMonitoring'
 import SuperAdminLogin from './pages/SuperAdmin/SuperAdminLogin'
 import QRScanPage from './pages/QRScan/QRScanPage'
+import GuestOrderSuccessPage from './pages/QRScan/GuestOrderSuccessPage'
 import FoodOrderPage from './components/FoodOrderPage'
 import About from './pages/About'
 import FeaturesPage from './pages/Features'
@@ -322,6 +323,7 @@ const AppRoutes = () => {
 
           {/* Other Routes */}
           <Route path="/scan-qr/:roomId" element={<QRScanPage />} />
+          <Route path="/order-success" element={<GuestOrderSuccessPage />} />
           <Route path="/qr-scan/:hotelId/:tableId" element={<QRScanPage />} />
           <Route path="/food-order" element={<FoodOrderPage />} />
           <Route path="/order" element={<FoodOrderPage />} />

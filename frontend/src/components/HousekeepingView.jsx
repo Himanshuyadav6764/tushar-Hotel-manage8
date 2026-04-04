@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import './HousekeepingView.css';
 import { apiCall } from '../config/api';
+import OrderNotificationPanel from './OrderNotificationPanel';
 
 const HousekeepingView = () => {
     const API_BASE = '/api/housekeeping';
@@ -152,6 +153,7 @@ const HousekeepingView = () => {
                     <h2>🧹 Housekeeping Dashboard</h2>
                     <p>Track and manage room cleaning tasks</p>
                 </div>
+                <OrderNotificationPanel scope="housekeeping" />
             </div>
 
             {/* Controls */}

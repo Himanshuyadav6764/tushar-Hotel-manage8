@@ -27,7 +27,13 @@ const ReservationCard = ({ reservation, onUpdateStatus, onEdit, onGenerateInvoic
     const handlePrimaryAction = (e) => {
         e.stopPropagation();
         if (primaryAction.type === 'checkOut') {
-            onGenerateInvoice(reservation);
+            onGenerateInvoice({
+                ...reservation,
+                roomCharges: totals.roomCharges,
+                totalAmount: totals.grandTotal,
+                paidAmount: totals.totalPaid,
+                balanceDue: Math.max(0, totals.balance)
+            });
         } else if (primaryAction.type === 'invoice') {
             onGenerateInvoice({ ...reservation, actionType: 'viewInvoice' });
         } else {

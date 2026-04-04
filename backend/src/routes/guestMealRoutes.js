@@ -52,8 +52,14 @@ router.post('/orders/create', guestMealController.createOrder);
 // Get order by table ID
 router.get('/orders/table/:tableId', guestMealController.getOrderByTableId);
 
+// Get latest order for currently verified QR guest
+router.get('/orders/guest/latest', guestMealController.getLatestGuestOrder);
+
 // Get order by ID
 router.get('/orders/:orderId', guestMealController.getOrderById);
+
+// Guest cancel from QR flow
+router.post('/orders/:orderId/cancel-by-guest', guestMealController.cancelOrderByGuest);
 
 // Update order items
 router.put('/orders/:orderId/items', guestMealController.updateOrderItems);

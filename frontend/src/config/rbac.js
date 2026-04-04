@@ -434,15 +434,16 @@ const MODULE_LABEL_MAP = {
     [MODULES.DASHBOARD]: ['Dashboard'],
     [MODULES.ROOMS]: ['Rooms (Dashboard)'],
     [MODULES.RESERVATIONS]: ['Reservations', 'Rooms (New Reservation)'],
-    [MODULES.CASHIER_SECTION]: ['Cashier Section (Table)', 'Cashier Section (Room Service)', 'Cashier Section (Take Away)'],
+    [MODULES.CASHIER_SECTION]: ['Cashier Section (Table)', 'Cashier Section (Room Service)', 'Cashier Section (Take Away)', 'Cashier Section (Online Order)'],
     [MODULES.GUEST_MEAL_SERVICE]: ['Table View'],
-    [MODULES.FOOD_MENU]: ['Food Order'],
+    [MODULES.FOOD_MENU]: ['Food Order', 'Food Menu', 'Property Configuration (All)', 'Property Configuration - Food Menu'],
     [MODULES.CUSTOMERS]: ['Customer List'],
     [MODULES.CASHIER_LOGS]: ['Cashier Logs'],
     [MODULES.PAYMENT_LOGS]: ['Payment Logs'],
     'housekeeping': ['Housekeeping', 'Rooms (Housekeeping)'],
     'room-service': ['Room Service', 'Rooms (Room Service)'],
-    'view-order': ['KOT Order', 'View order'],
+    'view-order': ['KOT Order', 'View order', 'Online Order'],
+    'online-order-nav': ['Online Order'],
     'reservations-dashboard': ['Reservations', 'Rooms (New Reservation)'],
     'new-reservation': ['Reservations', 'Rooms (New Reservation)'],
     [MODULES.RESERVATION_CARD]: ['Reservation Card', 'Registration Card'],
@@ -464,7 +465,8 @@ const MODULE_LABEL_MAP = {
         'Property Configuration - Business Source',
         'Property Configuration - Maintenance Block',
         'Property Configuration - Table Management',
-        'Property Configuration - Company Settings'
+        'Property Configuration - Company Settings',
+        'Property Configuration - Food Menu'
     ],
     'floor-setup': ['Property Configuration (All)', 'Property Configuration - Floor Setup'],
     'room-facilities-type': ['Property Configuration (All)', 'Property Configuration - Room Facilities Type'],
@@ -493,7 +495,7 @@ const MODULE_LABEL_MAP = {
         'Reports - Analytics'
     ],
     [MODULES.CRM_MODEL]: ['CRM Model'],
-    [MODULES.VIEW_ORDER]: ['KOT Order', 'View order'],
+    [MODULES.VIEW_ORDER]: ['KOT Order', 'View order', 'Online Order'],
     [MODULES.STAFF_MANAGEMENT]: ['Settings', 'Staff Management'],
     [MODULES.REPORTS_SALES]: ['Reports', 'Reports (All)', 'Reports - Sales'],
     [MODULES.REPORTS_PAYMENTS]: ['Reports', 'Reports (All)', 'Reports - Payments'],
@@ -517,7 +519,12 @@ const _hasCustomPermission = (user, module) => {
 
     const labels = MODULE_LABEL_MAP[module];
     if (labels) {
-        return labels.some(label => userPermissions.includes(label));
+        const normalizedUserPermissions = new Set(
+            userPermissions
+                .map((permission) => String(permission || '').trim().toLowerCase())
+                .filter(Boolean)
+        );
+        return labels.some((label) => normalizedUserPermissions.has(String(label || '').trim().toLowerCase()));
     }
     return false;
 };
