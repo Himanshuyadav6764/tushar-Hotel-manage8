@@ -41,13 +41,72 @@ function formatTime(d) {
     return new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-function normalizeOrderType(raw) {
+function normalizeOrderType(raw, options = {}) {
+    const { treatPostToRoomAsOnline = false } = options;
     if (!raw) return 'Dine-In';
-    const r = raw.trim();
+    const r = String(raw).trim();
+    if (treatPostToRoomAsOnline && r === 'Post to Room') return 'Online Order';
     if (['Room Service', 'Post to Room', 'Room Order'].includes(r)) return 'Room Order';
     if (['Online', 'Online Order', 'Delivery'].includes(r)) return 'Online Order';
     if (r === 'Take Away') return 'Take Away';
     return 'Dine-In';
+}
+
+function isAllFilterValue(raw) {
+    const value = String(raw || '').trim().toLowerCase();
+    return (
+        !value ||
+        value === 'all' ||
+        value === 'all categories' ||
+        value === 'all categorys' ||
+        value === 'all order types' ||
+        value === 'all types'
+    );
+}
+
+function buildOrderTypeQuery(orderTypeRaw) {
+    const value = String(orderTypeRaw || '').trim().toLowerCase();
+    if (isAllFilterValue(value)) return null;
+
+    if (['room order', 'room service', 'post to room'].includes(value)) {
+        return {
+            dbQuery: { $in: ['Room Service', 'Post to Room', 'Room Order'] },
+            treatPostToRoomAsOnline: false
+        };
+    }
+
+    if (['online order', 'online', 'delivery'].includes(value)) {
+        return {
+            // Compatibility: legacy QR orders may be saved as Post to Room.
+            dbQuery: { $in: ['Online Order', 'Online', 'Delivery', 'Post to Room'] },
+            treatPostToRoomAsOnline: true
+        };
+    }
+
+    if (['take away', 'takeaway', 'take-away'].includes(value)) {
+        return {
+            dbQuery: { $in: ['Take Away', 'TakeAway'] },
+            treatPostToRoomAsOnline: false
+        };
+    }
+
+    if (['dine-in', 'dine in', 'table order', 'table', 'direct payment'].includes(value)) {
+        return {
+            dbQuery: { $in: ['Dine-In', 'Direct Payment', 'Table Order', 'Table'] },
+            treatPostToRoomAsOnline: false
+        };
+    }
+
+    return {
+        dbQuery: orderTypeRaw,
+        treatPostToRoomAsOnline: false
+    };
+}
+
+function hasCategoryMatch(order, categoryFilterLower) {
+    if (!categoryFilterLower) return true;
+    const items = Array.isArray(order?.items) ? order.items : [];
+    return items.some(i => String(i?.category || '').trim().toLowerCase() === categoryFilterLower);
 }
 
 exports.getKitchenReport = async (req, res) => {
@@ -73,17 +132,11 @@ exports.getKitchenReport = async (req, res) => {
 
         const query = { createdAt: { $gte: start, $lte: end } };
 
-        // Filter by orderType
-        if (orderType && orderType !== 'All') {
-            if (orderType === 'Room Order') {
-                query.orderType = { $in: ['Room Service', 'Post to Room', 'Room Order'] };
-            } else if (orderType === 'Online Order') {
-                query.orderType = { $in: ['Online Order', 'Online', 'Delivery'] };
-            } else if (orderType === 'Take Away') {
-                query.orderType = 'Take Away';
-            } else {
-                query.orderType = { $in: ['Dine-In', 'Direct Payment', 'Table Order'] };
-            }
+        // Filter by orderType (supports UI aliases like "All Order Types")
+        const orderTypeMeta = buildOrderTypeQuery(orderType);
+        const treatPostToRoomAsOnline = Boolean(orderTypeMeta?.treatPostToRoomAsOnline);
+        if (orderTypeMeta?.dbQuery) {
+            query.orderType = orderTypeMeta.dbQuery;
         }
 
         const [orders, totalTablesDb, totalRoomsDb] = await Promise.all([
@@ -92,7 +145,12 @@ exports.getKitchenReport = async (req, res) => {
             Room.countDocuments().catch(() => 0)
         ]);
 
-        const categoryFilter = category && category !== 'All' ? category : null;
+        const categoryFilter = isAllFilterValue(category) ? null : String(category || '').trim();
+        const categoryFilterLower = categoryFilter ? categoryFilter.toLowerCase() : null;
+        const hasAnyCategoryMatch = categoryFilterLower
+            ? orders.some(order => hasCategoryMatch(order, categoryFilterLower))
+            : true;
+        const applyCategoryFilter = Boolean(categoryFilterLower && hasAnyCategoryMatch);
 
         let totalOrders = 0;
         let kotPending = 0;
@@ -140,7 +198,7 @@ exports.getKitchenReport = async (req, res) => {
         };
 
         orders.forEach(order => {
-            const normType = normalizeOrderType(order.orderType);
+            const normType = normalizeOrderType(order.orderType, { treatPostToRoomAsOnline });
             const status = order.status || 'Active';
             const isPending = ACTIVE_STATUSES.includes(status);
             const isReady = READY_STATUSES.includes(status);
@@ -152,12 +210,8 @@ exports.getKitchenReport = async (req, res) => {
             const readyAt = toDate(order.updatedAt || order.closedAt);
             const deliveredAt = toDate(order.closedAt || order.updatedAt);
 
-            // Apply category filter check (does any item match?)
-            let hasMatchingItem = !categoryFilter;
-            if (categoryFilter && order.items) {
-                hasMatchingItem = order.items.some(i => (i.category || 'Uncategorized') === categoryFilter);
-            }
-            if (!hasMatchingItem) return;
+            // Apply category filter only when that category actually exists in the current dataset.
+            if (applyCategoryFilter && !hasCategoryMatch(order, categoryFilterLower)) return;
 
             totalOrders++;
             const typeKey = normType === 'Dine-In'
@@ -227,14 +281,14 @@ exports.getKitchenReport = async (req, res) => {
                 : (order.tableNumber ? `Table ${order.tableNumber}` : 'Walk-In');
 
             const orderItems = (order.items || []).filter(item => {
-                if (!categoryFilter) return true;
-                return (item.category || 'Uncategorized') === categoryFilter;
+                if (!applyCategoryFilter) return true;
+                return String(item.category || '').trim().toLowerCase() === categoryFilterLower;
             });
 
             // Fallback: some legacy orders have no item array. Keep them visible in reports.
             const normalizedItems = orderItems.length
                 ? orderItems
-                : (categoryFilter
+                : (applyCategoryFilter
                     ? []
                     : [{
                         itemName: order.guestName || `${normType} Order`,
@@ -357,6 +411,13 @@ exports.getKitchenReport = async (req, res) => {
 
         res.json({
             success: true,
+            filterDiagnostics: {
+                requestedOrderType: orderType || 'All',
+                requestedCategory: category || 'All',
+                applyCategoryFilter,
+                categoryFallbackApplied: Boolean(categoryFilterLower && !applyCategoryFilter),
+                treatPostToRoomAsOnline
+            },
             summary,
             tableStatus: {
                 total: combinedTotal,

@@ -30,23 +30,49 @@ const runTenantContext = (req, res, next) => {
         () => {
             // If auth token is present, hydrate role/hotelId early even on non-protected routes.
             const authHeader = req.headers.authorization;
+            const guestAccessToken = req.headers['x-guest-access-token'];
             if (authHeader && authHeader.startsWith('Bearer ')) {
                 const token = authHeader.split(' ')[1];
                 try {
                     const decoded = jwt.verify(token, process.env.JWT_SECRET);
                     const store = tenantStorage.getStore();
                     if (store) {
+                        const tokenHotelId = normalizeTenantId(decoded.hotelId);
+                        const tokenDbName = normalizeTenantId(decoded.dbName);
+
                         store.userId = decoded.id || null;
                         store.role = decoded.role || null;
-                        if (!store.dbName) {
-                            store.dbName = normalizeTenantId(decoded.dbName);
+
+                        // Header takes highest priority; otherwise prefer token over defaults.
+                        if (!headerDbName && tokenDbName) {
+                            store.dbName = tokenDbName;
                         }
-                        if (!store.hotelId) {
-                            store.hotelId = normalizeTenantId(decoded.hotelId);
+
+                        if (!headerTenantId && tokenHotelId) {
+                            store.hotelId = tokenHotelId;
                         }
                     }
                 } catch (error) {
                     // Ignore invalid token here; auth middleware handles auth errors.
+                }
+            } else if (guestAccessToken) {
+                try {
+                    const decodedGuest = jwt.verify(String(guestAccessToken), process.env.JWT_SECRET);
+                    const store = tenantStorage.getStore();
+                    if (store && decodedGuest?.type === 'guest_room_qr') {
+                        const guestHotelId = normalizeTenantId(decodedGuest.hotelId);
+                        const guestDbName = normalizeTenantId(decodedGuest.dbName);
+
+                        if (!headerDbName && guestDbName) {
+                            store.dbName = guestDbName;
+                        }
+
+                        if (!headerTenantId && guestHotelId) {
+                            store.hotelId = guestHotelId;
+                        }
+                    }
+                } catch (error) {
+                    // Ignore invalid guest token here; endpoint handler validates it.
                 }
             }
 

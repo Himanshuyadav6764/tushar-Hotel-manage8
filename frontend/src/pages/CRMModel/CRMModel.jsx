@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import API_URL from '../../config/api';
-import { Users, User, Calendar, DollarSign, Plus, Edit2, Search, Briefcase, FileText, CheckCircle, X, Shield, Trash2, Check, Lock } from 'lucide-react';
+import { Users, User, Calendar, DollarSign, Plus, Edit2, Search, Briefcase, FileText, CheckCircle, X, Shield, Trash2, Check, Lock, Eye, EyeOff } from 'lucide-react';
 import './CRMModel.css';
 
 const CompactDropdown = ({ value, options, onChange, placeholder = 'Select', className = '' }) => {
@@ -80,10 +80,17 @@ const CRMModel = () => {
     const [salaryEditValue, setSalaryEditValue] = useState('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
     const [permDropdownOpen, setPermDropdownOpen] = useState(false);
+    const [permissionSearch, setPermissionSearch] = useState('');
+    const [openPermissionGroups, setOpenPermissionGroups] = useState({
+        reports: false,
+        propertySetup: false,
+        propertyConfig: false
+    });
     const [customPermInput, setCustomPermInput] = useState('');
     const [showCustomPermInput, setShowCustomPermInput] = useState(false);
     const [customRoleInput, setCustomRoleInput] = useState('');
     const [showCustomRoleInput, setShowCustomRoleInput] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
 
@@ -130,15 +137,61 @@ const CRMModel = () => {
     };
 
     // All page permissions
+    const REPORT_PERMISSION_OPTIONS = [
+        'Reports', 'Reports (All)', 'Reports - Sales', 'Reports - Payments', 'Reports - Rooms',
+        'Reports - Kitchen', 'Reports - GST', 'Reports - Staff', 'Reports - Billing',
+        'Reports - Reservations', 'Reports - Analytics'
+    ];
+
+    const PROPERTY_SETUP_PERMISSION_OPTIONS = [
+        'Property Setup', 'Property Setup (All)', 'Property Setup - Discount', 'Property Setup - Generate Room QR'
+    ];
+
+    const PROPERTY_CONFIG_PERMISSION_OPTIONS = [
+        'Property Configuration', 'Property Configuration (All)', 'Property Configuration - Floor Setup',
+        'Property Configuration - Room Facilities Type', 'Property Configuration - Meal Type',
+        'Property Configuration - Reservation Type', 'Property Configuration - Extra Charges',
+        'Property Configuration - Complimentary Services', 'Property Configuration - Customer Identity',
+        'Property Configuration - Booking Source', 'Property Configuration - Business Source',
+        'Property Configuration - Maintenance Block', 'Property Configuration - Company Settings',
+        'Property Configuration - Food Menu'
+    ];
+
+    const groupedPermissionSet = new Set([
+        ...REPORT_PERMISSION_OPTIONS,
+        ...PROPERTY_SETUP_PERMISSION_OPTIONS,
+        ...PROPERTY_CONFIG_PERMISSION_OPTIONS
+    ]);
+
     const [permissionOptions, setPermissionOptions] = useState([
         'Dashboard', 'Reservations', 'Housekeeping',
         'Room Service', 'Reservation Card',
         'Table View', 'Food Order', 'KOT Order',
-        'Cashier Section (Table)', 'Cashier Section (Room Service)', 'Cashier Section (Take Away)',
+        'Online Order',
+        'Cashier Section (Table)', 'Cashier Section (Room Service)', 'Cashier Section (Take Away)', 'Cashier Section (Online Order)',
         'Customer List', 'Cashier Logs', 'Payment Logs',
-        'Property Setup', 'Property Configuration', 'Reports',
+        ...PROPERTY_SETUP_PERMISSION_OPTIONS,
+        ...PROPERTY_CONFIG_PERMISSION_OPTIONS,
+        ...REPORT_PERMISSION_OPTIONS,
         'CRM Model'
     ]);
+
+    const togglePermissionSelection = (perm, checked) => {
+        if (checked) {
+            setFormData({ ...formData, permissions: [...formData.permissions, perm] });
+        } else {
+            setFormData({ ...formData, permissions: formData.permissions.filter(p => p !== perm) });
+        }
+    };
+
+    const permissionSearchText = permissionSearch.trim().toLowerCase();
+    const matchesPermissionSearch = (perm) => !permissionSearchText || perm.toLowerCase().includes(permissionSearchText);
+    const visibleUngroupedPermissions = permissionOptions.filter(
+        perm => !groupedPermissionSet.has(perm) && matchesPermissionSearch(perm)
+    );
+    const visibleReportPermissions = REPORT_PERMISSION_OPTIONS.filter(matchesPermissionSearch);
+    const visiblePropertySetupPermissions = PROPERTY_SETUP_PERMISSION_OPTIONS.filter(matchesPermissionSearch);
+    const visiblePropertyConfigPermissions = PROPERTY_CONFIG_PERMISSION_OPTIONS.filter(matchesPermissionSearch);
 
     // Add custom permission
     const handleAddCustomPermission = () => {
@@ -280,6 +333,7 @@ const CRMModel = () => {
 
     const openAddModal = () => {
         setEditingStaff(null);
+        setShowPassword(false);
         setFormData({
             fullName: '', email: '', phone: '', password: '',
             role: 'staff', outlet: 'Dine-In', shift: 'Morning',
@@ -292,6 +346,7 @@ const CRMModel = () => {
 
     const openEditModal = (staff) => {
         setEditingStaff(staff);
+        setShowPassword(false);
         setFormData({
             fullName: staff.name, email: staff.username,
             phone: staff.phone || '', password: '',
@@ -702,7 +757,26 @@ const CRMModel = () => {
                                     </div>
                                     <div className="form-group">
                                         <label>{editingStaff ? 'Password (leave blank to keep)' : 'Password *'}</label>
-                                        <input type="password" name="password" className="form-input" value={formData.password} onChange={handleInputChange} placeholder={editingStaff ? '' : 'Enter password'} required={!editingStaff} />
+                                        <div className="password-input-wrapper">
+                                            <input
+                                                type={showPassword ? 'text' : 'password'}
+                                                name="password"
+                                                className="form-input"
+                                                value={formData.password}
+                                                onChange={handleInputChange}
+                                                placeholder={editingStaff ? '' : 'Enter password'}
+                                                required={!editingStaff}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="password-toggle-btn"
+                                                onClick={() => setShowPassword(prev => !prev)}
+                                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                                title={showPassword ? 'Hide password' : 'Show password'}
+                                            >
+                                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="form-group full-width">
                                         <label>Profile Image URL (Optional)</label>
@@ -763,22 +837,96 @@ const CRMModel = () => {
                                                         <button type="button" onClick={() => setFormData({ ...formData, permissions: ROLE_DEFAULT_PERMISSIONS[formData.role] || [] })}>Role Default</button>
                                                         <button type="button" className="perm-dropdown-close" onClick={(e) => { e.stopPropagation(); setPermDropdownOpen(false); }}>✕</button>
                                                     </div>
-                                                    {permissionOptions.map(perm => (
-                                                        <label key={perm} className={`perm-dropdown-item ${formData.permissions.includes(perm) ? 'selected' : ''}`}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={formData.permissions.includes(perm)}
-                                                                onChange={(e) => {
-                                                                    if (e.target.checked) {
-                                                                        setFormData({ ...formData, permissions: [...formData.permissions, perm] });
-                                                                    } else {
-                                                                        setFormData({ ...formData, permissions: formData.permissions.filter(p => p !== perm) });
-                                                                    }
-                                                                }}
-                                                            />
-                                                            <span>{perm}</span>
-                                                        </label>
-                                                    ))}
+                                                    <div className="perm-dropdown-search-wrap">
+                                                        <input
+                                                            type="text"
+                                                            className="perm-dropdown-search"
+                                                            placeholder="Search permission..."
+                                                            value={permissionSearch}
+                                                            onChange={(e) => setPermissionSearch(e.target.value)}
+                                                        />
+                                                    </div>
+
+                                                    {visibleUngroupedPermissions.map(perm => (
+                                                            <label key={perm} className={`perm-dropdown-item ${formData.permissions.includes(perm) ? 'selected' : ''}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={formData.permissions.includes(perm)}
+                                                                    onChange={(e) => togglePermissionSelection(perm, e.target.checked)}
+                                                                />
+                                                                <span>{perm}</span>
+                                                            </label>
+                                                        ))}
+
+                                                    {visibleReportPermissions.length > 0 && (
+                                                    <div className="perm-group-accordion">
+                                                        <button
+                                                            type="button"
+                                                            className="perm-group-toggle"
+                                                            onClick={() => setOpenPermissionGroups(prev => ({ ...prev, reports: !prev.reports }))}
+                                                        >
+                                                            <span>Reports</span>
+                                                            <span>{openPermissionGroups.reports ? '▲' : '▼'}</span>
+                                                        </button>
+                                                        {openPermissionGroups.reports && visibleReportPermissions.map(perm => (
+                                                            <label key={perm} className={`perm-dropdown-item perm-sub-item ${formData.permissions.includes(perm) ? 'selected' : ''}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={formData.permissions.includes(perm)}
+                                                                    onChange={(e) => togglePermissionSelection(perm, e.target.checked)}
+                                                                />
+                                                                <span>{perm}</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                    )}
+
+                                                    {visiblePropertySetupPermissions.length > 0 && (
+                                                    <div className="perm-group-accordion">
+                                                        <button
+                                                            type="button"
+                                                            className="perm-group-toggle"
+                                                            onClick={() => setOpenPermissionGroups(prev => ({ ...prev, propertySetup: !prev.propertySetup }))}
+                                                        >
+                                                            <span>Property Setup</span>
+                                                            <span>{openPermissionGroups.propertySetup ? '▲' : '▼'}</span>
+                                                        </button>
+                                                        {openPermissionGroups.propertySetup && visiblePropertySetupPermissions.map(perm => (
+                                                            <label key={perm} className={`perm-dropdown-item perm-sub-item ${formData.permissions.includes(perm) ? 'selected' : ''}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={formData.permissions.includes(perm)}
+                                                                    onChange={(e) => togglePermissionSelection(perm, e.target.checked)}
+                                                                />
+                                                                <span>{perm}</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                    )}
+
+                                                    {visiblePropertyConfigPermissions.length > 0 && (
+                                                    <div className="perm-group-accordion">
+                                                        <button
+                                                            type="button"
+                                                            className="perm-group-toggle"
+                                                            onClick={() => setOpenPermissionGroups(prev => ({ ...prev, propertyConfig: !prev.propertyConfig }))}
+                                                        >
+                                                            <span>Property Configuration</span>
+                                                            <span>{openPermissionGroups.propertyConfig ? '▲' : '▼'}</span>
+                                                        </button>
+                                                        {openPermissionGroups.propertyConfig && visiblePropertyConfigPermissions.map(perm => (
+                                                            <label key={perm} className={`perm-dropdown-item perm-sub-item ${formData.permissions.includes(perm) ? 'selected' : ''}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={formData.permissions.includes(perm)}
+                                                                    onChange={(e) => togglePermissionSelection(perm, e.target.checked)}
+                                                                />
+                                                                <span>{perm}</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                    )}
+
                                                     {/* Add custom permission */}
                                                     {showCustomPermInput ? (
                                                         <div className="custom-perm-input-row">

@@ -7,6 +7,7 @@ import axios from 'axios';
 import jsPDF from 'jspdf';
 import { io } from 'socket.io-client';
 import API_URL, { apiCall } from '../../config/api';
+import { FIXED_MENU_CATEGORIES, mergeCategoryLists } from '../../constants/menuCategories';
 
 const ROOM_SECTION_DEFAULT_STATUSES = ['Available', 'Booked', 'Occupied', 'Under Maintenance'];
 
@@ -514,15 +515,10 @@ const UniversalReport = ({ type }) => {
     const dynamicCategories = useMemo(() => {
         if (type !== 'reports-sales') return [];
 
-        const categorySet = new Set();
-        menuItems.forEach((item) => {
-            const category = String(item?.category || '').trim();
-            if (category) categorySet.add(category);
-        });
-
-        if (!categorySet.size) return [];
-
-        return Array.from(categorySet).sort((a, b) => a.localeCompare(b));
+        return mergeCategoryLists(
+            FIXED_MENU_CATEGORIES,
+            menuItems.map((item) => item?.category)
+        ).sort((a, b) => a.localeCompare(b));
     }, [menuItems, type]);
 
     const dynamicItems = useMemo(() => {

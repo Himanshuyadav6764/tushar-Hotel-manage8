@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Search, Plus, ArrowLeft, Utensils, CheckCircle } from 'lucide-react';
+import { Search, Plus, ArrowLeft, Utensils, CheckCircle } from 'lucide-react';
 import API_URL, { apiCall } from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
+import OrderNotificationPanel from './OrderNotificationPanel';
 import './RoomService.css';
 
 const RoomService = () => {
@@ -265,9 +266,7 @@ const RoomService = () => {
                         <Utensils size={16} />
                         <span>{orders.length} Active Orders</span>
                     </div>
-                    <button className="rs-bell-btn">
-                        <Bell size={20} />
-                    </button>
+                    <OrderNotificationPanel scope="room-service" className="rs-notification-panel" />
                 </div>
             </header>
 

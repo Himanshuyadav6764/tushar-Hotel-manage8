@@ -1,8 +1,87 @@
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const Table = require('../models/Table');
 const GuestMealOrder = require('../models/Order');
 const MenuItem = require('../models/Menu');
 const Room = require('../models/Room');
+const Booking = require('../models/Booking');
+const { emitOpsNotification } = require('../utils/opsRealtimeEmitter');
+
+const buildOrderRealtimeMessage = (order, changeType = 'updated') => {
+    const shortId = String(order?._id || '').slice(-6).toUpperCase();
+    const place = order?.roomNumber
+        ? `Room ${order.roomNumber}`
+        : order?.tableNumber
+            ? `Table ${order.tableNumber}`
+            : order?.guestName || 'Guest';
+
+    if (changeType === 'new') {
+        return `New ${order?.orderType || 'order'} #${shortId} received for ${place}.`;
+    }
+
+    return `Order #${shortId} status is now ${order?.status || 'updated'} (${place}).`;
+};
+
+const emitOrderRealtimeEvent = (req, order, changeType = 'updated') => {
+    if (!order?._id) return;
+
+    const statusToken = String(order.status || 'na').toLowerCase().replace(/\s+/g, '-');
+
+    emitOpsNotification(req, {
+        eventId: `order-${String(order._id)}-${changeType}-${statusToken}-${Date.now()}`,
+        module: 'orders',
+        entity: 'order',
+        entityId: String(order._id),
+        title: 'Order Update',
+        message: buildOrderRealtimeMessage(order, changeType),
+        data: {
+            _id: String(order._id),
+            orderType: order.orderType,
+            status: order.status,
+            roomNumber: order.roomNumber,
+            tableNumber: order.tableNumber,
+            guestName: order.guestName,
+            createdAt: order.createdAt,
+            updatedAt: order.updatedAt,
+        },
+    });
+};
+
+const readGuestAccessPayload = (req) => {
+    const rawToken = req.headers['x-guest-access-token'];
+    if (!rawToken) return null;
+    try {
+        const payload = jwt.verify(String(rawToken), process.env.JWT_SECRET);
+        if (payload?.type !== 'guest_room_qr') return null;
+        return payload;
+    } catch (_) {
+        return null;
+    }
+};
+
+const isCheckedInStatus = (status) => {
+    const normalized = String(status || '').trim().toLowerCase();
+    return normalized === 'checked-in' || normalized === 'checkedin' || normalized === 'in_house';
+};
+
+const isGuestAllowedForOrder = (guestPayload, order) => {
+    if (!guestPayload || !order) return false;
+
+    const tokenRoom = String(guestPayload.roomNumber || '').trim();
+    const orderRoom = String(order.roomNumber || '').trim();
+    const tokenBooking = String(guestPayload.bookingDocId || '').trim();
+    const orderBooking = String(order.booking || '').trim();
+
+    if (!tokenRoom || tokenRoom !== orderRoom) {
+        return false;
+    }
+
+    if (orderBooking && tokenBooking && tokenBooking !== orderBooking) {
+        return false;
+    }
+
+    return true;
+};
 
 // ============================================================================
 // TABLE MANAGEMENT CONTROLLERS
@@ -485,12 +564,37 @@ exports.releaseTable = async (req, res) => {
 exports.createOrder = async (req, res) => {
     try {
         const { tableId, tableNumber, orderType = 'Direct Payment', roomNumber, guestName, numberOfGuests = 1, taxRate = 0, notes, kotNote, guest, guestPhone } = req.body;
+        const guestAccessPayload = !req.user ? readGuestAccessPayload(req) : null;
+        const isGuestOnlineOrder = Boolean(guestAccessPayload) && orderType === 'Online';
+
+        if (!req.user && !guestAccessPayload) {
+            return res.status(401).json({
+                success: false,
+                message: 'Guest access token missing or expired. Please scan QR again.'
+            });
+        }
+
+        if (guestAccessPayload) {
+            if (orderType !== 'Post to Room' && orderType !== 'Online') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Guest QR flow only supports room orders.'
+                });
+            }
+
+            if (String(roomNumber || '').trim() !== String(guestAccessPayload.roomNumber || '').trim()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Room mismatch in guest order request.'
+                });
+            }
+        }
 
         let table = null;
         let room = null;
 
         // Skip table validation for Take Away and Post to Room
-        if (orderType !== 'Take Away' && orderType !== 'Post to Room') {
+        if (orderType !== 'Take Away' && orderType !== 'Post to Room' && !isGuestOnlineOrder) {
             if (!tableId || !tableId.match(/^[0-9a-fA-F]{24}$/)) {
                 return res.status(400).json({ success: false, message: 'Invalid or missing tableId' });
             }
@@ -521,21 +625,31 @@ exports.createOrder = async (req, res) => {
         }
 
         // For Room Service (Post to Room), try to find the room for linking
-        if (orderType === 'Post to Room' && roomNumber) {
-            const Room = require('../models/Room');
+        if ((orderType === 'Post to Room' || isGuestOnlineOrder) && roomNumber) {
             room = await Room.findOne({ roomNumber: roomNumber });
+
+            if (guestAccessPayload) {
+                const verifiedBooking = await Booking.findById(guestAccessPayload.bookingDocId);
+                if (!verifiedBooking || !isCheckedInStatus(verifiedBooking.status)) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Booking is no longer active for this room.'
+                    });
+                }
+            }
         }
 
         // Create new order
         const orderData = {
-            tableId: (orderType === 'Take Away' || orderType === 'Post to Room') ? null : tableId,
-            table: (orderType === 'Take Away' || orderType === 'Post to Room') ? null : tableId,
+            tableId: (orderType === 'Take Away' || orderType === 'Post to Room' || isGuestOnlineOrder) ? null : tableId,
+            table: (orderType === 'Take Away' || orderType === 'Post to Room' || isGuestOnlineOrder) ? null : tableId,
             tableNumber: (orderType === 'Take Away') ? 0 : tableNumber,
             room: room ? room._id : null,
+            booking: guestAccessPayload?.bookingDocId || null,
             orderType,
-            roomNumber: orderType === 'Post to Room' ? roomNumber : null,
-            guestName: guestName || (orderType === 'Take Away' ? 'Walk-in Customer' : null),
-            guestPhone: guestPhone || req.body.guestPhone || null,
+            roomNumber: (orderType === 'Post to Room' || isGuestOnlineOrder) ? roomNumber : null,
+            guestName: guestAccessPayload?.guestName || guestName || (orderType === 'Take Away' ? 'Walk-in Customer' : null),
+            guestPhone: guestAccessPayload?.mobileNumber || guestPhone || req.body.guestPhone || null,
             guest: guest || null,
             notes: notes || null,
             kotNote: kotNote || null,
@@ -546,7 +660,7 @@ exports.createOrder = async (req, res) => {
                 total: (item.price || 0) * (item.quantity || 1)
             })),
             taxRate: Number(taxRate) || 0,
-            status: orderType === 'Post to Room' ? 'Pending' : 'Active',
+            status: (orderType === 'Post to Room' || orderType === 'Online') ? 'Pending' : 'Active',
             paymentMethod: 'Pending',
             paymentStatus: 'Pending'
         };
@@ -589,6 +703,8 @@ exports.createOrder = async (req, res) => {
             }
         }
 
+        emitOrderRealtimeEvent(req, order, 'new');
+
         res.status(201).json({
             success: true,
             message: 'Order created successfully',
@@ -610,6 +726,14 @@ exports.createOrder = async (req, res) => {
 // Get order by ID
 exports.getOrderById = async (req, res) => {
     try {
+        const guestAccessPayload = !req.user ? readGuestAccessPayload(req) : null;
+        if (!req.user && !guestAccessPayload) {
+            return res.status(401).json({
+                success: false,
+                message: 'Guest access token missing or expired. Please scan QR again.'
+            });
+        }
+
         const order = await GuestMealOrder.findById(req.params.orderId)
             .populate('tableId');
 
@@ -617,6 +741,13 @@ exports.getOrderById = async (req, res) => {
             return res.status(404).json({
                 success: false,
                 message: 'Order not found'
+            });
+        }
+
+        if (guestAccessPayload && !isGuestAllowedForOrder(guestAccessPayload, order)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied for this order.'
             });
         }
 
@@ -628,6 +759,44 @@ exports.getOrderById = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error fetching order',
+            error: error.message
+        });
+    }
+};
+
+// Get latest guest order for current QR guest session
+exports.getLatestGuestOrder = async (req, res) => {
+    try {
+        const guestAccessPayload = readGuestAccessPayload(req);
+        if (!guestAccessPayload) {
+            return res.status(401).json({
+                success: false,
+                message: 'Guest access token missing or expired. Please scan QR again.'
+            });
+        }
+
+        const query = {
+            roomNumber: String(guestAccessPayload.roomNumber || '').trim(),
+            orderType: { $in: ['Online', 'Post to Room'] }
+        };
+
+        if (guestAccessPayload.bookingDocId) {
+            query.booking = guestAccessPayload.bookingDocId;
+        }
+
+        const latestOrder = await GuestMealOrder.findOne(query)
+            .sort({ createdAt: -1 })
+            .populate('tableId');
+
+        return res.status(200).json({
+            success: true,
+            data: latestOrder || null,
+            message: latestOrder ? 'Latest order fetched' : 'No order found for this room yet.'
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Error fetching latest guest order',
             error: error.message
         });
     }
@@ -669,6 +838,14 @@ exports.updateOrderItems = async (req, res) => {
     try {
         const { orderId } = req.params;
         const { items, taxRate, notes, kotNote, guestName, guestPhone, guest } = req.body;
+        const guestAccessPayload = !req.user ? readGuestAccessPayload(req) : null;
+
+        if (!req.user && !guestAccessPayload) {
+            return res.status(401).json({
+                success: false,
+                message: 'Guest access token missing or expired. Please scan QR again.'
+            });
+        }
 
         const order = await GuestMealOrder.findById(orderId);
         if (!order) {
@@ -676,6 +853,15 @@ exports.updateOrderItems = async (req, res) => {
                 success: false,
                 message: 'Order not found'
             });
+        }
+
+        if (guestAccessPayload) {
+            if (!isGuestAllowedForOrder(guestAccessPayload, order)) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Guest token is not valid for this order.'
+                });
+            }
         }
 
         if (items) {
@@ -734,6 +920,11 @@ exports.updateOrderItems = async (req, res) => {
         if (guestPhone !== undefined) order.guestPhone = guestPhone;
         if (guest !== undefined) order.guest = guest;
 
+        if (guestAccessPayload) {
+            order.guestName = guestAccessPayload.guestName || order.guestName;
+            order.guestPhone = guestAccessPayload.mobileNumber || order.guestPhone;
+        }
+
         await order.save();
 
         // Update table running order amount if linked to a table
@@ -744,6 +935,8 @@ exports.updateOrderItems = async (req, res) => {
                 await table.save();
             }
         }
+
+        emitOrderRealtimeEvent(req, order, 'updated');
 
         res.status(200).json({
             success: true,
@@ -841,6 +1034,8 @@ exports.billOrder = async (req, res) => {
             io.emit('salesUpdated');
         }
 
+        emitOrderRealtimeEvent(req, order, 'updated');
+
         res.status(200).json({
             success: true,
             message: 'Order billed successfully',
@@ -882,6 +1077,8 @@ exports.sendToCashier = async (req, res) => {
             table.status = 'Running'; // Keeping it running until Cashier processes it
             await table.save();
         }
+
+        emitOrderRealtimeEvent(req, order, 'updated');
 
         res.status(200).json({
             success: true,
@@ -926,6 +1123,8 @@ exports.closeOrder = async (req, res) => {
             await table.save();
         }
 
+        emitOrderRealtimeEvent(req, order, 'updated');
+
         res.status(200).json({
             success: true,
             message: 'Order closed and table reset successfully',
@@ -946,9 +1145,10 @@ exports.closeOrder = async (req, res) => {
 // Get all orders (for View Order page - Active/Billed)
 exports.getAllOrders = async (req, res) => {
     try {
-        const orders = await GuestMealOrder.find({
-            status: { $ne: 'Cancelled' }
-        }).populate('tableId').sort({ createdAt: -1 }).limit(500);
+        const orders = await GuestMealOrder.find({})
+            .populate('tableId')
+            .sort({ createdAt: -1 })
+            .limit(500);
 
         res.status(200).json({
             success: true,
@@ -959,6 +1159,58 @@ exports.getAllOrders = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error fetching orders',
+            error: error.message
+        });
+    }
+};
+
+// Guest cancellation from QR flow.
+exports.cancelOrderByGuest = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const guestAccessPayload = readGuestAccessPayload(req);
+
+        if (!guestAccessPayload) {
+            return res.status(401).json({
+                success: false,
+                message: 'Guest access token missing or expired. Please scan QR again.'
+            });
+        }
+
+        const order = await GuestMealOrder.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        if (!isGuestAllowedForOrder(guestAccessPayload, order)) {
+            return res.status(403).json({ success: false, message: 'Access denied for this order.' });
+        }
+
+        const currentStatus = String(order.status || '').trim();
+        const cancellableStatuses = ['Pending', 'Active', 'Preparing'];
+        if (!cancellableStatuses.includes(currentStatus)) {
+            return res.status(409).json({
+                success: false,
+                message: 'Order cannot be cancelled once it is Ready or beyond.'
+            });
+        }
+
+        order.status = 'Cancelled';
+        order.notes = [order.notes, '[Guest Cancelled]'].filter(Boolean).join(' | ');
+        await order.save();
+
+        emitOrderRealtimeEvent(req, order, 'updated');
+
+        return res.status(200).json({
+            success: true,
+            message: 'Order cancelled successfully.',
+            data: order
+        });
+    } catch (error) {
+        console.error('Error cancelling order by guest:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error cancelling order',
             error: error.message
         });
     }
@@ -1035,6 +1287,8 @@ exports.updateOrderStatus = async (req, res) => {
                 console.error(`Table sync failed for order ${orderId}:`, tableSyncError.message);
             }
         }
+
+        emitOrderRealtimeEvent(req, updatedOrder, 'updated');
 
         return res.status(200).json({
             success: true,
@@ -1523,6 +1777,8 @@ exports.settleOrder = async (req, res) => {
             await table.save();
         }
 
+        emitOrderRealtimeEvent(req, order, 'updated');
+
         res.status(200).json({
             success: true,
             message: 'Order settled successfully',
@@ -1549,6 +1805,11 @@ exports.getOutletStatus = async (req, res) => {
         const endOfDay = new Date();
         endOfDay.setHours(23, 59, 59, 999);
         const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const pendingLikeStatuses = ['Active', 'Pending', 'Pending Payment'];
+        const inProgressLikeStatuses = ['Active', 'Pending', 'Preparing', 'Started', 'Pending Payment'];
+        const roomOrderTypes = ['Room Service', 'Room Order', 'Post to Room'];
+        const takeAwayOrderTypes = ['Take Away', 'TakeAway'];
+        const onlineOrderTypes = ['Online', 'Online Order', 'Delivery'];
 
         // ============ 1. DINE-IN (Tables) ============
         const totalTables = await Table.countDocuments();
@@ -1558,23 +1819,23 @@ exports.getOutletStatus = async (req, res) => {
 
         // Dine-In Kitchen Stats
         const dineInPending = await GuestMealOrder.countDocuments({
-            status: { $in: ['Active', 'Pending', 'Pending Payment'] },
-            orderType: { $nin: ['Room Service', 'Room Order', 'Post to Room', 'Take Away'] }
+            status: { $in: pendingLikeStatuses },
+            orderType: { $nin: [...roomOrderTypes, ...takeAwayOrderTypes, ...onlineOrderTypes] }
         });
         const dineInPreparing = await GuestMealOrder.countDocuments({
-            status: 'Preparing',
-            orderType: { $nin: ['Room Service', 'Room Order', 'Post to Room', 'Take Away'] }
+            status: { $in: ['Preparing', 'Started'] },
+            orderType: { $nin: [...roomOrderTypes, ...takeAwayOrderTypes, ...onlineOrderTypes] }
         });
         const dineInReady = await GuestMealOrder.countDocuments({
             status: 'Ready',
-            orderType: { $nin: ['Room Service', 'Room Order', 'Post to Room', 'Take Away'] }
+            orderType: { $nin: [...roomOrderTypes, ...takeAwayOrderTypes, ...onlineOrderTypes] }
         });
 
         // Dine-In Avg Prep Time (Include 'Ready' and 'Closed')
         const recentDineIn = await GuestMealOrder.find({
             status: { $in: ['Closed', 'Ready', 'Served', 'Billed'] },
             updatedAt: { $gte: dayAgo },
-            orderType: { $nin: ['Room Service', 'Room Order', 'Post to Room', 'Take Away'] }
+            orderType: { $nin: [...roomOrderTypes, ...takeAwayOrderTypes, ...onlineOrderTypes] }
         });
         let diPrepTotal = 0, diPrepCount = 0;
         recentDineIn.forEach(o => {
@@ -1595,23 +1856,23 @@ exports.getOutletStatus = async (req, res) => {
         const occupiedRoomsCount = await Room.countDocuments({ status: { $in: ['Occupied', 'Booked'] } });
 
         const roomPending = await GuestMealOrder.countDocuments({
-            status: { $in: ['Active', 'Pending', 'Pending Payment'] },
-            orderType: { $in: ['Room Service', 'Room Order', 'Post to Room'] }
+            status: { $in: pendingLikeStatuses },
+            orderType: { $in: roomOrderTypes }
         });
         const roomPreparing = await GuestMealOrder.countDocuments({
-            status: 'Preparing',
-            orderType: { $in: ['Room Service', 'Room Order', 'Post to Room'] }
+            status: { $in: ['Preparing', 'Started'] },
+            orderType: { $in: roomOrderTypes }
         });
         const roomReady = await GuestMealOrder.countDocuments({
             status: 'Ready',
-            orderType: { $in: ['Room Service', 'Room Order', 'Post to Room'] }
+            orderType: { $in: roomOrderTypes }
         });
 
         // Room Service Avg Prep Time (Include 'Ready', 'Closed', 'Served')
         const recentRoom = await GuestMealOrder.find({
             status: { $in: ['Closed', 'Ready', 'Served', 'Billed'] },
             updatedAt: { $gte: dayAgo },
-            orderType: { $in: ['Room Service', 'Room Order', 'Post to Room'] }
+            orderType: { $in: roomOrderTypes }
         });
         let rmPrepTotal = 0, rmPrepCount = 0;
         recentRoom.forEach(o => {
@@ -1630,15 +1891,15 @@ exports.getOutletStatus = async (req, res) => {
 
         // ============ 3. TAKE AWAY ============
         const taPending = await GuestMealOrder.countDocuments({
-            orderType: 'Take Away',
-            status: { $in: ['Active', 'Pending', 'Preparing'] }
+            orderType: { $in: takeAwayOrderTypes },
+            status: { $in: inProgressLikeStatuses }
         });
         const taReady = await GuestMealOrder.countDocuments({
-            orderType: 'Take Away',
+            orderType: { $in: takeAwayOrderTypes },
             status: 'Ready'
         });
         const taClosedToday = await GuestMealOrder.countDocuments({
-            orderType: 'Take Away',
+            orderType: { $in: takeAwayOrderTypes },
             status: 'Closed',
             updatedAt: { $gte: startOfDay, $lte: endOfDay }
         });
@@ -1647,19 +1908,19 @@ exports.getOutletStatus = async (req, res) => {
 
         // Take Away Kitchen Stats
         const taKOTPending = await GuestMealOrder.countDocuments({
-            status: { $in: ['Active', 'Pending', 'Pending Payment'] },
-            orderType: 'Take Away'
+            status: { $in: pendingLikeStatuses },
+            orderType: { $in: takeAwayOrderTypes }
         });
         const taKOTPreparing = await GuestMealOrder.countDocuments({
-            status: 'Preparing',
-            orderType: 'Take Away'
+            status: { $in: ['Preparing', 'Started'] },
+            orderType: { $in: takeAwayOrderTypes }
         });
 
         // Take Away Avg Prep Time (Include 'Ready', 'Closed', 'Picked Up')
         const recentTA = await GuestMealOrder.find({
             status: { $in: ['Closed', 'Ready', 'PickedUp', 'Served', 'Billed'] },
             updatedAt: { $gte: dayAgo },
-            orderType: 'Take Away'
+            orderType: { $in: takeAwayOrderTypes }
         });
         let taPrepTotal = 0, taPrepCount = 0;
         recentTA.forEach(o => {
@@ -1675,7 +1936,49 @@ exports.getOutletStatus = async (req, res) => {
         if (taPending > 10) { taLoad = 'High'; taStaff = 'Busy'; taRisk = 'High'; }
         else if (taPending > 5) { taLoad = 'Moderate'; taStaff = 'Active'; taRisk = 'Moderate'; }
 
-        console.log(`[getOutletStatus] Tables=${totalTables}, Occupied=${occupiedTablesCount}, RoomOccupied=${occupiedRoomsCount}, RoomPending=${roomPending}, TAPending=${taPending}`);
+        // ============ 4. ONLINE ORDER ============
+        const onlinePending = await GuestMealOrder.countDocuments({
+            orderType: { $in: onlineOrderTypes },
+            status: { $in: inProgressLikeStatuses }
+        });
+        const onlineReady = await GuestMealOrder.countDocuments({
+            orderType: { $in: onlineOrderTypes },
+            status: 'Ready'
+        });
+        const onlineClosedToday = await GuestMealOrder.countDocuments({
+            orderType: { $in: onlineOrderTypes },
+            status: 'Closed',
+            updatedAt: { $gte: startOfDay, $lte: endOfDay }
+        });
+        const onlineTotalToday = onlinePending + onlineReady + onlineClosedToday;
+        const onlineCompletionRate = onlineTotalToday > 0
+            ? Math.round(((onlineTotalToday - onlinePending) / onlineTotalToday) * 100)
+            : 0;
+
+        const onlineKOTPreparing = await GuestMealOrder.countDocuments({
+            orderType: { $in: onlineOrderTypes },
+            status: { $in: ['Preparing', 'Started'] }
+        });
+
+        const recentOnline = await GuestMealOrder.find({
+            status: { $in: ['Closed', 'Ready', 'PickedUp', 'Served', 'Billed'] },
+            updatedAt: { $gte: dayAgo },
+            orderType: { $in: onlineOrderTypes }
+        });
+        let onlinePrepTotal = 0, onlinePrepCount = 0;
+        recentOnline.forEach(o => {
+            if (o.updatedAt && o.createdAt) {
+                const t = (o.updatedAt - o.createdAt) / 60000;
+                if (t > 0 && t < 180) { onlinePrepTotal += t; onlinePrepCount++; }
+            }
+        });
+        const onlineAvgPrep = onlinePrepCount > 0 ? Math.round(onlinePrepTotal / onlinePrepCount) : 0;
+
+        let onlineLoad = 'Low', onlineStaff = 'Normal', onlineRisk = 'Minimal';
+        if (onlinePending > 10) { onlineLoad = 'High'; onlineStaff = 'Busy'; onlineRisk = 'High'; }
+        else if (onlinePending > 5) { onlineLoad = 'Moderate'; onlineStaff = 'Active'; onlineRisk = 'Moderate'; }
+
+        console.log(`[getOutletStatus] Tables=${totalTables}, Occupied=${occupiedTablesCount}, RoomOccupied=${occupiedRoomsCount}, RoomPending=${roomPending}, TAPending=${taPending}, OnlinePending=${onlinePending}`);
 
         res.status(200).json({
             success: true,
@@ -1696,6 +1999,13 @@ exports.getOutletStatus = async (req, res) => {
                     pending: taPending,
                     ready: taReady,
                     completionRate: taCompletionRate
+                },
+                online: {
+                    total: onlineTotalToday,
+                    pending: onlinePending,
+                    ready: onlineReady,
+                    completed: onlineClosedToday,
+                    completionRate: onlineCompletionRate
                 },
                 kitchen: {
                     pending: dineInPending,
@@ -1723,6 +2033,15 @@ exports.getOutletStatus = async (req, res) => {
                     load: taLoad,
                     staffLoad: taStaff,
                     delayRisk: taRisk
+                },
+                onlineKitchen: {
+                    pending: onlinePending,
+                    preparing: onlineKOTPreparing,
+                    ready: onlineReady,
+                    avgPrepTime: onlineAvgPrep,
+                    load: onlineLoad,
+                    staffLoad: onlineStaff,
+                    delayRisk: onlineRisk
                 }
             }
         });
@@ -1772,6 +2091,25 @@ exports.deleteOrder = async (req, res) => {
 
         await GuestMealOrder.findByIdAndDelete(orderId);
         console.log(`[deleteOrder] Order deleted successfully: ${orderId}`);
+
+        emitOpsNotification(req, {
+            eventId: `order-${String(orderId)}-deleted-${Date.now()}`,
+            module: 'orders',
+            entity: 'order',
+            entityId: String(orderId),
+            title: 'Order Removed',
+            message: `Order #${String(orderId).slice(-6).toUpperCase()} was deleted.`,
+            data: {
+                _id: String(orderId),
+                status: 'Deleted',
+                orderType: order.orderType,
+                roomNumber: order.roomNumber,
+                tableNumber: order.tableNumber,
+                guestName: order.guestName,
+                createdAt: order.createdAt,
+                updatedAt: new Date().toISOString(),
+            },
+        });
 
         res.status(200).json({
             success: true,

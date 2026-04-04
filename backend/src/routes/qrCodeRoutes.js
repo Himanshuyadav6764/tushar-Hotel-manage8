@@ -5,6 +5,7 @@ const {
     getRoomDetailsByQR,
     sendOTP,
     verifyOTPAndReservation,
+    verifyBookingForRoomAccess,
     getQRScanLogs
 } = require('../controllers/qrCodeController');
 
@@ -16,5 +17,6 @@ router.get('/scan-logs', getQRScanLogs);
 router.get('/room-details/:roomId', getRoomDetailsByQR);
 router.post('/send-otp', sendOTP);
 router.post('/verify-otp', verifyOTPAndReservation);
+router.post('/verify-booking', verifyBookingForRoomAccess);
 
 module.exports = router;
