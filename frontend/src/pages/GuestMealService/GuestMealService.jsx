@@ -650,7 +650,12 @@ const GuestMealService = () => {
         } else if (action === 'Move Guests') {
             openMoveModal(table);
         } else if (action === 'Merge Table') {
-            openMergeModal(table);
+            const hasSplitChildren = Array.isArray(table.splitChildTableIds) && table.splitChildTableIds.length > 0;
+            if (table.isSplitChild || hasSplitChildren) {
+                handleSplitMerge(table);
+            } else {
+                openMergeModal(table);
+            }
         } else if (action === 'Close Table') {
             openCloseModal(table);
         } else if (action === 'Verify User') {
@@ -840,7 +845,7 @@ const GuestMealService = () => {
                 const resDigits = normalizePhoneDigits(r.phone);
                 if (!resDigits) return;
                 const isMatch = resDigits.includes(inputDigits) || inputDigits.includes(resDigits);
-                if (!isMatch) return;
+                if (!table || !table.tableId) return;
 
                 const timelineMeta = getReservationTimelineMeta(r);
                 if (timelineMeta.isExpiredFromView) return;
@@ -961,9 +966,45 @@ const GuestMealService = () => {
     };
 
     // Submit Split
-    const handleSplitSubmit = () => {
-        showToast('Split Ready', 'Split configuration saved.');
-        setShowSplitModal(false);
+    const handleSplitSubmit = async () => {
+        if (!splitTableId || !Array.isArray(splitSubTables) || splitSubTables.length < 2) {
+            showToast('Split Failed', 'Please configure at least 2 sub tables.');
+            return;
+        }
+
+        const sourceTableName = tables.find(t => (t.tableId || t._id) === splitTableId)?.tableName || 'T';
+        const normalizedSubTables = splitSubTables.map((sub, index) => {
+            const fallbackName = `${sourceTableName}-${String.fromCharCode(65 + index)}`;
+            return {
+                name: String(sub?.name || '').trim() || fallbackName,
+                guests: Math.max(1, Number(sub?.guests || 1)),
+                waiter: String(sub?.waiter || '').trim()
+            };
+        });
+
+        try {
+            const response = await apiCall('/api/guest-meal/tables/split', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sourceTableId: splitTableId,
+                    subTables: normalizedSubTables
+                })
+            });
+            const data = await response.json();
+
+            if (!data.success) {
+                showToast('Split Failed', data.message || 'Unable to split table.');
+                return;
+            }
+
+            await fetchTables();
+            setShowSplitModal(false);
+            showToast('Split Success', `${normalizedSubTables.length} sub tables created.`);
+        } catch (error) {
+            console.error('Split table error:', error);
+            showToast('Split Failed', 'Network error while splitting table.');
+        }
     };
 
     // Move Guests
@@ -1326,6 +1367,29 @@ const GuestMealService = () => {
 
 
 
+    const handleSplitMerge = async (table) => {
+        if (!table || !(table.tableId || table._id)) return;
+
+        try {
+            const response = await apiCall('/api/guest-meal/tables/split/merge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tableId: table.tableId || table._id })
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.message || 'Failed to merge split tables');
+            }
+
+            await fetchTables();
+            showToast('Merge Success', 'All split tables merged back to parent table.');
+        } catch (error) {
+            console.error('Split merge error:', error);
+            showToast('Merge Failed', error.message || 'Failed to merge split tables.');
+        }
+    };
+
     // --- MERGE TABLE LOGIC ---
     const openMergeModal = (table) => {
         setMergeSourceTable(table);
@@ -1568,7 +1632,14 @@ const GuestMealService = () => {
         const appliedFilterMinutes = timeToMinutes(toTime24(appliedTime));
 
         // Create working copy with dynamic status calculation and exclude merged templates
-        let tableList = tables.filter(t => !t.tableName.startsWith('_MERGED_')).map(table => {
+        let tableList = tables
+            .filter(t => {
+                if (String(t.tableName || '').startsWith('_MERGED_')) return false;
+                const hasSplitChildren = Array.isArray(t.splitChildTableIds) && t.splitChildTableIds.length > 0;
+                if (hasSplitChildren && !t.isSplitChild) return false;
+                return true;
+            })
+            .map(table => {
             // Check for current active reservation
             const activeRes = (table.reservations || []).find(res => {
                 const timeline = getReservationTimelineMeta(res);
@@ -1587,8 +1658,8 @@ const GuestMealService = () => {
                 calculatedStatus = 'Reserved';
             }
 
-            return { ...table, calculatedStatus, activeReservation: activeRes };
-        });
+                return { ...table, calculatedStatus, activeReservation: activeRes };
+            });
 
         // Apply Status Filter using calculatedStatus
         if (statusFilter !== 'All') {

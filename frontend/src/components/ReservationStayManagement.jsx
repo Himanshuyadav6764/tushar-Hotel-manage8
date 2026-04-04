@@ -1434,15 +1434,18 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         setInvoiceGenerationInProgress(true);
 
         try {
+            const normalizedOutstanding = Math.round((effectiveOutstanding || 0) * 100) / 100;
             const billingDataForInvoice = {
-                roomCharges: reservation.roomCharges,
+                roomCharges: liveBilling?.roomCharges || reservation.roomCharges || 0,
                 serviceChargeAmount: reservation.serviceCharge || reservation.serviceChargeAmount || 0,
-                totalDiscount: reservation.discount,
-                subtotal: (reservation.roomCharges || 0) + (reservation.serviceCharge || reservation.serviceChargeAmount || 0) - (reservation.discount || 0),
+                totalDiscount: liveBilling?.totalDiscounts || reservation.discount || 0,
+                subtotal: (liveBilling?.roomCharges || reservation.roomCharges || 0)
+                    + (reservation.serviceCharge || reservation.serviceChargeAmount || 0)
+                    - (liveBilling?.totalDiscounts || reservation.discount || 0),
                 taxAmount: reservation.tax,
-                totalAmount: reservation.totalAmount,
-                paidAmount: reservation.paidAmount,
-                balanceDue: reservation.balanceDue,
+                totalAmount: liveBilling?.grandTotal || reservation.totalAmount || 0,
+                paidAmount: liveBilling?.totalPaid || reservation.paidAmount || 0,
+                balanceDue: normalizedOutstanding,
                 paymentMode: reservation.paymentMode
             };
 
@@ -1465,7 +1468,8 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         status: 'Checked-out',
-                        invoiceId: invoice.invoiceId
+                        invoiceId: invoice.invoiceId,
+                        balanceDue: normalizedOutstanding
                     })
                 });
 

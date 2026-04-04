@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Bireena Atithi</string>
+    <string name="title_activity_main">Bireena Atithi</string>
+    <string name="package_name">com.bireena.atithi</string>
+    <string name="custom_url_scheme">com.bireena.atithi</string>
+</resources>
