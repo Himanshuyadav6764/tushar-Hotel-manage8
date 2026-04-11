@@ -37,7 +37,7 @@
 
 .gmo-back-btn {
     padding: 0.6rem 1.2rem;
-    background-color: #ef4444;
+    background-color: #d41424;
     color: #ffffff;
     border: none;
     border-radius: 0.5rem;
@@ -255,7 +255,7 @@
 
 .notification.error {
     background-color: #fee2e2;
-    color: #991b1b;
+    color: #b40f1d;
     border: 1px solid #fca5a5;
 }
 
@@ -808,7 +808,7 @@
 }
 
 .item-add-btn.disabled {
-    background-color: #ef4444 !important; /* Red for visibility or Gray? User said 'out of stock dikhna chhaiye' */
+    background-color: #d41424 !important; /* Red for visibility or Gray? User said 'out of stock dikhna chhaiye' */
     /* I'll use Gray as per standard practice, but maybe red text 'Out of Stock' inside button handles it. */
     /* JSX has inline style {{ background: '#ccc' }}. That overrides this class usually unless !important. */
     /* I'll stick to JSX inline style I added, but this class helps for hover states. */

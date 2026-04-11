@@ -1,8 +1,5 @@
+@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 * {
   margin: 0;
@@ -11,42 +8,71 @@
   font-family: 'Poppins', sans-serif;
 }
 
+html {
+  background-color: #050510; /* Match footer to stop visible scrolling blank space */
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
-  min-height: 100%;
-  scrollbar-gutter: stable;
-  background-color: #fff2f5;
+  width: 100%;
+  overflow-x: hidden !important;
 }
 
 body {
-  overflow-x: hidden;
-  overflow-y: auto;
+  background-color: transparent !important;
 }
 
-/* Admin specifically might need hidden overflow for its own internal scrolling */
-body:not(.public-page) {
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
+body.public-page {
+  background: linear-gradient(270deg, #fff0f3, #fee2e7, #fff0f3);
+  background-size: 400% 400%;
+  animation: bgGradientMove 15s ease infinite;
 }
 
-#root {
-  min-height: 100%;
+@keyframes bgGradientMove {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
-img,
-video,
-canvas {
-  max-width: 100%;
-  height: auto;
+/* Floating Animation */
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
 }
 
-body:not(.public-page) #root {
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Premium Button Interaction */
+.btn-premium {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-premium:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 12px 25px rgba(225, 29, 72, 0.25);
+}
+
+.btn-premium:active {
+  transform: translateY(-1px) scale(0.98);
 }
 
 /* Page Transition Animation */
@@ -93,26 +119,19 @@ body:not(.public-page) #root {
   font-size: 1.25rem;
 }
 
-/* =============================================
-   GLOBAL SCROLLBAR HIDE — scroll still works
-   via mouse wheel / touch / cursor
-   ============================================= */
-/* Global Scrollbar styling for a premium look */
-*::-webkit-scrollbar {
-  width: 8px;
+/* Global Hide Scrollbar - Scroll still works */
+* {
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE/Edge */
 }
 
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-*::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+::-webkit-scrollbar {
+  display: none;
+  /* Chrome/Safari/Brave */
+  width: 0 !important;
+  height: 0 !important;
 }
 
 /* Specific Hide for Admin if needed, or keep it consistent */
@@ -236,7 +255,7 @@ body:not(.public-page) .filter-options .menu-item {
 }
 
 .landing-page {
-  background: #fff2f5;
+  background: transparent;
 }
 
 
@@ -304,7 +323,7 @@ body:not(.public-page) .filter-options .menu-item {
   align-items: center;
   justify-content: center;
   text-decoration: none;
-  background: #e11d48;
+  background: #d41424;
   color: #fff;
   border: none;
   padding: 10px 18px;
@@ -313,7 +332,7 @@ body:not(.public-page) .filter-options .menu-item {
 }
 
 .nav-demo-btn:hover {
-  background: #be123c;
+  background: #b40f1d;
 }
 
 /* Dropdown base */
@@ -402,7 +421,7 @@ body:not(.public-page) .filter-options .menu-item {
 .pricing-li a:hover,
 .pricing-li a.active {
   background: #fdecec;
-  color: #be123c;
+  color: #b40f1d;
 }
 
 .panel-link {
@@ -433,7 +452,7 @@ body:not(.public-page) .filter-options .menu-item {
 .panel-link:hover,
 .panel-link.active {
   background: #fdecec;
-  color: #be123c;
+  color: #b40f1d;
 }
 
 .panel-link .item-arrow {
@@ -481,7 +500,7 @@ body:not(.public-page) .filter-options .menu-item {
 .types-grid .type-link:hover,
 .types-grid .type-link.active {
   background: #fdecec;
-  color: #be123c;
+  color: #b40f1d;
 }
 
 .types-grid .type-link .item-arrow {
@@ -617,130 +636,16 @@ body:not(.public-page) .filter-options .menu-item {
   margin-top: 70px;
   position: relative;
   overflow: hidden;
-  background: #fff2f5;
+  background: #fff0f3;
 }
 
 
-.hero::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background-image:
-    radial-gradient(circle, #e11d48 3px, transparent 3px),
-    radial-gradient(circle, #c81e3b 2px, transparent 2px);
-  background-size: 50px 50px, 30px 30px;
-  background-position: 0 0, 25px 25px;
-  animation: dotScroll 12s linear infinite;
-  z-index: 0;
-  opacity: 0.18;
-}
-
-.hero::before,
-.hero::after {
-  display: none;
-}
-
-.hero>* {
-  position: relative;
-  z-index: 1;
-}
-
-@keyframes dotScroll {
-  0% {
-    transform: translate(0, 0);
-  }
-
-  100% {
-    transform: translate(50px, 50px);
-  }
-}
-
-@keyframes dotScrollReverse {
-  0% {
-    transform: translate(0, 0);
-  }
-
-  100% {
-    transform: translate(-80px, -80px);
-  }
-}
-
-.hero-flex {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 40px;
-}
-
-.hero-text {
-  max-width: 500px;
-  flex: 1;
-  padding-top: 6px;
-  margin-left: 20px;
-  /* margin-top: -22px; */
-}
-
-.hero-image {
-  flex: 1;
-  /* display: flex; */
-  justify-content: flex-end;
-  /* align-items: flex-start; */
-  margin-top: -20px;
-  margin-right: -10px;
-}
-
-.pricing-li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #111827;
-}
-
-.pricing-li a {
-  color: inherit;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.hero-text h1 {
-  font-size: 2.6rem;
-  font-weight: 700;
-  margin-bottom: 14px;
-  line-height: 1.2;
-}
-
-.hero-text p {
-  font-size: 1rem;
-  color: #4b5563;
-  margin-bottom: 22px;
-  line-height: 1.6;
-}
-
-.cta-btn {
-  background: #e11d48;
-  color: #fff;
-  border: none;
-  padding: 14px 28px;
-  font-size: 1rem;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.hero-image img {
-  width: 420px;
-  max-width: 100%;
-  height: auto;
-  margin-top: 0;
-  margin-right: -5px;
-}
+/* Legacy hero styles removed to avoid conflict with Tailwind components */
 
 /* Trusted Section */
 .trusted-section {
   padding: 6px 20px;
-  background: #fff2f5;
+  background: #fff0f3;
   text-align: center;
 }
 
@@ -752,7 +657,7 @@ body:not(.public-page) .filter-options .menu-item {
 }
 
 .trusted-section h2 span {
-  color: #e11d48;
+  color: #d41424;
 }
 
 .logo-slider {
@@ -795,14 +700,14 @@ body:not(.public-page) .filter-options .menu-item {
 /* Features Section */
 .pos-features {
   padding: 6px 20px 100px;
-  background: #fff2f5;
+  background: #fff0f3;
   text-align: center;
 }
 
 .pos-tag {
   font-size: 14px;
   font-weight: 600;
-  color: #e53935;
+  color: #d41424;
   letter-spacing: 1.2px;
   margin-bottom: 16px;
 }
@@ -830,7 +735,7 @@ h2 {
 /* Billing Section */
 .billing-section {
   padding: 6px 20px 100px;
-  background: #fff2f5;
+  background: #fff0f3;
 }
 
 .billing-container {
@@ -864,7 +769,7 @@ h2 {
 }
 
 .billing-content h3 span {
-  color: #e53935;
+  color: #d41424;
 }
 
 .billing-content p {
@@ -890,7 +795,7 @@ h2 {
 /* Inventory Section */
 .inventory-section {
   padding: 6px 20px 100px;
-  background: #fff2f5;
+  background: #fff0f3;
 }
 
 .inventory-container {
@@ -923,7 +828,7 @@ h2 {
 }
 
 .inventory-content h3 span {
-  color: #e53935;
+  color: #d41424;
 }
 
 .inventory-content p {
@@ -982,7 +887,7 @@ h2 {
 }
 
 .reports-content h3 span {
-  color: #e53935;
+  color: #d41424;
 }
 
 .reports-content p {
@@ -1041,7 +946,7 @@ h2 {
 }
 
 .ordering-content h3 span {
-  color: #e53935;
+  color: #d41424;
 }
 
 .ordering-content p {
@@ -1073,7 +978,7 @@ h2 {
 .marketplace-tag {
   font-size: 14px;
   font-weight: 600;
-  color: #e53935;
+  color: #d41424;
   letter-spacing: 1.2px;
   margin-bottom: 16px;
 }
@@ -1113,7 +1018,7 @@ h2 {
 
 .marketplace-menu li.active {
   background: #fdecec;
-  color: #e11d48;
+  color: #d41424;
 }
 
 .marketplace-menu li.active p {
@@ -1131,7 +1036,7 @@ h2 {
 .marketplace-menu li a {
   display: inline-block;
   margin-top: 12px;
-  color: #e11d48;
+  color: #d41424;
   text-decoration: none;
   font-size: 14px;
   font-weight: 600;
@@ -1166,7 +1071,7 @@ h2 {
 .integrations-tag {
   font-size: 14px;
   font-weight: 600;
-  color: #e53935;
+  color: #d41424;
   letter-spacing: 1.2px;
   margin-bottom: 16px;
 }
@@ -1263,7 +1168,7 @@ h2 {
 .outlet-tag {
   font-size: 14px;
   font-weight: 600;
-  color: #e53935;
+  color: #d41424;
   letter-spacing: 1.2px;
   margin-bottom: 16px;
 }
@@ -1305,7 +1210,7 @@ h2 {
 .outlet-card:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transform: translateY(-4px);
-  border-color: #e11d48;
+  border-color: #d41424;
 }
 
 .outlet-card img {
@@ -1410,7 +1315,7 @@ h2 {
 }
 
 .testimonial-dots .dot.active {
-  background: #e11d48;
+  background: #d41424;
   width: 32px;
   border-radius: 6px;
 }
@@ -1536,7 +1441,7 @@ h2 {
 }
 
 .form-group label span {
-  color: #e11d48;
+  color: #d41424;
 }
 
 .form-group input {
@@ -1549,11 +1454,11 @@ h2 {
 
 .form-group input:focus {
   outline: none;
-  border-color: #e11d48;
+  border-color: #d41424;
 }
 
 .submit-btn {
-  background: #e11d48;
+  background: #d41424;
   color: #fff;
   border: none;
   padding: 14px 32px;
@@ -1566,7 +1471,7 @@ h2 {
 }
 
 .submit-btn:hover {
-  background: #be123c;
+  background: #b40f1d;
 }
 
 .demo-illustration img {
@@ -1620,7 +1525,7 @@ h2 {
 
 .footer-btn {
   display: inline-block;
-  background: #e11d48;
+  background: #d41424;
   color: #fff;
   padding: 12px 24px;
   border-radius: 8px;
@@ -1632,7 +1537,7 @@ h2 {
 }
 
 .footer-btn:hover {
-  background: #be123c;
+  background: #b40f1d;
 }
 
 .footer-company p {
@@ -1724,7 +1629,7 @@ h2 {
     width: 320px;
     max-width: 85vw;
     height: 100vh;
-    background: #fff;
+    background: #fff0f3;
     z-index: 1002;
     transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     padding: 6px 0 32px;
@@ -1838,13 +1743,10 @@ h2 {
 html,
 body {
   width: 100%;
-  min-height: 100vh;
-  overflow-x: hidden;
 }
 
 #root {
   width: 100%;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }

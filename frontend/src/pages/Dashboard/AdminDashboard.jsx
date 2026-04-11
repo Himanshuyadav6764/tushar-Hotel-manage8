@@ -1666,7 +1666,7 @@ const AdminDashboard = () => {
                                     <input
                                         type="number"
                                         className="form-input"
-                                        style={{ borderColor: (currentPricing && (roomFormData.price < currentPricing.minPrice || roomFormData.price > currentPricing.maxPrice)) ? '#ef4444' : '#e2e8f0' }}
+                                        style={{ borderColor: (currentPricing && (roomFormData.price < currentPricing.minPrice || roomFormData.price > currentPricing.maxPrice)) ? '#d41424' : '#e2e8f0' }}
                                         placeholder="Enter Amount"
                                         value={roomFormData.price}
                                         onChange={(e) => {
@@ -1681,7 +1681,7 @@ const AdminDashboard = () => {
 
 
                                     {currentPricing && (roomFormData.price < currentPricing.minPrice || roomFormData.price > currentPricing.maxPrice) && (
-                                        <p style={{ color: '#ef4444', fontSize: '11px', marginTop: '5px', fontWeight: '600' }}>
+                                        <p style={{ color: '#d41424', fontSize: '11px', marginTop: '5px', fontWeight: '600' }}>
                                             ⚠️ Price must be between {cs}{currentPricing.minPrice} and {cs}{currentPricing.maxPrice}
                                         </p>
                                     )}

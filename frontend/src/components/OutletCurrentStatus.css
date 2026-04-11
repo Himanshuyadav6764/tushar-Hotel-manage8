@@ -37,7 +37,7 @@
     border-radius: 20px;
     font-size: 12px;
     font-weight: 800;
-    color: #ef4444;
+    color: #d41424;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
     border: 1px solid #fee2e2;
 }
@@ -45,7 +45,7 @@
 .live-indicator .dot {
     width: 8px;
     height: 8px;
-    background: #ef4444;
+    background: #d41424;
     border-radius: 50%;
     animation: pulse 1.5s infinite;
 }
@@ -64,9 +64,9 @@
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
-    border: 1.5px solid #ef4444;
+    border: 1.5px solid #d41424;
     background-color: #fff;
-    color: #ef4444;
+    color: #d41424;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -75,7 +75,7 @@
 }
 
 .status-filter-btn.active {
-    background-color: #ef4444;
+    background-color: #d41424;
     color: white;
     box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
@@ -83,12 +83,12 @@
 .status-card.highlight-pink {
     background: #fff1f2;
     border: 1px solid #fecdd3;
-    color: #be123c;
+    color: #b40f1d;
 }
 
 .prep-time-metric.highlight-pink {
     background: #fff1f2;
-    border-left: 5px solid #e11d48;
+    border-left: 5px solid #d41424;
 }
 
 .prep-time-metric.highlight-pink .value {

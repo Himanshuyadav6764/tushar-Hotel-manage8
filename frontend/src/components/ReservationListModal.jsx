@@ -167,7 +167,7 @@ const ReservationListModal = ({ table, onClose, onCancel, onAdd }) => {
                                                             </div>
                                                         )}
                                                         {res.status === 'Cancelled' && (
-                                                            <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#b91c1c', fontWeight: 700 }}>
+                                                            <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#b40f1d', fontWeight: 700 }}>
                                                                 Cancelled: {res.cancellationReason || 'Reason not captured'}
                                                                 {Number(res.cancellationCharge || 0) > 0 ? ` • Charge ${cs}${Number(res.cancellationCharge).toFixed(2)}` : ''}
                                                             </div>

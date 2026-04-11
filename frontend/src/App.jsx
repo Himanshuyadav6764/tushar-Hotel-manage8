@@ -11,20 +11,8 @@ import Hero from './components/Hero'
 import FadeInSection from './components/FadeInSection'
 import FloatingDashboard from './components/FloatingDashboard'
 import ThreeColumnFeatures from './components/ThreeColumnFeatures'
-import WhyChooseUs from './components/WhyChooseUs'
-import ServicesSection from './components/ServicesSection'
-import FAQSection from './components/FAQSection'
-import TestimonialSection from './components/TestimonialSection'
-
-import FeaturesList from './components/Features'
-import Marketplace from './components/Marketplace'
-import Integrations from './components/Integrations'
-import OutletTypes from './components/OutletTypes'
-import Testimonials from './components/Testimonials'
-import Ratings from './components/Ratings'
-import DemoForm from './components/DemoForm'
+import FeaturesAndStats from './components/FeaturesAndStats'
 import Footer from './components/Footer'
-import AdvikaAI from './components/AdvikaAI'
 import Login from './pages/Login/Login'
 import AdminDashboard from './pages/Dashboard/AdminDashboard'
 import SuperAdminDashboard from './pages/SuperAdmin/SuperAdminDashboard'
@@ -40,40 +28,33 @@ import FeaturesPage from './pages/Features'
 import Pricing from './pages/Pricing'
 import Contact from './pages/Contact'
 import './index.css'
-
-import ScrollToTop from './components/ScrollToTop'
-
-
-
 import Reveal from './components/Reveal'
+import Brands from './components/Brands'
+import ServicesOverview from './components/ServicesOverview'
+import Vision from './components/Vision'
+import AdvikaAI from './components/AdvikaAI'
+import { useState } from 'react'
+
+import { MotionDiv, fadeUp } from './components/MotionWrapper';
+
+import DemoForm from './components/DemoForm'
+import FAQSection from './components/FAQSection'
 
 function HomePageContent() {
   return (
     <>
-      <Reveal width="100%">
-        <Hero />
-      </Reveal>
-
-
-
-      <Reveal width="100%">
-        <WhyChooseUs />
-      </Reveal>
-
-      <Reveal width="100%">
-        <ServicesSection />
-      </Reveal>
-
-      <Reveal width="100%">
-        <FAQSection />
-      </Reveal>
-
-      <Reveal width="100%">
-        <TestimonialSection />
-      </Reveal>
+      <Hero />
+      <MotionDiv variant={fadeUp}><Brands /></MotionDiv>
+      <Vision />
+      <ServicesOverview />
+      <MotionDiv variant={fadeUp}><DemoForm /></MotionDiv>
+      <MotionDiv variant={fadeUp}><FAQSection /></MotionDiv>
+      <MotionDiv variant={fadeUp}><FeaturesAndStats /></MotionDiv>
     </>
   )
 }
+
+
 
 const AppRoutes = () => {
   const location = useLocation();
@@ -86,6 +67,8 @@ const AppRoutes = () => {
   const isProtectedPath = (pathname) => pathname.startsWith('/admin') || pathname.startsWith('/super-admin');
   const isLoginPath = (pathname) => pathname === '/login' || pathname === '/secure-owner-login' || pathname === '/superadmin/login';
 
+  const [sidebarActive, setSidebarActive] = useState(false);
+
   // Manage body class for scrolling behavior
   useEffect(() => {
     if (isAdminRoute) {
@@ -94,10 +77,17 @@ const AppRoutes = () => {
       document.body.classList.add('public-page');
     }
 
+    if (sidebarActive) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+
     return () => {
       document.body.classList.remove('public-page');
+      document.body.style.overflow = 'auto';
     };
-  }, [isAdminRoute]);
+  }, [isAdminRoute, sidebarActive]);
 
   useEffect(() => {
     // If user reaches login page using browser back/forward, invalidate current session.
@@ -137,12 +127,10 @@ const AppRoutes = () => {
 
   return (
     <div className="App">
-      <ScrollToTop />
       {!isAdminRoute && (
         <>
           <TopBar />
           <Navbar />
-          {location.pathname === '/' && <AdvikaAI />}
         </>
       )}
       <div>
@@ -330,6 +318,7 @@ const AppRoutes = () => {
           <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
         </Routes>
         {!isAdminRoute && <Footer />}
+        {!isAdminRoute && <AdvikaAI />}
       </div>
     </div>
   )
@@ -338,11 +327,11 @@ const AppRoutes = () => {
 function App() {
   return (
     <SettingsProvider>
-    <AuthProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
-    </AuthProvider>
+      <AuthProvider>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </AuthProvider>
     </SettingsProvider>
   )
 }

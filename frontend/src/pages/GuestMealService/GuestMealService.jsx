@@ -61,7 +61,7 @@ const GuestMealService = () => {
             .blink-yellow { background-color: #fca5a5; box-shadow: 0 0 10px #fca5a5; }   /* Pending - Reddish/Yellow per user request? User said Pending -> Yellow blink. Preparing -> Red blink. */
             /* Wait, user said Pending -> Yellow, Preparing -> Red. Let's fix colors. */
             .blink-yellow-real { background-color: #fbbf24; box-shadow: 0 0 10px #fbbf24; }
-            .blink-red-real { background-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
+            .blink-red-real { background-color: #d41424; box-shadow: 0 0 10px #d41424; }
             .blink-green-real { background-color: #22c55e; box-shadow: 0 0 10px #22c55e; }
             @keyframes pulse {
                 0% { transform: scale(1); }
@@ -2074,7 +2074,7 @@ const GuestMealService = () => {
                         <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#111827', marginTop: '8px' }}>{stats.available}</div>
                     </div>
                     <div style={{ background: '#fef2f2', padding: '20px', borderRadius: '12px', border: '1px solid #fee2e2' }}>
-                        <div style={{ fontSize: '0.875rem', color: '#991b1b', fontWeight: '600' }}>Occupied (Running)</div>
+                        <div style={{ fontSize: '0.875rem', color: '#b40f1d', fontWeight: '600' }}>Occupied (Running)</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#111827', marginTop: '8px' }}>{stats.running}</div>
                     </div>
                     <div style={{ background: '#fff7ed', padding: '20px', borderRadius: '12px', border: '1px solid #ffedd5' }}>
@@ -2690,7 +2690,7 @@ const GuestMealService = () => {
                         </div>
 
                         <div className="add-payment-body">
-                            <div style={{ padding: '14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', marginBottom: '18px', color: '#991b1b', fontWeight: '600' }}>
+                            <div style={{ padding: '14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', marginBottom: '18px', color: '#b40f1d', fontWeight: '600' }}>
                                 Start a walk-in order for this table by entering guest count.
                             </div>
 
@@ -2894,15 +2894,15 @@ const GuestMealService = () => {
                                         </div>
                                     </div>
 
-                                    <div style={{ fontSize: '1.5rem', color: '#e11d48', fontWeight: '700' }}>→</div>
+                                    <div style={{ fontSize: '1.5rem', color: '#d41424', fontWeight: '700' }}>→</div>
 
                                     <div style={{ flex: 1, textAlign: 'center' }}>
                                         <div className="field-label-premium" style={{ marginBottom: '8px' }}>TO</div>
-                                        <div style={{ background: '#fff8f1', borderRadius: '16px', border: '2px dashed #e11d48', minHeight: '72px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <div style={{ background: '#fff8f1', borderRadius: '16px', border: '2px dashed #d41424', minHeight: '72px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <select
                                                 value={moveTargetTableId}
                                                 onChange={(e) => setMoveTargetTableId(e.target.value)}
-                                                style={{ width: '100%', border: 'none', background: 'transparent', padding: '16px', fontSize: '1.1rem', fontWeight: '800', textAlign: 'center', outline: 'none', color: '#e11d48', cursor: 'pointer' }}
+                                                style={{ width: '100%', border: 'none', background: 'transparent', padding: '16px', fontSize: '1.1rem', fontWeight: '800', textAlign: 'center', outline: 'none', color: '#d41424', cursor: 'pointer' }}
                                             >
                                                 <option value="">Table?</option>
                                                 {getValidMoveTargets().map(t => (
@@ -3187,8 +3187,8 @@ const GuestMealService = () => {
                             <div className="add-payment-body" style={{ overflow: 'hidden', flexDirection: 'column', display: 'flex', gap: '16px', padding: '24px', flex: 1, minHeight: 0 }}>
                                 {/* Merging Into badge */}
                                 <div style={{ padding: '14px 16px', background: 'linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%)', borderRadius: '14px', border: '1px solid #fee2e2' }}>
-                                    <div className="field-label-premium" style={{ color: '#991b1b', marginBottom: '4px' }}>MERGING INTO</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#e11d48' }}>{mergeSourceTable.tableName.replace('_MERGED_', '')}</div>
+                                    <div className="field-label-premium" style={{ color: '#b40f1d', marginBottom: '4px' }}>MERGING INTO</div>
+                                    <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#d41424' }}>{mergeSourceTable.tableName.replace('_MERGED_', '')}</div>
                                 </div>
 
                                 {/* Table list label */}
@@ -3221,9 +3221,9 @@ const GuestMealService = () => {
                                                 >
                                                     <div style={{
                                                         width: '22px', height: '22px', borderRadius: '6px',
-                                                        border: `2px solid ${isSelected ? '#e11d48' : '#d1d5db'}`,
+                                                        border: `2px solid ${isSelected ? '#d41424' : '#d1d5db'}`,
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        background: isSelected ? '#e11d48' : '#fff',
+                                                        background: isSelected ? '#d41424' : '#fff',
                                                         flexShrink: 0,
                                                         transition: 'all 0.2s ease'
                                                     }}>
@@ -3248,7 +3248,7 @@ const GuestMealService = () => {
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', alignItems: 'center', borderTop: '1px solid #e5e7eb', paddingTop: '10px' }}>
                                             <span style={{ color: '#6b7280', fontWeight: '600', fontSize: '0.85rem' }}>Total Capacity:</span>
-                                            <span style={{ fontWeight: '900', color: '#e11d48', fontSize: '1.1rem' }}>
+                                            <span style={{ fontWeight: '900', color: '#d41424', fontSize: '1.1rem' }}>
                                                 {mergeSourceTable.capacity + tables.filter(t => mergeSelectedTargetIds.includes(t.tableId)).reduce((sum, t) => sum + (t.capacity || 4), 0)} Persons
                                             </span>
                                         </div>
@@ -3387,7 +3387,7 @@ const GuestMealService = () => {
                                                 border: '1px solid #fecdd3',
                                                 shadow: '0 4px 12px rgba(190, 24, 93, 0.08)',
                                                 title: '#9f1239',
-                                                badgeBg: '#be123c',
+                                                badgeBg: '#b40f1d',
                                                 statusBg: '#ffe4e6',
                                                 statusBorder: '#fda4af',
                                                 statusText: '#9f1239',
@@ -3492,7 +3492,7 @@ const GuestMealService = () => {
 
                                     if (normalizePhoneDigits(verifyPhoneInput).length >= 10) {
                                         return (
-                                            <div style={{ marginTop: '16px', padding: '20px', background: '#fff', borderRadius: '16px', border: '2px dashed #fee2e2', color: '#991b1b', fontSize: '0.95rem', textAlign: 'center' }}>
+                                            <div style={{ marginTop: '16px', padding: '20px', background: '#fff', borderRadius: '16px', border: '2px dashed #fee2e2', color: '#b40f1d', fontSize: '0.95rem', textAlign: 'center' }}>
                                                 <div style={{ fontSize: '2rem', marginBottom: '8px' }}>❌</div>
                                                 <div style={{ fontWeight: '700' }}>No active reservation found</div>
                                                 <div style={{ fontSize: '0.85rem', opacity: 0.8, marginTop: '4px' }}>Please double check the phone number</div>
@@ -3520,7 +3520,7 @@ const GuestMealService = () => {
                                         className="btn-secondary"
                                         style={{
                                             borderColor: '#fca5a5',
-                                            color: '#b91c1c',
+                                            color: '#b40f1d',
                                             background: '#fff5f5',
                                             minHeight: '44px',
                                             borderRadius: '10px',
@@ -3851,7 +3851,7 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
             case 'Reserved': return { badge: '#f97316', bg: '#fff7ed', border: '#fdba74' };
             case 'Running': return { badge: '#10b981', bg: '#f0fdf4', border: '#bcfced' };
             case 'Occupied': return { badge: '#fbbf24', bg: '#fffbeb', border: '#fde68a' };
-            case 'Billed': return { badge: '#ef4444', bg: '#fef2f2', border: '#fecaca' };
+            case 'Billed': return { badge: '#d41424', bg: '#fef2f2', border: '#fecaca' };
             case 'Pending': return { badge: '#6366f1', bg: '#eef2ff', border: '#c7d2fe' };
             default: return { badge: '#6b7280', bg: '#fff', border: '#e5e7eb' };
         }
@@ -4023,7 +4023,7 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                                             borderRadius: '10px',
                                             border: '1px solid #fecaca',
                                             background: '#fff1f2',
-                                            color: '#991b1b',
+                                            color: '#b40f1d',
                                             fontSize: '12px',
                                             fontWeight: 700,
                                             display: 'inline-flex',
@@ -4043,7 +4043,7 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                                                         border: 'none',
                                                         borderRadius: '6px',
                                                         padding: '4px 10px',
-                                                        background: '#dc2626',
+                                                        background: '#d41424',
                                                         color: '#fff',
                                                         cursor: 'pointer',
                                                         fontWeight: 700,
@@ -4115,7 +4115,7 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                                         animation: isNear ? 'pulse 2s infinite' : 'none'
                                     }}>
                                         {isNear ? '⚠️ Arriving Soon: ' : 'Next: '}
-                                        <span style={{ fontWeight: '800', color: isNear ? '#b91c1c' : '#4b5563' }}>
+                                        <span style={{ fontWeight: '800', color: isNear ? '#b40f1d' : '#4b5563' }}>
                                             {formatTime(nextRes.startTime)} ({diff}m)
                                         </span>
                                         <div style={{ fontSize: '0.75rem', fontWeight: '600', opacity: 0.8 }}>{nextRes.name} ({getSourceLabel(nextRes.source)})</div>

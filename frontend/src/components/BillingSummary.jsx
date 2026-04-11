@@ -285,7 +285,7 @@ const BillingSummary = ({
                                     <strong>{cs}{splitRemaining.toFixed(2)}</strong>
                                 </div>
                                 {splitHasMismatch && (
-                                    <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#b91c1c', fontWeight: 700 }}>
+                                    <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#b40f1d', fontWeight: 700 }}>
                                         Split total must match Grand Total before save.
                                     </div>
                                 )}

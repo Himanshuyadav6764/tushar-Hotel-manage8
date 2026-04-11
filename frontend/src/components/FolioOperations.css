@@ -63,8 +63,8 @@
 
 .sidebar-add-btn:hover {
     background: #f9fafb;
-    border-color: #ef4444;
-    color: #ef4444;
+    border-color: #d41424;
+    color: #d41424;
     transform: scale(1.05);
 }
 
@@ -88,14 +88,14 @@
 
 .room-folio-item:hover {
     background: #fef2f2;
-    border-color: #ef4444;
+    border-color: #d41424;
     box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
     transform: translateY(-1px);
 }
 
 .room-folio-item.active {
     background: #fee2e2;
-    border: 2px solid #ef4444;
+    border: 2px solid #d41424;
     border-left: 4px solid #E31E24;
     padding-left: 16px;
     box-shadow: 0 2px 12px rgba(239, 68, 68, 0.2);
@@ -294,7 +294,7 @@
     width: 15px;
     height: 15px;
     cursor: pointer;
-    accent-color: #ef4444;
+    accent-color: #d41424;
     margin: 0;
 }
 
@@ -432,7 +432,7 @@
     width: 15px;
     height: 15px;
     cursor: pointer;
-    accent-color: #ef4444;
+    accent-color: #d41424;
     margin: 0;
     vertical-align: middle;
 }
@@ -733,7 +733,7 @@
 .edit-field input:focus,
 .edit-field textarea:focus {
     outline: none;
-    border-color: #ef4444;
+    border-color: #d41424;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
@@ -770,7 +770,7 @@
 }
 
 .btn-save {
-    background: #ef4444;
+    background: #d41424;
     color: white;
 }
 

@@ -44,7 +44,7 @@
 }
 
 .btn-generate-top {
-    background: linear-gradient(135deg, #E31E24, #b91c1c);
+    background: linear-gradient(135deg, #E31E24, #b40f1d);
     color: white;
     border: none;
     padding: 10px 24px;
@@ -160,13 +160,13 @@
 }
 
 .report-tab:hover {
-    color: #ef4444;
+    color: #d41424;
 }
 
 .report-tab.active {
     background: #fff1f2;
     color: #d32f2f;
-    border-bottom: 2px solid #ef4444;
+    border-bottom: 2px solid #d41424;
     box-shadow: none;
 }
 
@@ -441,7 +441,7 @@
 
 .billing-summary-card-2 .billing-summary-icon {
     background: #ffe4e6;
-    color: #be123c;
+    color: #b40f1d;
 }
 
 .billing-summary-card-2 .stat-label {
@@ -477,15 +477,15 @@
 
 .billing-summary-card-4 .billing-summary-icon {
     background: #fee2e2;
-    color: #b91c1c;
+    color: #b40f1d;
 }
 
 .billing-summary-card-4 .stat-label {
-    color: #b91c1c;
+    color: #b40f1d;
 }
 
 .billing-summary-card-4 .stat-value {
-    color: #991b1b;
+    color: #b40f1d;
 }
 
 @media (max-width: 1200px) {
@@ -560,7 +560,7 @@
 
 .overview-icon-box.pink-icon {
     background: #fff1f2;
-    color: #ef4444;
+    color: #d41424;
 }
 
 .overview-text {
@@ -656,7 +656,7 @@
 }
 
 .breakdown-item.made .item-icon {
-    color: #ef4444;
+    color: #d41424;
 }
 
 .item-label {
@@ -676,7 +676,7 @@
 }
 
 .breakdown-item.made .item-value {
-    color: #ef4444;
+    color: #d41424;
 }
 
 /* TABLE CARD */
@@ -733,7 +733,7 @@
 .row-print-btn {
     border: 1px solid #fecdd3;
     background: #fff1f2;
-    color: #be123c;
+    color: #b40f1d;
     border-radius: 8px;
     padding: 6px 12px;
     font-size: 12px;
@@ -959,12 +959,12 @@
 
 .responsive-select-option:hover {
     background: #fff1f2;
-    color: #be123c;
+    color: #b40f1d;
 }
 
 .responsive-select-option.active {
     background: #fee2e2;
-    color: #b91c1c;
+    color: #b40f1d;
     font-weight: 700;
 }
 
@@ -999,7 +999,7 @@
 }
 
 .tab-item.active {
-    background: linear-gradient(135deg, #E31E24, #b91c1c);
+    background: linear-gradient(135deg, #E31E24, #b40f1d);
     color: #ffffff;
     box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
 }

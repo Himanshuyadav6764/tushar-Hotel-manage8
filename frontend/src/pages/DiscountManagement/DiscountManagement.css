@@ -98,7 +98,7 @@
 }
 
 .close-sidebar-btn:hover {
-    color: #ef4444;
+    color: #d41424;
 }
 
 .sidebar-content {
@@ -132,7 +132,7 @@
 
 .discount-count {
     font-size: 12px;
-    color: #ef4444;
+    color: #d41424;
     background: #fff1f2;
     padding: 5px 14px;
     border-radius: 20px;
@@ -154,7 +154,7 @@
 }
 
 .discount-table thead {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
+    background: linear-gradient(135deg, #d41424, #d41424);
 }
 
 .discount-table th {
@@ -230,7 +230,7 @@
 
 .discount-value {
     font-weight: 700;
-    color: #ef4444;
+    color: #d41424;
     font-size: 15px;
 }
 
@@ -272,7 +272,7 @@
 
 .status-toggle.inactive {
     background: #fee2e2;
-    color: #b91c1c;
+    color: #b40f1d;
 }
 
 .status-indicator {
@@ -309,8 +309,8 @@
 
 .btn-menu:hover {
     background: #fff;
-    color: #ef4444;
-    border-color: #ef4444;
+    color: #d41424;
+    border-color: #d41424;
     box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
 }
 
@@ -359,17 +359,17 @@
 }
 
 .menu-item:hover {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
+    background: linear-gradient(135deg, #d41424, #d41424);
     color: white;
 }
 
 .menu-item.remove {
-    color: #dc2626;
+    color: #d41424;
 }
 
 .menu-item.remove:hover {
     background: #fff1f2;
-    color: #ef4444;
+    color: #d41424;
 }
 
 .no-data {
@@ -442,7 +442,7 @@
 }
 
 .required {
-    color: #ef4444;
+    color: #d41424;
 }
 
 .label-hint {
@@ -492,13 +492,13 @@
 
 .form-group input.error,
 .form-group select.error {
-    border-color: #ef4444;
+    border-color: #d41424;
 }
 
 .error-message {
     display: block;
     font-size: 12px;
-    color: #ef4444;
+    color: #d41424;
     margin-top: 4px;
 }
 
@@ -728,7 +728,7 @@
     border-radius: 50%;
     border: 1px solid #fda4af;
     background: #fff1f2;
-    color: #be123c;
+    color: #b40f1d;
     font-size: 12px;
     font-weight: 700;
     line-height: 1;
@@ -1093,7 +1093,7 @@
 }
 
 .close-sidebar-btn:hover {
-    color: #ef4444;
+    color: #d41424;
 }
 
 .sidebar-content {
@@ -1133,7 +1133,7 @@
 }
 
 .discount-form label .required {
-    color: #ef4444;
+    color: #d41424;
     margin-left: 4px;
 }
 
@@ -1239,7 +1239,7 @@
 
 .discount-form .label-hint {
     font-size: 12px;
-    color: #ef4444;
+    color: #d41424;
     font-weight: 600;
     margin-left: 6px;
     text-transform: none;

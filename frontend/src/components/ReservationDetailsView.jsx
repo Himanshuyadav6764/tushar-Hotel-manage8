@@ -83,7 +83,7 @@ const ReservationDetailsView = ({ reservation, onClose, onUpdate }) => {
                             <button
                                 style={{
                                     display: 'flex', alignItems: 'center', gap: '8px',
-                                    padding: '8px 16px', background: 'linear-gradient(135deg, #E31E24 0%, #b91c1c 100%)',
+                                    padding: '8px 16px', background: 'linear-gradient(135deg, #E31E24 0%, #b40f1d 100%)',
                                     color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700',
                                     fontSize: '13px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(220,38,38,0.3)'
                                 }}

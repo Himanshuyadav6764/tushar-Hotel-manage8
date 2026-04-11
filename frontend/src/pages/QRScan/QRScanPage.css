@@ -44,7 +44,7 @@
     width: 50px;
     height: 50px;
     border: 4px solid #fef2f2;
-    border-top-color: #ef4444;
+    border-top-color: #d41424;
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin: 0 auto 20px;
@@ -207,7 +207,7 @@
 
 .mobile-input:focus {
     outline: none;
-    border-color: #ef4444;
+    border-color: #d41424;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
@@ -233,7 +233,7 @@
 
 .otp-input:focus {
     outline: none;
-    border-color: #ef4444;
+    border-color: #d41424;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
@@ -252,7 +252,7 @@
 }
 
 .btn-primary {
-    background: #ef4444;
+    background: #d41424;
     color: white;
     margin-bottom: 12px;
 }
@@ -370,7 +370,7 @@
 }
 
 .service-btn:hover {
-    border-color: #ef4444;
+    border-color: #d41424;
     background: #fef2f2;
     transform: translateX(8px);
 }

@@ -56,7 +56,7 @@
 }
 
 .add-table-btn:hover {
-    background-color: #b91c1c;
+    background-color: #b40f1d;
 }
 
 /* Stats Grid */
@@ -304,7 +304,7 @@
     padding: 3px 8px;
     border-radius: 999px;
     background: #fee2e2;
-    color: #b91c1c;
+    color: #b40f1d;
     font-size: 0.7rem;
     font-weight: 700;
     letter-spacing: 0.2px;
@@ -360,7 +360,7 @@
 
 .status-billed {
     background-color: #fee2e2;
-    color: #b91c1c;
+    color: #b40f1d;
 }
 
 .status-available {
@@ -425,7 +425,7 @@
 
 .menu-item:hover {
     background-color: #fff1f2;
-    color: #e11d48;
+    color: #d41424;
 }
 
 /* Modal */
@@ -551,7 +551,7 @@
 .form-select:focus,
 .form-input:focus {
     outline: none;
-    border-color: #e11d48;
+    border-color: #d41424;
     box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.1);
 }
 
@@ -615,13 +615,13 @@
 }
 
 .btn-primary {
-    background-color: #e11d48;
+    background-color: #d41424;
     color: white;
     box-shadow: 0 4px 6px -1px rgba(225, 29, 72, 0.2);
 }
 
 .btn-primary:hover {
-    background-color: #be123c;
+    background-color: #b40f1d;
     box-shadow: 0 10px 15px -3px rgba(225, 29, 72, 0.3);
     transform: translateY(-1px);
 }
@@ -726,7 +726,7 @@
 
 .add-type-btn {
     padding: 0 16px;
-    background: linear-gradient(135deg, #e11d48, #be123c);
+    background: linear-gradient(135deg, #d41424, #b40f1d);
     color: white;
     border: none;
     border-radius: 8px;
@@ -738,7 +738,7 @@
 }
 
 .add-type-btn:hover {
-    background: linear-gradient(135deg, #be123c, #9f1239);
+    background: linear-gradient(135deg, #b40f1d, #9f1239);
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(225, 29, 72, 0.3);
 }
@@ -846,7 +846,7 @@
 }
 
 .type-action-btn.cancel {
-    background-color: #ef4444;
+    background-color: #d41424;
     color: white;
 }
 
@@ -1015,13 +1015,13 @@
 }
 
 .add-table-modal .btn-primary {
-    background-color: #e11d48;
+    background-color: #d41424;
     color: white;
     box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
 }
 
 .add-table-modal .btn-primary:hover {
-    background-color: #be123c;
+    background-color: #b40f1d;
     transform: translateY(-2px);
     box-shadow: 0 6px 15px rgba(225, 29, 72, 0.35);
 }
@@ -1039,12 +1039,12 @@
 }
 
 .add-table-modal .type-action-btn.success {
-    background-color: #e11d48;
+    background-color: #d41424;
     color: white;
 }
 
 .add-table-modal .type-action-btn.cancel {
-    background-color: #ef4444;
+    background-color: #d41424;
     color: white;
 }
 
@@ -1055,7 +1055,7 @@
 }
 
 .add-table-modal .add-type-btn {
-    background: #e11d48;
+    background: #d41424;
     color: white;
     border: none;
     border-radius: 12px;
@@ -1146,7 +1146,7 @@
 
 .type-delete-btn:hover {
     background: #fee2e2;
-    color: #ef4444;
+    color: #d41424;
 }
 
 /* ================================================================
@@ -2392,7 +2392,7 @@
 }
 
 .premium-payment-header {
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    background: linear-gradient(135deg, #f43f5e 0%, #d41424 100%);
     padding: 20px;
     color: white;
     display: flex;
@@ -2485,7 +2485,7 @@
     height: 48px;
     border-radius: 12px;
     border: none;
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    background: linear-gradient(135deg, #f43f5e 0%, #d41424 100%);
     color: white;
     font-weight: 800;
     display: flex;
@@ -2707,7 +2707,7 @@
 }
 
 .type-delete-small:hover {
-    background: #ef4444;
+    background: #d41424;
     color: white;
 }
 
@@ -2868,7 +2868,7 @@
 
 .res-status-pill.status-cancelled {
     background: #fef2f2;
-    color: #dc2626;
+    color: #d41424;
 }
 
 .res-cancel-btn {
@@ -2877,7 +2877,7 @@
     border-radius: 8px;
     border: 1px solid #fee2e2;
     background: #fff;
-    color: #ef4444;
+    color: #d41424;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2886,15 +2886,15 @@
 }
 
 .res-cancel-btn:hover {
-    background: #ef4444;
+    background: #d41424;
     color: white;
-    border-color: #ef4444;
+    border-color: #d41424;
 }
 
 .premium-outline-btn {
     background: transparent !important;
-    border: 2px solid #e11d48 !important;
-    color: #e11d48 !important;
+    border: 2px solid #d41424 !important;
+    color: #d41424 !important;
 }
 
 .premium-outline-btn:hover {
@@ -2983,7 +2983,7 @@
 
 .sub-input-premium:focus {
     outline: none;
-    border-color: #e11d48;
+    border-color: #d41424;
     box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.1);
 }
 
@@ -3004,6 +3004,6 @@
 
 .sub-select-premium:focus {
     outline: none;
-    border-color: #e11d48;
+    border-color: #d41424;
     box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.1);
 }

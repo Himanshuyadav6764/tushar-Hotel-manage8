@@ -36,7 +36,7 @@
 }
 
 .red-bg {
-    background-color: #ef4444;
+    background-color: #d41424;
 }
 
 .green-bg {
@@ -96,7 +96,7 @@
 }
 
 .btn-add-item {
-    background-color: #ef4444;
+    background-color: #d41424;
     /* Red like image */
     color: white;
     border: none;
@@ -132,7 +132,7 @@
 }
 
 .stock-table th {
-    background-color: #ef4444;
+    background-color: #d41424;
     /* Head Red like Image 1, though full header red is distinct */
     color: white;
     font-weight: 600;
@@ -175,7 +175,7 @@
 
 .status-out {
     background-color: #fee2e2;
-    color: #991b1b;
+    color: #b40f1d;
 }
 
 .stock-badge {
@@ -192,7 +192,7 @@
 
 .stock-badge.out-of-stock-text {
     background-color: #fee2e2;
-    color: #991b1b;
+    color: #b40f1d;
 }
 
 .action-buttons {
@@ -211,7 +211,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #ef4444;
+    color: #d41424;
 }
 
 /* Toggle Switch */
@@ -290,7 +290,7 @@ input:checked+.slider:before {
 
 .page-num {
     margin: 0 10px;
-    background: #ef4444;
+    background: #d41424;
     color: white;
     padding: 5px 12px;
     border-radius: 4px;
@@ -375,7 +375,7 @@ input:checked+.slider:before {
 
 .btn-save {
     padding: 10px 20px;
-    background: #ef4444;
+    background: #d41424;
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -531,7 +531,7 @@ input:checked+.slider:before {
     background: #fff1f2;
     border-radius: 8px;
     font-size: 12px;
-    color: #991b1b;
+    color: #b40f1d;
     font-weight: 700;
 }
 
@@ -551,7 +551,7 @@ input:checked+.slider:before {
 }
 
 .item-stock-mobile-confirm-actions button:first-child {
-    background: #dc2626;
+    background: #d41424;
     color: #fff;
 }
 

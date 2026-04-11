@@ -410,7 +410,7 @@ const HotelDetails = () => {
         <div className="sa-container">
             <aside className={`sa-sidebar ${sidebarOpen ? 'open' : ''}`}>
                 <div className="sa-sidebar-header">
-                    <span style={{ fontSize: '24px', color: '#e11d48' }}>⚡</span>
+                    <span style={{ fontSize: '24px', color: '#d41424' }}>⚡</span>
                     <h2>SUPER ADMIN</h2>
                     <button
                         type="button"
@@ -440,7 +440,7 @@ const HotelDetails = () => {
                         {!sidebarOpen && (
                             <button className="sa-icon-btn sa-menu-toggle" onClick={() => setSidebarOpen(true)}><FaBars /></button>
                         )}
-                        <div className="sa-header-logo"><FaHotel style={{ color: '#e11d48' }} /><span>BIREENA ATITHI</span></div>
+                        <div className="sa-header-logo"><FaHotel style={{ color: '#d41424' }} /><span>BIREENA ATITHI</span></div>
                     </div>
                     <div className="sa-header-actions"><div className="sa-profile">{getInitials(user?.name)}</div></div>
                 </header>
@@ -459,7 +459,7 @@ const HotelDetails = () => {
                         )}
                     </div>
 
-                    {error && <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid #fecaca', background: '#fee2e2', color: '#991b1b', marginBottom: '12px' }}>{error}</div>}
+                    {error && <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid #fecaca', background: '#fee2e2', color: '#b40f1d', marginBottom: '12px' }}>{error}</div>}
                     {success && <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid #86efac', background: '#dcfce7', color: '#166534', marginBottom: '12px' }}>{success}</div>}
 
                     {activeActionNote && (
@@ -526,7 +526,7 @@ const HotelDetails = () => {
                         <div className="sa-card">
                             <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fef2f2 0%, #fff 100%)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'linear-gradient(135deg, #EF4444 0%, #E31E24 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '24px' }}><FaBuilding /></div>
+                                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'linear-gradient(135deg, #d41424 0%, #E31E24 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '24px' }}><FaBuilding /></div>
                                     <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1f2937', margin: 0 }}>Hotel Information</h3>
                                 </div>
                                 <button type="button" className="icon-btn hotel-edit-icon" title="Edit" onClick={() => setEditMode(true)}><FaEdit /></button>
@@ -542,7 +542,7 @@ const HotelDetails = () => {
                         <div className="sa-card">
                             <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fef2f2 0%, #fff 100%)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'linear-gradient(135deg, #EF4444 0%, #E31E24 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '24px' }}><FaUser /></div>
+                                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'linear-gradient(135deg, #d41424 0%, #E31E24 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '24px' }}><FaUser /></div>
                                     <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1f2937', margin: 0 }}>Admin Information</h3>
                                 </div>
                                 <button type="button" className="icon-btn hotel-edit-icon" title="Edit" onClick={() => setEditMode(true)}><FaEdit /></button>
@@ -634,7 +634,7 @@ const HotelDetails = () => {
                     <div className="sa-card" style={{ marginBottom: '24px' }}>
                         <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #fef2f2 0%, #fff 100%)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'linear-gradient(135deg, #EF4444 0%, #E31E24 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '24px' }}><FaCalendarAlt /></div>
+                                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'linear-gradient(135deg, #d41424 0%, #E31E24 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '24px' }}><FaCalendarAlt /></div>
                                 <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1f2937', margin: 0 }}>Subscription Information</h3>
                             </div>
                             <button type="button" className="icon-btn hotel-edit-icon" title="Edit" onClick={() => setEditMode(true)}><FaEdit /></button>
@@ -659,7 +659,7 @@ const HotelDetails = () => {
                             </div>
                             <div>
                                 <div className="hotel-inline-label">DAYS REMAINING</div>
-                                <div style={{ fontWeight: 700, color: isExpired ? '#dc2626' : daysRemaining <= 7 ? '#b45309' : '#059669' }}>{isExpired ? 'Expired' : `${daysRemaining} days`}</div>
+                                <div style={{ fontWeight: 700, color: isExpired ? '#d41424' : daysRemaining <= 7 ? '#b45309' : '#059669' }}>{isExpired ? 'Expired' : `${daysRemaining} days`}</div>
                             </div>
                         </div>
                     </div>

@@ -316,7 +316,7 @@ const ItemStockStatus = () => {
                                                             borderRadius: '10px',
                                                             border: '1px solid #fecaca',
                                                             background: '#fff1f2',
-                                                            color: '#991b1b',
+                                                            color: '#b40f1d',
                                                             fontSize: '12px',
                                                             fontWeight: 700,
                                                             display: 'inline-flex',
@@ -336,7 +336,7 @@ const ItemStockStatus = () => {
                                                                         border: 'none',
                                                                         borderRadius: '6px',
                                                                         padding: '4px 10px',
-                                                                        background: '#dc2626',
+                                                                        background: '#d41424',
                                                                         color: '#fff',
                                                                         cursor: 'pointer',
                                                                         fontWeight: 700,
@@ -496,7 +496,7 @@ const EditItemModal = ({ item, onSave, onCancel }) => {
                 animation: 'slideInRight 0.5s cubic-bezier(0.19, 1, 0.22, 1)'
             }}>
                 <div style={{
-                    background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)',
+                    background: 'linear-gradient(135deg, #f43f5e 0%, #d41424 100%)',
                     padding: '20px 18px',
                     color: 'white',
                     display: 'flex',
@@ -553,7 +553,7 @@ const EditItemModal = ({ item, onSave, onCancel }) => {
                     }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
                             <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', paddingLeft: '2px' }}>
-                                ITEM NAME <span style={{ color: '#e11d48' }}>*</span>
+                                ITEM NAME <span style={{ color: '#d41424' }}>*</span>
                             </label>
                             <input
                                 type="text"
@@ -583,7 +583,7 @@ const EditItemModal = ({ item, onSave, onCancel }) => {
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
                             <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', paddingLeft: '2px' }}>
-                                FOOD CODE <span style={{ color: '#e11d48' }}>*</span>
+                                FOOD CODE <span style={{ color: '#d41424' }}>*</span>
                             </label>
                             <input
                                 type="text"
@@ -613,7 +613,7 @@ const EditItemModal = ({ item, onSave, onCancel }) => {
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
                             <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', paddingLeft: '2px' }}>
-                                CATEGORY <span style={{ color: '#e11d48' }}>*</span>
+                                CATEGORY <span style={{ color: '#d41424' }}>*</span>
                             </label>
                             <select
                                 value={formData.category}
@@ -805,7 +805,7 @@ const EditItemModal = ({ item, onSave, onCancel }) => {
                                 height: '48px',
                                 borderRadius: '12px',
                                 border: 'none',
-                                background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)',
+                                background: 'linear-gradient(135deg, #f43f5e 0%, #d41424 100%)',
                                 color: 'white',
                                 fontWeight: 800,
                                 display: 'flex',

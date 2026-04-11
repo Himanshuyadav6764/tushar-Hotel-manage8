@@ -2621,7 +2621,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                                     {searchQuery && (
                                         <button
                                             className="btn btn-primary"
-                                            style={{ padding: '0.8rem 2rem', borderRadius: '10px', backgroundColor: '#ef4444', borderColor: '#ef4444' }}
+                                            style={{ padding: '0.8rem 2rem', borderRadius: '10px', backgroundColor: '#d41424', borderColor: '#d41424' }}
                                             onClick={() => setSearchQuery('')}
                                         >
                                             Clear Search & View All

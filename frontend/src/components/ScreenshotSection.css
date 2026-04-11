@@ -1,7 +1,7 @@
 /* Screenshot / Dashboard section - rounded frames, light shadow */
 .screenshot-section {
   padding: 80px 20px;
-  background: #fff;
+  background: #fff0f3;
 }
 
 .screenshot-heading {
@@ -114,7 +114,7 @@
   /* Allow auto width for text */
   min-width: 60px;
   height: 20px;
-  background: #e11d48;
+  background: #d41424;
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -126,7 +126,7 @@
 }
 
 .mockup-btn.red {
-  background: #e11d48;
+  background: #d41424;
 }
 
 .mockup-btn.gray {
@@ -246,7 +246,7 @@
 .mockup-btn-sm.red {
   background: #ffe4e6;
   border: 1px solid #fda4af;
-  color: #e11d48;
+  color: #d41424;
 }
 
 .mockup-btn-sm.gray {
@@ -312,7 +312,7 @@
 }
 
 .text-red {
-  color: #e11d48;
+  color: #d41424;
 }
 
 .mockup-label {

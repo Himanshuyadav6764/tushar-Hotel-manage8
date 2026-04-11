@@ -18,7 +18,7 @@
 }
 
 .testimonial-title span {
-    background: linear-gradient(to right, #e11d48, #E31E24);
+    background: linear-gradient(to right, #d41424, #E31E24);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -77,7 +77,7 @@
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    border: 3px solid #e11d48;
+    border: 3px solid #d41424;
 }
 
 .client-name {
@@ -95,7 +95,7 @@
 }
 
 .stars {
-    color: #e11d48;
+    color: #d41424;
     font-size: 18px;
     margin: 0;
 }

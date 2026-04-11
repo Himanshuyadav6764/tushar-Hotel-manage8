@@ -99,9 +99,9 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  border: 1.5px solid #ef4444;
+  border: 1.5px solid #d41424;
   background-color: #fff;
-  color: #ef4444;
+  color: #d41424;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -110,7 +110,7 @@
 }
 
 .filter-pill.active {
-  background-color: #ef4444;
+  background-color: #d41424;
   color: white;
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
@@ -125,7 +125,7 @@
 .order-card {
   background: #ffffff;
   border-radius: 6px;
-  border: 1px solid #ef4444;
+  border: 1px solid #d41424;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
@@ -227,7 +227,7 @@
 
 .status-strip.preparing-delay {
   background-color: #fee2e2;
-  color: #b91c1c;
+  color: #b40f1d;
   animation: blink-bg 2s infinite;
 }
 
@@ -536,7 +536,7 @@
 
 
 .action-btn.done {
-  background-color: #ef4444;
+  background-color: #d41424;
   color: white;
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
@@ -716,7 +716,7 @@
 .bill-history-card {
   background: white;
   border-radius: 12px;
-  border: 1.5px solid #ef4444;
+  border: 1.5px solid #d41424;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   display: flex;
@@ -870,7 +870,7 @@
 }
 
 .bill-action-btn.delete {
-  background-color: #ef4444;
+  background-color: #d41424;
   color: white;
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
@@ -952,7 +952,7 @@
 }
 
 .receipt-close-btn:hover {
-  color: #ef4444;
+  color: #d41424;
 }
 
 .receipt-content {

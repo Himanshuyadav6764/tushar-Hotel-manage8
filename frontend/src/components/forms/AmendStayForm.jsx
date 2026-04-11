@@ -147,7 +147,7 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
     if (loading || !formData || !summary) {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
-                <div style={{ width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #E11D48', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                <div style={{ width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #d41424', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                 <span style={{ fontWeight: '600', color: '#64748B' }}>Fetching stay details...</span>
                 <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
             </div>
@@ -225,7 +225,7 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
 
     const labelStyle = { fontSize: '12px', fontWeight: '700', color: '#64748B', marginBottom: '6px', display: 'block' };
     const boxStyle = { backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '12px 14px', transition: 'all 0.2s ease' };
-    const errorStyle = { color: '#EF4444', fontSize: '11px', marginTop: '4px', fontWeight: '600' };
+    const errorStyle = { color: '#d41424', fontSize: '11px', marginTop: '4px', fontWeight: '600' };
 
     return (
         <>
@@ -256,7 +256,7 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
                                 </div>
                                 <div>
                                     <label style={labelStyle}>New Check-out Time</label>
-                                    <input type="time" name="newCheckOutTime" value={formData.newCheckOutTime} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700', borderColor: errors.checkOutTime ? '#EF4444' : '#E2E8F0' }} />
+                                    <input type="time" name="newCheckOutTime" value={formData.newCheckOutTime} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700', borderColor: errors.checkOutTime ? '#d41424' : '#E2E8F0' }} />
                                     {errors.checkOutTime && <div style={errorStyle}>{errors.checkOutTime}</div>}
                                 </div>
                             </div>
@@ -271,7 +271,7 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
                                 </div>
                                 <div>
                                     <label style={labelStyle}>New Check-out Date</label>
-                                    <input type="date" name="newCheckOutDate" value={formData.newCheckOutDate} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700', borderColor: errors.checkOutDate ? '#EF4444' : '#E2E8F0' }} />
+                                    <input type="date" name="newCheckOutDate" value={formData.newCheckOutDate} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700', borderColor: errors.checkOutDate ? '#d41424' : '#E2E8F0' }} />
                                     {errors.checkOutDate && <div style={errorStyle}>{errors.checkOutDate}</div>}
                                 </div>
                             </div>
@@ -284,7 +284,7 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Check-out Time</label>
-                                    <input type="time" name="newCheckOutTime" value={formData.newCheckOutTime} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700', borderColor: errors.checkOutTime ? '#EF4444' : '#E2E8F0' }} />
+                                    <input type="time" name="newCheckOutTime" value={formData.newCheckOutTime} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700', borderColor: errors.checkOutTime ? '#d41424' : '#E2E8F0' }} />
                                     {errors.checkOutTime && <div style={errorStyle}>{errors.checkOutTime}</div>}
                                 </div>
                             </div>
@@ -292,7 +292,7 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
                     )}
 
                     {(availabilityWarning || isCheckingAvailability) && (
-                        <div style={{ backgroundColor: availabilityWarning ? '#FEF2F2' : '#EFF6FF', border: `1px solid ${availabilityWarning ? '#FCA5A5' : '#BFDBFE'}`, borderRadius: '12px', padding: '10px 12px', fontSize: '12px', color: availabilityWarning ? '#B91C1C' : '#1D4ED8', fontWeight: 700 }}>
+                        <div style={{ backgroundColor: availabilityWarning ? '#FEF2F2' : '#EFF6FF', border: `1px solid ${availabilityWarning ? '#FCA5A5' : '#BFDBFE'}`, borderRadius: '12px', padding: '10px 12px', fontSize: '12px', color: availabilityWarning ? '#b40f1d' : '#1D4ED8', fontWeight: 700 }}>
                             {availabilityWarning || 'Checking room time availability...'}
                         </div>
                     )}
@@ -327,12 +327,12 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                 <div>
                                     <label style={labelStyle}>Rate per Night ({cs})</label>
-                                    <input type="number" name="ratePerNight" value={formData.ratePerNight} onChange={handleChange} min="0" style={{ ...boxStyle, width: '100%', fontWeight: '800', borderColor: errors.ratePerNight ? '#EF4444' : '#E2E8F0' }} />
+                                    <input type="number" name="ratePerNight" value={formData.ratePerNight} onChange={handleChange} min="0" style={{ ...boxStyle, width: '100%', fontWeight: '800', borderColor: errors.ratePerNight ? '#d41424' : '#E2E8F0' }} />
                                     {errors.ratePerNight && <div style={errorStyle}>{errors.ratePerNight}</div>}
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Discount ({cs})</label>
-                                    <input type="number" name="discount" value={formData.discount} onChange={handleChange} min="0" style={{ ...boxStyle, width: '100%', fontWeight: '800', borderColor: errors.discount ? '#EF4444' : '#E2E8F0' }} />
+                                    <input type="number" name="discount" value={formData.discount} onChange={handleChange} min="0" style={{ ...boxStyle, width: '100%', fontWeight: '800', borderColor: errors.discount ? '#d41424' : '#E2E8F0' }} />
                                     {errors.discount && <div style={errorStyle}>{errors.discount}</div>}
                                 </div>
                             </div>
@@ -397,7 +397,7 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
                 {/* Footer Buttons */}
                 <div style={{ padding: '20px 32px 20px 16px', backgroundColor: '#FFFFFF', borderTop: '1px solid #E2E8F0', display: 'flex', gap: '12px' }}>
                     <button type="button" onClick={onCancel} style={{ flex: 1, padding: '14px', backgroundColor: '#F1F5F9', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#64748B', cursor: 'pointer' }}>Cancel</button>
-                    <button type="submit" disabled={isSubmitting} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #E11D48, #BE123C)', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#FFFFFF', cursor: 'pointer', boxShadow: '0 4px 12px rgba(225, 29, 72, 0.3)' }}>
+                    <button type="submit" disabled={isSubmitting} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #d41424, #b40f1d)', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#FFFFFF', cursor: 'pointer', boxShadow: '0 4px 12px rgba(225, 29, 72, 0.3)' }}>
                         Review & Save
                     </button>
                 </div>
@@ -427,7 +427,7 @@ const AmendStayForm = ({ booking, onSubmit, onCancel }) => {
                             )}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ fontSize: '14px', fontWeight: '800', color: '#1E293B' }}>Net Difference</span>
-                                <span style={{ fontSize: '18px', fontWeight: '900', color: summary.difference >= 0 ? '#10B981' : '#EF4444' }}>
+                                <span style={{ fontSize: '18px', fontWeight: '900', color: summary.difference >= 0 ? '#10B981' : '#d41424' }}>
                                     {summary.difference >= 0 ? '+' : ''}{cs}{Math.abs(summary.difference).toLocaleString()}
                                 </span>
                             </div>

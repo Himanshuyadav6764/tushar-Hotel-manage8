@@ -231,14 +231,14 @@ select.form-input:focus {
 }
 
 .btn-primary:hover {
-    background-color: #b91c1c;
-    border-color: #b91c1c;
+    background-color: #b40f1d;
+    border-color: #b40f1d;
     box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
 }
 
 .btn-primary:active {
-    background-color: #991b1b;
-    border-color: #991b1b;
+    background-color: #b40f1d;
+    border-color: #b40f1d;
     transform: scale(0.99);
 }
 

@@ -806,7 +806,7 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
             {!settings.posEnabled && (
                 <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '12px 20px', margin: '10px 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span style={{ fontSize: '20px' }}>⚠️</span>
-                    <span style={{ color: '#991b1b', fontWeight: 600 }}>POS is disabled. Order creation is blocked. Enable POS from Company Settings.</span>
+                    <span style={{ color: '#b40f1d', fontWeight: 600 }}>POS is disabled. Order creation is blocked. Enable POS from Company Settings.</span>
                 </div>
             )}
 

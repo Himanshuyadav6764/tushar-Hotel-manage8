@@ -282,7 +282,7 @@ const AddCharges = ({ onClose, onAdd, reservation }) => {
                                                 style={{
                                                     background: '#fee2e2',
                                                     border: '1px solid #fca5a5',
-                                                    color: '#dc2626',
+                                                    color: '#d41424',
                                                     width: '26px',
                                                     height: '26px',
                                                     borderRadius: '4px',
@@ -306,7 +306,7 @@ const AddCharges = ({ onClose, onAdd, reservation }) => {
                                         style={{
                                             padding: '12px 16px',
                                             background: '#fef2f2',
-                                            color: '#e11d48',
+                                            color: '#d41424',
                                             fontWeight: 'bold',
                                             cursor: 'pointer',
                                             borderTop: '1px solid #f0f0f0'

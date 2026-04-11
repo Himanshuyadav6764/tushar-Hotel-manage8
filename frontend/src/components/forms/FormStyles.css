@@ -118,8 +118,8 @@
 }
 
 .btn-primary:hover:not(:disabled) {
-    background: #b91c1c;
-    border-color: #b91c1c;
+    background: #b40f1d;
+    border-color: #b40f1d;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
 }
@@ -172,8 +172,8 @@
 }
 
 .btn-danger:hover:not(:disabled) {
-    background: #991b1b;
-    border-color: #991b1b;
+    background: #b40f1d;
+    border-color: #b40f1d;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
 }
@@ -289,7 +289,7 @@
 }
 
 .danger-banner strong {
-    color: #991b1b;
+    color: #b40f1d;
     display: block;
     margin-bottom: 4px;
 }

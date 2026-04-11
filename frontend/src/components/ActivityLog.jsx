@@ -144,7 +144,7 @@ const ActivityLog = () => {
         if (action.includes('Login')) return '#10b981';
         if (action.includes('Created')) return '#3b82f6';
         if (action.includes('Updated')) return '#f59e0b';
-        if (action.includes('Deleted') || action.includes('Removed')) return '#ef4444';
+        if (action.includes('Deleted') || action.includes('Removed')) return '#d41424';
         if (action.includes('Invoice') || action.includes('Payment')) return '#8b5cf6';
         if (action.includes('KOT')) return '#ec4899';
         if (action.includes('Password')) return '#f97316';

@@ -25,7 +25,7 @@
 }
 
 .generate-report-btn {
-    background-color: #ef4444;
+    background-color: #d41424;
     color: white;
     border: none;
     padding: 12px 24px;
@@ -199,7 +199,7 @@
 }
 
 .red-icon {
-    background-color: #ef4444;
+    background-color: #d41424;
     color: white;
 }
 
@@ -388,7 +388,7 @@
 
 .item-icon.red {
     background-color: #fee2e2;
-    color: #ef4444;
+    color: #d41424;
 }
 
 .item-amount {
@@ -401,7 +401,7 @@
 }
 
 .red-text {
-    color: #ef4444;
+    color: #d41424;
 }
 
 /* Activity Log Section */
@@ -497,7 +497,7 @@
 }
 
 .log-number.red {
-    background-color: #ef4444;
+    background-color: #d41424;
 }
 
 .log-number.yellow {

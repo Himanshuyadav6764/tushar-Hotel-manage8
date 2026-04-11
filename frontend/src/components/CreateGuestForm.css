@@ -366,7 +366,7 @@
     align-items: center;
     gap: 0.25rem;
     font-size: 0.7rem;
-    color: #ef4444;
+    color: #d41424;
     margin-top: 0.25rem;
     font-weight: 500;
 }
@@ -418,7 +418,7 @@
     border: 1px solid #fecaca;
     border-left: 4px solid #dc3545;
     border-radius: 6px;
-    color: #991b1b;
+    color: #b40f1d;
     font-size: 0.9rem;
     font-weight: 500;
     display: flex;

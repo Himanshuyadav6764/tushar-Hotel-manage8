@@ -155,7 +155,7 @@
     height: 34px;
     border: 1px solid #fecaca;
     background: #fff1f2;
-    color: #be123c;
+    color: #b40f1d;
     border-radius: 8px;
     font-size: 0.82rem;
     font-weight: 700;
@@ -281,12 +281,12 @@
 
 .guest-delete-btn {
     background: #fef2f2;
-    color: #ef4444;
+    color: #d41424;
     border: 1px solid #fecaca;
 }
 
 .guest-delete-btn:hover {
-    background: #ef4444;
+    background: #d41424;
     color: white;
 }
 

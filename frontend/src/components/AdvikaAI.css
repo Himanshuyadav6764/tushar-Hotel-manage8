@@ -34,7 +34,7 @@
 
 /* HEADER */
 .chat-header {
-    background: #e11d48;
+    background: #d41424;
     color: white;
     padding: 16px 20px;
     font-weight: 600;
@@ -127,7 +127,7 @@
 }
 
 .quick-options button:hover {
-    background: linear-gradient(135deg, #e11d48, #be123c);
+    background: linear-gradient(135deg, #d41424, #b40f1d);
     color: white;
     transform: translateX(4px);
     box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
@@ -168,7 +168,7 @@
     height: 38px;
     border-radius: 50%;
     border: none;
-    background: linear-gradient(135deg, #e11d48, #be123c);
+    background: linear-gradient(135deg, #d41424, #b40f1d);
     color: white;
     cursor: pointer;
     display: flex;

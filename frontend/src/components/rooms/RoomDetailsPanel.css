@@ -31,7 +31,7 @@
 
 /* Header Styles */
 .panel-header {
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    background: linear-gradient(135deg, #f43f5e 0%, #d41424 100%);
     padding: 24px 20px;
     color: white;
     display: flex;
@@ -158,7 +158,7 @@
 
 .toggle-label.no {
     background: #fee2e2;
-    color: #b91c1c;
+    color: #b40f1d;
 }
 
 /* Modern Facilities Grid (Square Boxes) */
@@ -238,8 +238,8 @@
 
 .panel-action-btn.edit {
     background: #ffffff;
-    color: #e11d48;
-    border: 2px solid #e11d48;
+    color: #d41424;
+    border: 2px solid #d41424;
 }
 
 .panel-action-btn.edit:hover {
@@ -261,12 +261,12 @@
 }
 
 .panel-action-btn.quick-book {
-    background: #e11d48;
+    background: #d41424;
     color: white;
 }
 
 .panel-action-btn.quick-book:hover:not(:disabled) {
-    background: #be123c;
+    background: #b40f1d;
     box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);
 }
 
@@ -295,7 +295,7 @@
     width: 40px;
     height: 40px;
     border: 3px solid #f1f5f9;
-    border-top: 3px solid #e11d48;
+    border-top: 3px solid #d41424;
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 1rem;
@@ -314,7 +314,7 @@
 .panel-error {
     text-align: center;
     padding: 2rem;
-    color: #ef4444;
+    color: #d41424;
 }
 
 .panel-error span {
@@ -363,7 +363,7 @@
 }
 
 .booking-schedule-item.current {
-    border-left-color: #ef4444;
+    border-left-color: #d41424;
     background: #fffafa;
 }
 
@@ -396,7 +396,7 @@
 
 .current .booking-status-tag {
     background: #fee2e2;
-    color: #b91c1c;
+    color: #b40f1d;
 }
 
 .upcoming .booking-status-tag {

@@ -232,7 +232,7 @@ const SuperAdminDashboard = () => {
             {/* Sidebar */}
             <aside className={`sa-sidebar ${sidebarOpen ? 'open' : ''}`}>
                 <div className="sa-sidebar-header">
-                    <span style={{ fontSize: '24px', color: '#e11d48' }}>⚡</span>
+                    <span style={{ fontSize: '24px', color: '#d41424' }}>⚡</span>
                     <h2>SUPER ADMIN</h2>
                     <button
                         type="button"

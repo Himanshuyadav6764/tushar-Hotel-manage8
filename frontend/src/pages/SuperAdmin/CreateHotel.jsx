@@ -214,7 +214,7 @@ const MultiPermissionPicker = ({
                             className="mpp-btn mpp-btn-primary"
                             style={{
                                 border: 'none',
-                                background: '#e11d48',
+                                background: '#d41424',
                                 color: '#fff',
                                 borderRadius: '6px',
                                 fontSize: '12px',
@@ -481,7 +481,7 @@ const CreateHotel = () => {
             {/* Sidebar */}
             <aside className={`sa-sidebar ${sidebarOpen ? 'open' : ''}`}>
                 <div className="sa-sidebar-header">
-                    <span style={{ fontSize: '24px', color: '#e11d48' }}>⚡</span>
+                    <span style={{ fontSize: '24px', color: '#d41424' }}>⚡</span>
                     <h2>SUPER ADMIN</h2>
                     <button
                         type="button"
@@ -546,7 +546,7 @@ const CreateHotel = () => {
                             </button>
                         )}
                         <div className="sa-header-logo">
-                            <FaHotel style={{ color: '#e11d48' }} />
+                            <FaHotel style={{ color: '#d41424' }} />
                             <span>BIREENA ATITHI</span>
                         </div>
                     </div>
@@ -569,7 +569,7 @@ const CreateHotel = () => {
                                 padding: '16px',
                                 marginBottom: '24px',
                                 background: '#fee2e2',
-                                border: '1px solid #ef4444',
+                                border: '1px solid #d41424',
                                 borderRadius: '8px',
                                 color: '#E31E24',
                                 fontSize: '14px',
@@ -607,7 +607,7 @@ const CreateHotel = () => {
                                     borderBottom: '2px solid #e5e7eb',
                                     paddingBottom: '12px'
                                 }}>
-                                    <FaHotel style={{ marginRight: '10px', color: '#EF4444' }} />
+                                    <FaHotel style={{ marginRight: '10px', color: '#d41424' }} />
                                     Hotel Information
                                 </h3>
                                 
@@ -622,7 +622,7 @@ const CreateHotel = () => {
                                             marginBottom: '8px'
                                         }}>
                                             <FaHotel style={{ marginRight: '6px', fontSize: '14px' }} />
-                                            Hotel Name <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
+                                            Hotel Name <span style={{ color: '#d41424', marginLeft: '4px' }}>*</span>
                                         </label>
                                         <input
                                             type="text"
@@ -684,7 +684,7 @@ const CreateHotel = () => {
                                         marginBottom: '8px'
                                     }}>
                                         <FaMapMarkerAlt style={{ marginRight: '6px', fontSize: '14px' }} />
-                                        Address <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
+                                        Address <span style={{ color: '#d41424', marginLeft: '4px' }}>*</span>
                                     </label>
                                     <textarea
                                         name="address"
@@ -750,7 +750,7 @@ const CreateHotel = () => {
                                     borderBottom: '2px solid #e5e7eb',
                                     paddingBottom: '12px'
                                 }}>
-                                    <FaStar style={{ marginRight: '10px', color: '#EF4444' }} />
+                                    <FaStar style={{ marginRight: '10px', color: '#d41424' }} />
                                     Subscription Details
                                 </h3>
                                 
@@ -765,7 +765,7 @@ const CreateHotel = () => {
                                             marginBottom: '8px'
                                         }}>
                                             <FaStar style={{ marginRight: '6px', fontSize: '14px' }} />
-                                            Subscription Plan <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
+                                            Subscription Plan <span style={{ color: '#d41424', marginLeft: '4px' }}>*</span>
                                         </label>
                                         <select
                                             name="subscriptionPlan"
@@ -799,7 +799,7 @@ const CreateHotel = () => {
                                             marginBottom: '8px'
                                         }}>
                                             <FaClock style={{ marginRight: '6px', fontSize: '14px' }} />
-                                            Duration (Months) <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
+                                            Duration (Months) <span style={{ color: '#d41424', marginLeft: '4px' }}>*</span>
                                         </label>
                                         <select
                                             name="subscriptionDuration"
@@ -840,7 +840,7 @@ const CreateHotel = () => {
                                     borderBottom: '2px solid #e5e7eb',
                                     paddingBottom: '12px'
                                 }}>
-                                    <FaUser style={{ marginRight: '10px', color: '#EF4444' }} />
+                                    <FaUser style={{ marginRight: '10px', color: '#d41424' }} />
                                     Admin Details
                                 </h3>
                                 
@@ -855,7 +855,7 @@ const CreateHotel = () => {
                                             marginBottom: '8px'
                                         }}>
                                             <FaUser style={{ marginRight: '6px', fontSize: '14px' }} />
-                                            Admin Name <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
+                                            Admin Name <span style={{ color: '#d41424', marginLeft: '4px' }}>*</span>
                                         </label>
                                         <input
                                             type="text"
@@ -918,7 +918,7 @@ const CreateHotel = () => {
                                             marginBottom: '8px'
                                         }}>
                                             <FaEnvelope style={{ marginRight: '6px', fontSize: '14px' }} />
-                                            Admin Email <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
+                                            Admin Email <span style={{ color: '#d41424', marginLeft: '4px' }}>*</span>
                                         </label>
                                         <input
                                             type="email"
@@ -949,7 +949,7 @@ const CreateHotel = () => {
                                             marginBottom: '8px'
                                         }}>
                                             <FaLock style={{ marginRight: '6px', fontSize: '14px' }} />
-                                            Admin Password <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
+                                            Admin Password <span style={{ color: '#d41424', marginLeft: '4px' }}>*</span>
                                         </label>
                                         <div style={{ position: 'relative' }}>
                                             <input
@@ -1014,7 +1014,7 @@ const CreateHotel = () => {
                                         color: '#374151',
                                         marginBottom: '10px'
                                     }}>
-                                        Assign Admin Screen Access <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
+                                        Assign Admin Screen Access <span style={{ color: '#d41424', marginLeft: '4px' }}>*</span>
                                     </label>
                                     <p style={{
                                         margin: '0 0 12px 0',
@@ -1046,7 +1046,7 @@ const CreateHotel = () => {
                                                         color: '#1f2937',
                                                         cursor: 'pointer',
                                                         background: checked ? '#fee2e2' : '#fff',
-                                                        border: checked ? '1px solid #ef4444' : '1px solid #e5e7eb',
+                                                        border: checked ? '1px solid #d41424' : '1px solid #e5e7eb',
                                                         borderRadius: '8px',
                                                         padding: '8px 10px'
                                                     }}
@@ -1133,7 +1133,7 @@ const CreateHotel = () => {
                                         fontWeight: '600',
                                         cursor: 'pointer',
                                         transition: 'all 0.2s',
-                                        background: 'linear-gradient(135deg, #EF4444 0%, #E31E24 100%)',
+                                        background: 'linear-gradient(135deg, #d41424 0%, #E31E24 100%)',
                                         color: 'white',
                                         boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
                                         opacity: loading ? 0.7 : 1

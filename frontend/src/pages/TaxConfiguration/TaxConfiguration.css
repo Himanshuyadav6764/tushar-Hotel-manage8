@@ -34,7 +34,7 @@
     color: #111827;
     margin: 0;
     line-height: 1.2;
-    background: linear-gradient(135deg, #ef4444, #dc2626);
+    background: linear-gradient(135deg, #d41424, #d41424);
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -47,7 +47,7 @@
 }
 
 .add-table-btn {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
+    background: linear-gradient(135deg, #d41424, #d41424);
     color: white;
     border: none;
     padding: 12px 24px;
@@ -135,7 +135,7 @@
 
 .premium-payment-header {
     padding: 24px 32px;
-    background: linear-gradient(135deg, #ef4444, #dc2626);
+    background: linear-gradient(135deg, #d41424, #d41424);
     color: white;
     display: flex;
     align-items: center;
@@ -239,7 +239,7 @@
 
 .premium-input:focus {
     outline: none;
-    border-color: #ef4444;
+    border-color: #d41424;
     background: white;
     box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
 }
@@ -283,11 +283,11 @@
 
 .checkbox-item-premium.checked {
     background: #fef2f2;
-    border-color: #ef4444;
+    border-color: #d41424;
 }
 
 .checkbox-item-premium input {
-    accent-color: #ef4444;
+    accent-color: #d41424;
 }
 
 .checkbox-label {
@@ -366,7 +366,7 @@
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
+    background: linear-gradient(135deg, #d41424, #d41424);
     color: white;
     border: none;
     padding: 12px 24px;
@@ -429,7 +429,7 @@
 }
 
 .required {
-    color: #ef4444;
+    color: #d41424;
     margin-left: 4px;
 }
 
@@ -478,7 +478,7 @@
 
 .label-hint {
     font-size: 12px;
-    color: #ef4444;
+    color: #d41424;
     font-weight: 600;
     margin-left: 6px;
     text-transform: none;
@@ -527,7 +527,7 @@
 
 .tax-count {
     font-size: 12px;
-    color: #ef4444;
+    color: #d41424;
     background: #fff1f2;
     padding: 5px 14px;
     border-radius: 20px;
@@ -545,7 +545,7 @@
 }
 
 .tax-table thead {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
+    background: linear-gradient(135deg, #d41424, #d41424);
 }
 
 .tax-table th {
@@ -611,7 +611,7 @@
 
 .tax-value {
     font-weight: 700;
-    color: #ef4444;
+    color: #d41424;
     font-size: 15px;
 }
 
@@ -666,7 +666,7 @@
 
 .status-toggle.inactive {
     background: #fee2e2;
-    color: #b91c1c;
+    color: #b40f1d;
 }
 
 .status-indicator {
@@ -703,8 +703,8 @@
 
 .btn-menu:hover {
     background: #fff;
-    color: #ef4444;
-    border-color: #ef4444;
+    color: #d41424;
+    border-color: #d41424;
     box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
 }
 
@@ -753,7 +753,7 @@
 }
 
 .action-menu-dropdown .menu-item:hover {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
+    background: linear-gradient(135deg, #d41424, #d41424);
     color: white;
 }
 
@@ -763,7 +763,7 @@
 
 .action-menu-dropdown .menu-item.remove:hover {
     background: #fff1f2;
-    color: #ef4444;
+    color: #d41424;
 }
 
 .no-data {
@@ -836,7 +836,7 @@
 }
 
 .required {
-    color: #ef4444;
+    color: #d41424;
 }
 
 .label-hint {
@@ -869,13 +869,13 @@
 
 .form-group input.error,
 .form-group select.error {
-    border-color: #ef4444;
+    border-color: #d41424;
 }
 
 .error-message {
     display: block;
     font-size: 12px;
-    color: #ef4444;
+    color: #d41424;
     margin-top: 4px;
 }
 

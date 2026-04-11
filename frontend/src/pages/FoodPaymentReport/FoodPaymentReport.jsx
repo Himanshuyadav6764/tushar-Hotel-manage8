@@ -471,7 +471,7 @@ const FoodPaymentReport = () => {
                                     <span className="transaction-title">Refunds Given</span>
                                 </div>
                                 <div className="transaction-body">
-                                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#ef4444', marginBottom: '5px' }}>
+                                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#d41424', marginBottom: '5px' }}>
                                         {cs}{summary.totalRefunds.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </p>
                                     <p style={{ fontSize: '14px', color: '#6b7280' }}>
@@ -516,19 +516,19 @@ const FoodPaymentReport = () => {
                                     <div className="no-data-box" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '20px', textAlign: 'left' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
                                             <span style={{ color: '#6b7280', fontWeight: '500' }}>Cash:</span>
-                                            <span style={{ color: '#ef4444', fontWeight: '600' }}>{cs}{refundsGiven.cash.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                            <span style={{ color: '#d41424', fontWeight: '600' }}>{cs}{refundsGiven.cash.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
                                             <span style={{ color: '#6b7280', fontWeight: '500' }}>Card:</span>
-                                            <span style={{ color: '#ef4444', fontWeight: '600' }}>{cs}{refundsGiven.card.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                            <span style={{ color: '#d41424', fontWeight: '600' }}>{cs}{refundsGiven.card.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
                                             <span style={{ color: '#6b7280', fontWeight: '500' }}>UPI:</span>
-                                            <span style={{ color: '#ef4444', fontWeight: '600' }}>{cs}{refundsGiven.upi.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                            <span style={{ color: '#d41424', fontWeight: '600' }}>{cs}{refundsGiven.upi.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
                                             <span style={{ color: '#6b7280', fontWeight: '500' }}>Bank Transfer:</span>
-                                            <span style={{ color: '#ef4444', fontWeight: '600' }}>{cs}{refundsGiven.bankTransfer.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                            <span style={{ color: '#d41424', fontWeight: '600' }}>{cs}{refundsGiven.bankTransfer.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                     </div>
                                 </div>

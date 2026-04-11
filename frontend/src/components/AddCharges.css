@@ -42,7 +42,7 @@
 
 /* Theme Colors for Charges - Primary Red */
 .btn-primary {
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    background: linear-gradient(135deg, #f43f5e 0%, #d41424 100%);
     box-shadow: 0 8px 20px -5px rgba(225, 29, 72, 0.35);
 }
 
@@ -67,7 +67,7 @@
 }
 
 .custom-type-entry button {
-    background: #e11d48;
+    background: #d41424;
     color: white;
     border: none;
     padding: 0 16px;
@@ -102,7 +102,7 @@
 }
 
 .disc-toggle button.active {
-    background: #e11d48;
+    background: #d41424;
     color: #fff;
 }
 
@@ -181,7 +181,7 @@
 
 /* Net Summary Text */
 .preview-row.net span:last-child {
-    color: #e11d48 !important;
+    color: #d41424 !important;
 }
 
 .gross-net-preview {

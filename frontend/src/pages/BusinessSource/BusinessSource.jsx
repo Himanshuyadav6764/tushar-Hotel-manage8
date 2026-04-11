@@ -113,7 +113,7 @@ const BusinessSource = () => {
                         padding: '12px 14px',
                         border: `1px solid ${inlineNote.tone === 'danger' ? '#fecaca' : '#dcfce7'}`,
                         background: inlineNote.tone === 'danger' ? '#fef2f2' : '#f0fdf4',
-                        color: inlineNote.tone === 'danger' ? '#991b1b' : '#14532d',
+                        color: inlineNote.tone === 'danger' ? '#b40f1d' : '#14532d',
                         fontWeight: 600,
                         display: 'flex',
                         justifyContent: 'space-between',
@@ -171,21 +171,21 @@ const BusinessSource = () => {
                                                             textAlign: 'left'
                                                         }}
                                                     >
-                                                        <div style={{ color: '#991b1b', fontWeight: 700, fontSize: '0.8rem', marginBottom: '8px' }}>
+                                                        <div style={{ color: '#b40f1d', fontWeight: 700, fontSize: '0.8rem', marginBottom: '8px' }}>
                                                             Are you sure want to delete?
                                                         </div>
                                                         <div style={{ display: 'flex', gap: '8px' }}>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => confirmDelete(source._id)}
-                                                                style={{ flex: 1, border: 'none', borderRadius: '6px', background: '#dc2626', color: '#fff', padding: '6px 8px', fontWeight: 700, cursor: 'pointer' }}
+                                                                style={{ flex: 1, border: 'none', borderRadius: '6px', background: '#d41424', color: '#fff', padding: '6px 8px', fontWeight: 700, cursor: 'pointer' }}
                                                             >
                                                                 Yes
                                                             </button>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setDeleteTargetId(null)}
-                                                                style={{ flex: 1, border: '1px solid #fca5a5', borderRadius: '6px', background: '#fff', color: '#991b1b', padding: '6px 8px', fontWeight: 700, cursor: 'pointer' }}
+                                                                style={{ flex: 1, border: '1px solid #fca5a5', borderRadius: '6px', background: '#fff', color: '#b40f1d', padding: '6px 8px', fontWeight: 700, cursor: 'pointer' }}
                                                             >
                                                                 No
                                                             </button>

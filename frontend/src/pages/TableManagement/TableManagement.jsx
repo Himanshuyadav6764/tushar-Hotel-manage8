@@ -560,7 +560,7 @@ const TableManagement = () => {
             )}
             {errorMessage && (
                 <div className="success-note-overlay">
-                    <div className="success-note" style={{ background: '#ef4444' }}>
+                    <div className="success-note" style={{ background: '#d41424' }}>
                         <span className="success-icon">✕</span>
                         {errorMessage}
                     </div>

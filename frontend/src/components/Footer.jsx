@@ -1,68 +1,158 @@
+import React from "react";
 import { Link } from "react-router-dom";
+import {
+    Facebook,
+    Instagram,
+    Linkedin,
+    Youtube,
+    Phone,
+    Mail,
+    ArrowRight,
+    Sparkles
+} from "lucide-react";
+import Reveal from "./Reveal";
 import "./footer.css";
-import logo from "../assets/logo_new.jpg";
-import { FaFacebookF, FaInstagram, FaLinkedinIn, FaGlobe } from 'react-icons/fa';
+import FooterLogo from "../assets/footer-logo.png";
 
 const Footer = () => {
-  return (
-    <footer className="footer-section">
-      <div className="footer-container">
-        <div className="footer-top">
-          {/* Column 1: Logo & Description */}
-          <div className="footer-col brand-col">
-            <div className="logo-wrapper">
-              <img src={logo} alt="Bireena Atithi" className="footer-logo-img" />
+    const currentYear = new Date().getFullYear();
+
+    const socialLinks = [
+        { icon: <Facebook size={18} />, href: "#", label: "facebook" },
+        { icon: <Instagram size={18} />, href: "#", label: "instagram" },
+        { icon: <Linkedin size={18} />, href: "#", label: "linkedin" },
+        { icon: <Youtube size={18} />, href: "#", label: "youtube" }
+    ];
+
+    const footerLinks = {
+        product: [
+            { name: "Features", href: "/features" },
+            { name: "Pricing", href: "/pricing" },
+            { name: "Blogs", href: "#" },
+            { name: "App Alternative", href: "#" }
+        ],
+        company: [
+            { name: "About", href: "/about" },
+            { name: "Vision", href: "#" },
+            { name: "Our Values", href: "#" },
+            { name: "Contact Us", href: "/contact" },
+            { name: "Careers", href: "#" }
+        ],
+        support: [
+            { name: "Getting Started", href: "#" },
+            { name: "Help Center", href: "#" },
+            { name: "Request Support", href: "/contact" }
+        ]
+    };
+
+    return (
+        <footer className="footer-root">
+            {/* 1. TOP GRADIENT LINE */}
+            <div className="footer-top-line"></div>
+
+            <div className="footer-main-container">
+                <div className="footer-grid">
+                    {/* COLUMN 1: BRAND */}
+                    <div className="footer-brand-col">
+                        <div className="footer-logo-wrap">
+                            <img src={FooterLogo} alt="Bireena Atithi" className="f-logo" />
+                        </div>
+                        <p className="f-tagline">Simple. Secure. Tailored.</p>
+                        <div className="f-socials">
+                            {socialLinks.map((social, i) => (
+                                <a
+                                    key={i}
+                                    href={social.href}
+                                    className={`s-icon hov-${social.label}`}
+                                    aria-label={social.label}
+                                >
+                                    {social.icon}
+                                </a>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* COLUMN 2: PRODUCT */}
+                    <div className="footer-links-col">
+                        <h4 className="f-header">Product</h4>
+                        <div className="f-header-line product-line"></div>
+                        <ul className="f-list">
+                            {footerLinks.product.map((link, i) => (
+                                <li key={i}><Link to={link.href}>{link.name}</Link></li>
+                            ))}
+                        </ul>
+                    </div>
+
+                    {/* COLUMN 3: COMPANY */}
+                    <div className="footer-links-col">
+                        <h4 className="f-header">Company</h4>
+                        <div className="f-header-line company-line"></div>
+                        <ul className="f-list">
+                            {footerLinks.company.map((link, i) => (
+                                <li key={i}><Link to={link.href}>{link.name}</Link></li>
+                            ))}
+                        </ul>
+                    </div>
+
+                    {/* COLUMN 4: SUPPORT */}
+                    <div className="footer-links-col">
+                        <h4 className="f-header">Support</h4>
+                        <div className="f-header-line support-line"></div>
+                        <ul className="f-list">
+                            {footerLinks.support.map((link, i) => (
+                                <li key={i}><Link to={link.href}>{link.name}</Link></li>
+                            ))}
+                        </ul>
+                    </div>
+
+                    {/* COLUMN 5: CONTACT */}
+                    <div className="footer-links-col contact-col">
+                        <h4 className="f-header">Contact</h4>
+                        <div className="f-header-line contact-line"></div>
+                        <div className="f-contact-info">
+                            <div className="c-item">
+                                <Phone size={16} />
+                                <span>+91 91351-5593</span>
+                            </div>
+                            <div className="c-item">
+                                <Mail size={16} />
+                                <span className="truncate">support@bireenaatithi.com</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* THE PREMIUM BOTTOM BANNER */}
+                <div className="footer-cta-banner-container">
+                    <div className="footer-cta-banner">
+                        <div className="cta-banner-content">
+                            <div className="cta-sparkle"><Sparkles size={20} /></div>
+                            <h3 className="cta-banner-title">
+                                Cost-Effective, Customizable, <br className="hidden md:block" />
+                                Streamlined, Hotel Management Software.
+                            </h3>
+                        </div>
+                        <Link to="/contact">
+                            <button className="cta-banner-btn" onClick={() => window.scrollTo(0, 0)}>
+                                <span>Book a Demo</span>
+                                <ArrowRight size={18} />
+                            </button>
+                        </Link>
+                    </div>
+                </div>
+
+                <div className="footer-bottom-bar text-center pt-8 border-t border-white/5 pb-6">
+                    <p className="text-gray-500 text-sm">
+                        ©️ Copyright 2026. All Rights Reserved. Bireena Info Tech
+                        <span className="mx-4">|</span>
+                        <Link to="#" className="hover:text-white transition-colors">Privacy Policy</Link>
+                        <span className="mx-4">|</span>
+                        <Link to="#" className="hover:text-white transition-colors">Terms of Service</Link>
+                    </p>
+                </div>
             </div>
-            <p className="brand-desc">
-              Smart Hotel Management Software with KOT automation, billing, reporting and seamless guest experience.
-            </p>
-          </div>
-
-          {/* Column 2: Quick Links */}
-          <div className="footer-col">
-            <h4>Quick Links</h4>
-            <ul>
-              <li><Link to="/">Home</Link></li>
-              <li><Link to="/about">About</Link></li>
-              <li><Link to="/features">Features</Link></li>
-              <li><Link to="/pricing">Pricing</Link></li>
-              <li><Link to="/contact">Contact</Link></li>
-            </ul>
-          </div>
-
-          {/* Column 3: Services */}
-          <div className="footer-col">
-            <h4>Services</h4>
-            <ul>
-              <li><Link to="/">Reservation Management</Link></li>
-              <li><Link to="/">Billing & Invoicing</Link></li>
-              <li><Link to="/">KOT Automation</Link></li>
-              <li><Link to="/">Analytics & Reports</Link></li>
-            </ul>
-          </div>
-
-          {/* Column 4: Contact Us */}
-          <div className="footer-col contact-col">
-            <h4>Contact Us</h4>
-            <div className="contact-info">
-              <p>Email: <a href="mailto:support@bireena.com">support@bireena.com</a></p>
-              <p>Phone: <a href="tel:+919876543210">+91 98765 43210</a></p>
-            </div>
-            <div className="social-icons">
-              <a href="https://www.facebook.com/profile.php?id=61572904348705" target="_blank" rel="noopener noreferrer"><FaFacebookF /></a>
-              <a href="https://www.instagram.com/bireenainfo/" target="_blank" rel="noopener noreferrer"><FaInstagram /></a>
-              <a href="https://www.linkedin.com/in/bireena-info-tech-a975533a1/" target="_blank" rel="noopener noreferrer"><FaLinkedinIn /></a>
-              <a href="https://bireenainfotech.com/" target="_blank" rel="noopener noreferrer"><FaGlobe /></a>
-            </div>
-          </div>
-        </div>
-
-        <div className="footer-bottom">
-          <p>© 2026 Bireena Atithi. All rights reserved.</p>
-        </div>
-      </div>
-    </footer>
-  );
+        </footer>
+    );
 };
 
 export default Footer;

@@ -1,0 +1,60 @@
+﻿import { motion } from 'framer-motion';
+import { MotionDiv, fadeUp, containerStagger, staggerItem } from './MotionWrapper';
+
+const ServicesOverview = () => {
+    const services = [
+        // ... (rest of services array remains same)
+    ];
+
+    return (
+        <div className="bg-transparent pt-56 pb-32 relative font-sans flex justify-center mt-8">
+            <div className="w-full max-w-[1300px] px-4 md:px-10 flex flex-col items-center">
+
+                {/* Highly Attractive Heading Segment with even more breathing room */}
+                <MotionDiv variant={fadeUp} className="text-center mb-28 flex flex-col items-center">
+                    <h2 className="text-[40px] md:text-[50px] font-extrabold text-[#1f2937] tracking-tighter mb-8 leading-none">
+                        Our Services
+                    </h2>
+                    <div className="w-28 h-[6px] bg-gradient-to-r from-[#e11d48] to-rose-400 rounded-full mb-12 shadow-[0_4px_12px_rgba(225,29,72,0.15)]"></div>
+                    <p className="text-[#64748b] text-[16px] md:text-[18px] max-w-[650px] mx-auto leading-relaxed px-4 opacity-90">
+                        Everything you need to automate your hospitality business in one unified ecosystem.
+                    </p>
+                </MotionDiv>
+
+                <motion.div
+                    variants={containerStagger}
+                    initial="hidden"
+                    whileInView="show"
+                    viewport={{ once: true, amount: 0.1 }}
+                    className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-12 w-full"
+                >
+                    {services.map((service, idx) => (
+                        <motion.div
+                            key={idx}
+                            variants={staggerItem}
+                            className="bg-white/95 rounded-[24px] px-5 py-10 flex flex-col items-center text-center shadow-[0_10px_40px_rgba(225,29,72,0.05)] border border-white hover:shadow-[0_15px_50px_rgba(225,29,72,0.12)] transition-all transform hover:-translate-y-2 group"
+                        >
+
+                            <div className="w-16 h-16 rounded-full bg-[#e11d48] flex items-center justify-center mb-6 shadow-[0_8px_20px_rgba(225,29,72,0.3)] transition-transform group-hover:scale-110">
+                                {service.icon}
+                            </div>
+
+                            <h3 className="font-bold text-[#1f2937] text-[17px] leading-tight mb-4">
+                                {service.name}
+                            </h3>
+
+                            <p className="text-[#64748b] text-[14px] leading-relaxed mx-auto max-w-[90%] opacity-80">
+                                {service.desc}
+                            </p>
+
+                        </motion.div>
+                    ))}
+                </motion.div>
+
+            </div>
+        </div>
+    );
+};
+
+export default ServicesOverview;
+

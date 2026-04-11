@@ -48,7 +48,7 @@ const PermissionManager = () => {
             case PERMISSIONS.VIEW: return '#3b82f6';
             case PERMISSIONS.CREATE: return '#10b981';
             case PERMISSIONS.EDIT: return '#f59e0b';
-            case PERMISSIONS.DELETE: return '#ef4444';
+            case PERMISSIONS.DELETE: return '#d41424';
             case PERMISSIONS.FULL: return '#8b5cf6';
             default: return '#6b7280';
         }

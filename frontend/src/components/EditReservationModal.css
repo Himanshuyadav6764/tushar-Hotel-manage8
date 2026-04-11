@@ -270,7 +270,7 @@
 }
 
 .inline-confirm-btn.no {
-    color: #991b1b;
+    color: #b40f1d;
     border-color: #fecaca;
     background: #fef2f2;
 }
@@ -290,7 +290,7 @@
 }
 
 .inline-action-message.error {
-    color: #991b1b;
+    color: #b40f1d;
     background: #fef2f2;
     border: 1px solid #fecaca;
 }
@@ -375,7 +375,7 @@
 
 .modal-content-area .room-folio-item.active {
     background: #fef2f2;
-    border: 1.5px solid #ef4444;
+    border: 1.5px solid #d41424;
     border-left: 4px solid #E31E24;
     box-shadow: 0 2px 8px rgba(239, 68, 68, 0.12);
 }
@@ -388,7 +388,7 @@
 }
 
 .modal-content-area .room-folio-item.active .room-number {
-    color: #b91c1c;
+    color: #b40f1d;
     font-weight: 700;
 }
 
@@ -497,7 +497,7 @@
     width: 15px;
     height: 15px;
     cursor: pointer;
-    accent-color: #ef4444;
+    accent-color: #d41424;
 }
 
 .modal-content-area .amount-cell {
@@ -1070,7 +1070,7 @@
     top: 4px;
     width: 10px;
     height: 10px;
-    background-color: #ef4444;
+    background-color: #d41424;
     border-radius: 50%;
     border: 2px solid #fff;
     box-shadow: 0 0 0 2px #e5e7eb;

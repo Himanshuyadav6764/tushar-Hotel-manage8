@@ -121,7 +121,7 @@ const ReservationReport = () => {
         const s = (status || '').toLowerCase();
         if (s === 'confirmed' || s === 'completed') return { bg: '#dcfce7', color: '#166534' };
         if (s === 'upcoming') return { bg: '#dbeafe', color: '#1e40af' };
-        if (s === 'cancelled') return { bg: '#fee2e2', color: '#991b1b' };
+        if (s === 'cancelled') return { bg: '#fee2e2', color: '#b40f1d' };
         if (s.includes('no') && s.includes('show')) return { bg: '#fef3c7', color: '#92400e' };
         return { bg: '#f3f4f6', color: '#374151' };
     };
@@ -656,7 +656,7 @@ const ReservationReport = () => {
                                                             <div className="rr-util-bar-bg">
                                                                 <div className="rr-util-bar-fill" style={{
                                                                     width: `${t.utilization}%`,
-                                                                    background: t.utilization >= 70 ? '#16a34a' : t.utilization >= 40 ? '#f59e0b' : '#ef4444'
+                                                                    background: t.utilization >= 70 ? '#16a34a' : t.utilization >= 40 ? '#f59e0b' : '#d41424'
                                                                 }} />
                                                             </div>
                                                             <span className="rr-util-pct">{t.utilization}%</span>

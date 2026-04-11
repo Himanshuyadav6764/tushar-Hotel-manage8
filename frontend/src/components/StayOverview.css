@@ -112,7 +112,7 @@
     cursor: pointer;
     display: flex;
     align-items: center;
-    color: #b91c1c;
+    color: #b40f1d;
     font-weight: 700;
 }
 
@@ -195,7 +195,7 @@
 }
 
 .status-pill.overdue {
-    background: #B91C1C;
+    background: #b40f1d;
     color: #fff;
 }
 
@@ -406,7 +406,7 @@
 }
 
 .overdue-stay {
-    background: #B91C1C;
+    background: #b40f1d;
 }
 
 .active-stay {

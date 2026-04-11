@@ -42,7 +42,7 @@
 .compact-checkbox-card input:checked + .compact-check-content {
     background: #fff1f2;
     border-color: #fca5a5;
-    color: #e11d48;
+    color: #d41424;
 }
 
 .dot-marker {
