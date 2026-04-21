@@ -56,13 +56,13 @@ const NoShowForm = ({ booking, onSubmit, onCancel }) => {
                 </div>
 
                 {/* Warning */}
-                <div style={{ padding: '14px 16px', borderRadius: '12px', backgroundColor: '#FEF2F2', border: '1px solid #FEE2E2', color: '#991B1B', fontSize: '13px', fontWeight: '600', lineHeight: '1.5' }}>
+                <div style={{ padding: '14px 16px', borderRadius: '12px', backgroundColor: '#FEF2F2', border: '1px solid #FEE2E2', color: '#b40f1d', fontSize: '13px', fontWeight: '600', lineHeight: '1.5' }}>
                     ⚠️ This reservation will be marked as <strong>NO-SHOW</strong> and the room will be released immediately. This action cannot be undone.
                 </div>
 
                 {/* Charge Option */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', backgroundColor: '#FFFFFF', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-                    <input type="checkbox" id="applyCharge" checked={applyCharge} onChange={(e) => setApplyCharge(e.target.checked)} style={{ marginTop: '3px', width: '18px', height: '18px', cursor: 'pointer', accentColor: '#E11D48' }} />
+                    <input type="checkbox" id="applyCharge" checked={applyCharge} onChange={(e) => setApplyCharge(e.target.checked)} style={{ marginTop: '3px', width: '18px', height: '18px', cursor: 'pointer', accentColor: '#d41424' }} />
                     <label htmlFor="applyCharge" style={{ cursor: 'pointer' }}>
                         <span style={{ fontSize: '14px', fontWeight: '700', color: '#1E293B', display: 'block' }}>Apply 1 Night No-Show Charge</span>
                         <span style={{ fontSize: '13px', color: '#64748B', marginTop: '4px', display: 'block' }}>
@@ -75,7 +75,7 @@ const NoShowForm = ({ booking, onSubmit, onCancel }) => {
             {/* Footer */}
             <div style={{ padding: '20px 32px 20px 16px', backgroundColor: '#FFFFFF', borderTop: '1px solid #E2E8F0', display: 'flex', gap: '12px' }}>
                 <button type="button" onClick={onCancel} disabled={isLoading} style={{ flex: 1, padding: '14px', backgroundColor: '#F1F5F9', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#64748B', cursor: 'pointer' }}>Cancel</button>
-                <button type="button" onClick={handleSubmit} disabled={isLoading} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #E11D48, #BE123C)', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#FFFFFF', cursor: 'pointer', opacity: isLoading ? 0.5 : 1, boxShadow: '0 4px 12px rgba(225, 29, 72, 0.3)' }}>
+                <button type="button" onClick={handleSubmit} disabled={isLoading} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #d41424, #b40f1d)', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#FFFFFF', cursor: 'pointer', opacity: isLoading ? 0.5 : 1, boxShadow: '0 4px 12px rgba(225, 29, 72, 0.3)' }}>
                     {isLoading ? 'Processing...' : 'Confirm No-Show'}
                 </button>
             </div>

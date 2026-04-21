@@ -47,7 +47,7 @@ const CreateGuestForm = ({ onSave, onCancel, existingGuests = [], editingGuest =
     const getCreateGuestEndpoints = () => {
         const baseCandidates = API_URL
             ? [API_URL]
-            : (import.meta.env.DEV ? ['', 'http://localhost:5001', 'http://localhost:5000'] : ['']);
+            : (import.meta.env.DEV ? ['', 'http://localhost:5001', 'http://localhost:5000'] : [API_URL || '']);
 
         return [...new Set(baseCandidates)]
             .map((base) => `${base}/api/guests/add`)

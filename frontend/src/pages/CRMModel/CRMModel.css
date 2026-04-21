@@ -455,7 +455,7 @@
 
 .status-absent {
     background: #fee2e2;
-    color: #991b1b;
+    color: #b40f1d;
 }
 
 .status-on-leave {
@@ -761,7 +761,7 @@
 
 .crm-toggle-btn.active.absent {
     background: #fee2e2;
-    color: #991b1b;
+    color: #b40f1d;
     border-color: #fee2e2;
 }
 
@@ -844,7 +844,7 @@
 .action-btn.small {
     padding: 8px 14px;
     font-size: 12px;
-    background: linear-gradient(135deg, #ef4444 0%, #E31E24 100%);
+    background: linear-gradient(135deg, #d41424 0%, #E31E24 100%);
     border: 1px solid rgba(227, 30, 36, 0.35);
     border-radius: 8px;
     cursor: pointer;
@@ -856,7 +856,7 @@
 }
 
 .action-btn.small:hover {
-    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    background: linear-gradient(135deg, #d41424 0%, #b40f1d 100%);
     transform: translateY(-1px);
 }
 
@@ -1299,7 +1299,7 @@
 
 .crm-toast.error {
     background: #fee2e2;
-    color: #991b1b;
+    color: #b40f1d;
     border: 1px solid #fecaca;
 }
 
@@ -1360,7 +1360,7 @@
 
 .modal-error {
     background: #fee2e2;
-    color: #991b1b;
+    color: #b40f1d;
     padding: 10px 14px;
     border-radius: 8px;
     font-size: 13px;
@@ -1447,8 +1447,8 @@
 
 .att-btn.active.absent {
     background: #fee2e2;
-    border-color: #ef4444;
-    color: #991b1b;
+    border-color: #d41424;
+    color: #b40f1d;
 }
 
 .att-btn.active.on-leave {
@@ -1468,7 +1468,7 @@
 }
 
 .att-label.absent {
-    color: #991b1b;
+    color: #b40f1d;
 }
 
 .att-label.on-leave {
@@ -1606,7 +1606,7 @@
     border-radius: 10px;
     border: 1px solid #fda4af;
     background: #ffffff;
-    color: #991b1b;
+    color: #b40f1d;
     font-size: 12px;
     font-weight: 700;
     display: inline-flex;
@@ -1633,12 +1633,12 @@
 }
 
 .crm-delete-inline-yes {
-    background: #dc2626;
+    background: #d41424;
     color: #fff;
 }
 
 .crm-delete-inline-yes:hover {
-    background: #b91c1c;
+    background: #b40f1d;
 }
 
 .crm-delete-inline-no {
@@ -1655,7 +1655,7 @@
     border-radius: 6px;
     border: 1px solid #fee2e2;
     background: white;
-    color: #ef4444;
+    color: #d41424;
     cursor: pointer;
     font-size: 13px;
     transition: all 0.2s;
@@ -1743,7 +1743,7 @@
     padding: 12px 24px;
     border-radius: 8px;
     border: none;
-    background: #ef4444;
+    background: #d41424;
     color: white;
     font-weight: 600;
     cursor: pointer;
@@ -1953,13 +1953,13 @@
 }
 
 .action-icon-btn.delete-btn {
-    color: #ef4444;
+    color: #d41424;
     border-color: #fee2e2;
 }
 
 .action-icon-btn.delete-btn:hover {
     background: #fee2e2;
-    border-color: #ef4444;
+    border-color: #d41424;
     color: #E31E24;
 }
 
@@ -2083,7 +2083,7 @@
 /* Added for Perm Dropdown Close */
 .perm-dropdown-close {
     background: #fee2e2;
-    color: #ef4444;
+    color: #d41424;
     border: 1px solid #fecaca;
     width: 24px;
     height: 24px;
@@ -2099,9 +2099,9 @@
 }
 
 .perm-dropdown-close:hover {
-    background: #ef4444 !important;
+    background: #d41424 !important;
     color: white !important;
-    border-color: #ef4444 !important;
+    border-color: #d41424 !important;
     transform: scale(1.1);
 }
 
@@ -2118,7 +2118,7 @@
 
 .modal-header .close-btn:hover {
     background: #fee2e2;
-    color: #ef4444;
+    color: #d41424;
     transform: rotate(90deg);
 }
 

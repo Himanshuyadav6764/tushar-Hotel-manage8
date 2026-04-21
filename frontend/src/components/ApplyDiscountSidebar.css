@@ -80,7 +80,7 @@
 }
 
 .premium-checkbox-card input:checked + .checkbox-custom-content .card-label-text {
-    color: #e11d48;
+    color: #d41424;
 }
 
 /* Field Info Text */

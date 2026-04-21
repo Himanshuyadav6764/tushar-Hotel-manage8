@@ -297,7 +297,7 @@ const SuperAdminProfile = () => {
                             </div>
                             <div className="info-row">
                                 <span className="info-label">Role</span>
-                                <span className="role-badge" style={{ background: 'linear-gradient(135deg, #EF4444 0%, #E31E24 100%)', color: 'white' }}>
+                                <span className="role-badge" style={{ background: 'linear-gradient(135deg, #d41424 0%, #E31E24 100%)', color: 'white' }}>
                                     {formData.role}
                                 </span>
                             </div>

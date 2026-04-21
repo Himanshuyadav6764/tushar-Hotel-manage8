@@ -288,7 +288,7 @@
 
 .status-pill.inactive {
     background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-    color: #991b1b;
+    color: #b40f1d;
     border: 1px solid #fca5a5;
 }
 
@@ -389,8 +389,8 @@
 }
 
 .delete-btn:hover {
-    border-color: #ef4444;
-    color: #ef4444;
+    border-color: #d41424;
+    color: #d41424;
     background-color: #fef2f2;
 }
 
@@ -679,7 +679,7 @@
 
 .close-btn:hover {
     background-color: #f3f4f6;
-    color: #ef4444;
+    color: #d41424;
 }
 
 /* Modal Body */
@@ -726,7 +726,7 @@
 .form-input:focus,
 .form-select:focus {
     outline: none;
-    border-color: #ef4444;
+    border-color: #d41424;
     /* Red focus border */
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
     /* Red glow */
@@ -817,9 +817,9 @@
 
 .btn-modal-cancel {
     background: #ffffff;
-    border: 1px solid #ef4444;
+    border: 1px solid #d41424;
     /* Red border */
-    color: #ef4444;
+    color: #d41424;
     /* Red text */
 }
 
@@ -828,9 +828,9 @@
 }
 
 .btn-modal-save {
-    background: #ef4444;
+    background: #d41424;
     /* Red background */
-    border: 1px solid #ef4444;
+    border: 1px solid #d41424;
     color: #ffffff;
     /* White text */
 }
@@ -954,7 +954,7 @@
 
 .status-pill.dirty {
     background-color: #fef2f2;
-    color: #ef4444;
+    color: #d41424;
     border: 1px solid #fee2e2;
 }
 

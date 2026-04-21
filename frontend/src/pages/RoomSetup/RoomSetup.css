@@ -66,7 +66,7 @@
     border: 1px solid #ffcbd1;
     border-radius: 6px;
     padding: 8px 12px; /* Reduced padding */
-    color: #b91c1c;
+    color: #b40f1d;
     font-weight: 700;
     font-size: 14px;
     min-width: 220px; /* Reduced from 250px */
@@ -169,12 +169,12 @@
 
 .day-cell:hover:not(.empty):not(.disabled) {
     background-color: #f8fafc;
-    color: #ef4444;
+    color: #d41424;
 }
 
 .day-cell.selected-start,
 .day-cell.selected-end {
-    background: linear-gradient(to bottom right, #ef4444, #b91c1c) !important;
+    background: linear-gradient(to bottom right, #d41424, #b40f1d) !important;
     color: white !important;
     font-weight: 600;
     z-index: 2;
@@ -183,7 +183,7 @@
 
 .day-cell.in-range {
     background-color: #fff1f2 !important;
-    color: #be123c;
+    color: #b40f1d;
     border-radius: 0;
 }
 
@@ -232,7 +232,7 @@
 }
 
 .dp-apply-btn:hover {
-    background: #b91c1c;
+    background: #b40f1d;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
 }
@@ -351,7 +351,7 @@
     border-radius: 8px;
     border: 1px solid #fecaca;
     background: #fff1f2;
-    color: #991b1b;
+    color: #b40f1d;
     font-size: 13px;
     font-weight: 700;
 }
@@ -364,7 +364,7 @@
 
 .delete-warning-note-room.error {
     background: #fee2e2;
-    border-color: #ef4444;
+    border-color: #d41424;
     color: #7f1d1d;
 }
 
@@ -414,7 +414,7 @@
 }
 
 .room-card.status-occupied {
-    border-left-color: #ef4444;
+    border-left-color: #d41424;
 }
 
 /* Red */
@@ -436,7 +436,7 @@
 
 .room-card-header h4 {
     margin: 0;
-    color: #b91c1c;
+    color: #b40f1d;
     /* Dark Red text for Room Number */
     font-size: 16px;
     font-weight: 700;
@@ -481,7 +481,7 @@
     border-radius: 10px;
     border: 1px solid #fecaca;
     background: #fff1f2;
-    color: #991b1b;
+    color: #b40f1d;
     font-size: 12px;
     font-weight: 700;
     display: inline-flex;
@@ -508,12 +508,12 @@
 }
 
 .room-delete-warning-yes {
-    background: #dc2626;
+    background: #d41424;
     color: #fff;
 }
 
 .room-delete-warning-yes:hover {
-    background: #b91c1c;
+    background: #b40f1d;
 }
 
 .room-delete-warning-no {
@@ -582,7 +582,7 @@
 }
 
 .room-card.status-occupied .status-pill {
-    background-color: #991b1b;
+    background-color: #b40f1d;
 }
 
 .room-card.status-maintenance .status-pill {
@@ -639,7 +639,7 @@
 
 .room-list-number h4 {
     margin: 0;
-    color: #b91c1c;
+    color: #b40f1d;
     font-size: 16px;
     font-weight: 700;
 }
@@ -732,7 +732,7 @@
 }
 
 .legend-dot.red {
-    background-color: #ef4444;
+    background-color: #d41424;
 }
 
 .legend-dot.blue {
@@ -1175,7 +1175,7 @@
 }
 
 .premium-payment-header {
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    background: linear-gradient(135deg, #f43f5e 0%, #d41424 100%);
     padding: 24px 20px;
     color: white;
     display: flex;
@@ -1269,7 +1269,7 @@
 }
 
 .premium-input-wrapper:focus-within {
-    border-color: #e11d48;
+    border-color: #d41424;
     box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.05);
 }
 
@@ -1358,14 +1358,14 @@
 }
 
 .room-view-add-input:focus {
-    border-color: #e11d48 !important;
+    border-color: #d41424 !important;
     box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.12);
 }
 
 .room-view-add-btn {
     border: none;
     border-radius: 8px;
-    background: #e11d48;
+    background: #d41424;
     color: #ffffff;
     font-size: 12px;
     font-weight: 700;
@@ -1405,7 +1405,7 @@
 .room-view-option-delete {
     border: none;
     background: #fee2e2;
-    color: #b91c1c;
+    color: #b40f1d;
     width: 24px;
     height: 24px;
     border-radius: 6px;
@@ -1487,9 +1487,9 @@
     flex: 1;
     height: 54px;
     border-radius: 14px;
-    border: 2px solid #e11d48;
+    border: 2px solid #d41424;
     background: #ffffff;
-    color: #e11d48;
+    color: #d41424;
     font-weight: 800;
     cursor: pointer;
     text-transform: uppercase;
@@ -1506,7 +1506,7 @@
     height: 54px;
     border-radius: 14px;
     border: none;
-    background: #e11d48;
+    background: #d41424;
     color: white;
     font-weight: 800;
     cursor: pointer;
@@ -1517,7 +1517,7 @@
 }
 
 .btn-primary:hover {
-    background: #be123c;
+    background: #b40f1d;
     transform: translateY(-1px);
     box-shadow: 0 6px 15px rgba(225, 29, 72, 0.3);
 }
@@ -1538,7 +1538,7 @@
     position: absolute;
     top: 50%;
     right: 50px;
-    background: #ef4444;
+    background: #d41424;
     color: white;
     padding: 2px 8px;
     border-radius: 4px;

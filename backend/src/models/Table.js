@@ -97,6 +97,18 @@ const tableSchema = new mongoose.Schema({
         type: String,
         default: 'Main Hall'
     },
+    assignedWaiter: {
+        type: String,
+        default: ''
+    },
+    isSplitChild: {
+        type: Boolean,
+        default: false
+    },
+    parentTableName: {
+        type: String,
+        default: ''
+    },
     qrCode: String
 }, {
     timestamps: true

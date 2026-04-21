@@ -94,7 +94,7 @@
 
 .icon-button:hover {
     background-color: #fef2f2;
-    color: #ef4444;
+    color: #d41424;
 }
 
 /* Premium Modal Styles */
@@ -141,7 +141,7 @@
 }
 
 .premium-payment-header {
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    background: linear-gradient(135deg, #f43f5e 0%, #d41424 100%);
     padding: 24px;
     color: white;
     display: flex;
@@ -286,7 +286,7 @@
     height: 48px;
     border-radius: 12px;
     border: none;
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    background: linear-gradient(135deg, #f43f5e 0%, #d41424 100%);
     color: #ffffff;
     font-weight: 800;
     cursor: pointer;

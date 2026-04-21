@@ -38,9 +38,9 @@
 }
 
 .settings-tab.active {
-    background: #ef4444;
+    background: #d41424;
     color: white;
-    border-color: #ef4444;
+    border-color: #d41424;
     box-shadow: 0 1px 3px rgba(239, 68, 68, 0.3);
 }
 
@@ -87,7 +87,7 @@
 
 .settings-toolbar .settings-search-input:focus {
     outline: none;
-    border-color: #ef4444;
+    border-color: #d41424;
 }
 
 .search-box {
@@ -123,7 +123,7 @@
 
 .search-box .settings-search-input:focus {
     outline: none;
-    border-color: #ef4444;
+    border-color: #d41424;
 }
 
 .settings-search-input::placeholder {
@@ -134,7 +134,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #ef4444;
+    background: #d41424;
     color: white;
     border: none;
     padding: 10px 16px;
@@ -243,7 +243,7 @@
 
 .active-badge.no {
     background: linear-gradient(135deg, #fee2e2, #fecaca);
-    color: #991b1b;
+    color: #b40f1d;
 }
 
 .badge-dot {
@@ -320,7 +320,7 @@
 
 .delete-btn {
     background: #fee2e2;
-    color: #991b1b;
+    color: #b40f1d;
 }
 
 .delete-btn:hover {
@@ -330,7 +330,7 @@
 
 .toggle-btn {
     background: #fee2e2;
-    color: #991b1b;
+    color: #b40f1d;
     font-size: 22px;
     font-weight: 700;
 }
@@ -440,7 +440,7 @@
 }
 
 .permission-checkbox-card:hover {
-    border-color: #ef4444;
+    border-color: #d41424;
     background: #fef2f2;
 }
 
@@ -456,7 +456,7 @@
     width: 18px;
     height: 18px;
     cursor: pointer;
-    accent-color: #ef4444;
+    accent-color: #d41424;
     flex-shrink: 0;
 }
 
@@ -548,7 +548,7 @@
 }
 
 .staff-count-badge {
-    background: #ef4444;
+    background: #d41424;
     color: white;
     padding: 4px 10px;
     border-radius: 12px;
@@ -704,7 +704,7 @@
 
 .form-group input:focus {
     outline: none;
-    border-color: #ef4444;
+    border-color: #d41424;
 }
 
 .form-group input::placeholder {
@@ -736,14 +736,14 @@
 
 .permission-checkbox:hover {
     background: #fef2f2;
-    border-color: #ef4444;
+    border-color: #d41424;
 }
 
 .permission-checkbox input[type="checkbox"] {
     width: 16px;
     height: 16px;
     cursor: pointer;
-    accent-color: #ef4444;
+    accent-color: #d41424;
 }
 
 .permission-checkbox span {
@@ -777,7 +777,7 @@
 }
 
 .btn-submit {
-    background: #ef4444;
+    background: #d41424;
     color: white;
     border: none;
     padding: 10px 16px;

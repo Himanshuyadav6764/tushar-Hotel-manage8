@@ -71,11 +71,11 @@
 }
 
 .tab-btn:hover {
-    color: #ef4444;
+    color: #d41424;
 }
 
 .tab-btn.active {
-    color: #ef4444;
+    color: #d41424;
 }
 
 .tab-btn.active::after {
@@ -85,7 +85,7 @@
     left: 15px;
     right: 15px;
     height: 3px;
-    background-color: #ef4444;
+    background-color: #d41424;
     border-radius: 3px 3px 0 0;
 }
 
@@ -181,7 +181,7 @@
 .form-group select:focus,
 .form-group textarea:focus {
     outline: none;
-    border-color: #ef4444;
+    border-color: #d41424;
     background: #fff;
     box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
 }
@@ -330,7 +330,7 @@
     width: fit-content;
     background: #fff;
     border: 1px solid #fecaca;
-    color: #ef4444;
+    color: #d41424;
     padding: 7px 12px;
     border-radius: 8px;
     font-weight: 700;
@@ -464,7 +464,7 @@
     padding: 4px 10px;
     font-size: 14px;
     font-weight: 700;
-    color: #ef4444;
+    color: #d41424;
     width: 120px;
 }
 
@@ -489,7 +489,7 @@
 .toggle-item input {
     width: 16px;
     height: 16px;
-    accent-color: #ef4444;
+    accent-color: #d41424;
 }
 
 .toggle-item label {
@@ -507,12 +507,12 @@
 
 .toggle-status.yes {
     background: #fee2e2;
-    color: #b91c1c;
+    color: #b40f1d;
 }
 
 .toggle-status.no {
     background: #fee2e2;
-    color: #ef4444;
+    color: #d41424;
 }
 
 /* Sidebar Column */
@@ -700,12 +700,12 @@
 }
 
 .checkbox-container:hover input~.checkmark {
-    border-color: #ef4444;
+    border-color: #d41424;
 }
 
 .checkbox-container input:checked~.checkmark {
-    background-color: #ef4444;
-    border-color: #ef4444;
+    background-color: #d41424;
+    border-color: #d41424;
 }
 
 .checkmark:after {
@@ -884,7 +884,7 @@
 
 .search-input-wrapper input:focus {
     outline: none;
-    border-color: #ef4444;
+    border-color: #d41424;
     background: #fff;
     box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
 }
@@ -983,13 +983,13 @@
 
 .status-pill.available {
     background: #fee2e2;
-    color: #b91c1c;
+    color: #b40f1d;
     border: 1px solid #fecaca;
 }
 
 .status-pill.disabled-pill {
     background: #fee2e2;
-    color: #991b1b;
+    color: #b40f1d;
     border: 1px solid #fecaca;
 }
 
@@ -1035,7 +1035,7 @@
 .delete-action {
     background: #fff;
     border: 1px solid #fecaca;
-    color: #ef4444;
+    color: #d41424;
 }
 
 .delete-action:hover {
@@ -1087,15 +1087,15 @@
 }
 
 .stat-card.stat-card-total {
-    background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+    background: linear-gradient(135deg, #d41424 0%, #b40f1d 100%);
 }
 
 .stat-card.stat-card-active {
-    background: linear-gradient(135deg, #ef4444 0%, #E31E24 100%);
+    background: linear-gradient(135deg, #d41424 0%, #E31E24 100%);
 }
 
 .stat-card.stat-card-disabled {
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    background: linear-gradient(135deg, #f43f5e 0%, #d41424 100%);
 }
 
 .stat-card.stat-card-roles {
@@ -1281,7 +1281,7 @@
 /* Status Badge */
 .status-badge-green {
     background: #fee2e2;
-    color: #b91c1c;
+    color: #b40f1d;
     padding: 4px 10px;
     border-radius: 8px;
     font-weight: 800;

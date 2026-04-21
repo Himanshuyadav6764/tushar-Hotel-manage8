@@ -497,12 +497,12 @@ const DiscountManagement = () => {
                                         <label className="field-label-premium">
                                             DISCOUNT VALUE <span className="required">*</span>
                                             {formData.type === 'PERCENTAGE' && (
-                                                <span style={{ color: '#ef4444', fontSize: '0.7rem', marginLeft: '8px' }}>
+                                                <span style={{ color: '#d41424', fontSize: '0.7rem', marginLeft: '8px' }}>
                                                     (0-{maxDiscountType === 'PERCENTAGE' && maxDiscount > 0 ? maxDiscount : 100}%)
                                                 </span>
                                             )}
                                             {formData.type === 'FLAT' && maxDiscountType === 'FLAT' && maxDiscount > 0 && (
-                                                <span style={{ color: '#ef4444', fontSize: '0.7rem', marginLeft: '8px' }}> (Max {cs}{maxDiscount})</span>
+                                                <span style={{ color: '#d41424', fontSize: '0.7rem', marginLeft: '8px' }}> (Max {cs}{maxDiscount})</span>
                                             )}
                                         </label>
                                         <div className="premium-input-wrap">

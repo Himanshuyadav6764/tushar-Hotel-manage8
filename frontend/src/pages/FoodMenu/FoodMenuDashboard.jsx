@@ -326,7 +326,7 @@ const FoodMenuDashboard = () => {
                         setShowAddForm(!showAddForm);
                     }}
                     style={{
-                        backgroundColor: '#ef4444',
+                        backgroundColor: '#d41424',
                         color: 'white',
                         border: 'none',
                         padding: '10px 20px',
@@ -399,7 +399,7 @@ const FoodMenuDashboard = () => {
                                         borderRadius: '999px',
                                         border: '1px solid #f87171',
                                         background: '#fff1f2',
-                                        color: '#be123c',
+                                        color: '#b40f1d',
                                         cursor: 'pointer',
                                         fontWeight: 700,
                                         lineHeight: '1'
@@ -441,7 +441,7 @@ const FoodMenuDashboard = () => {
                                             type="button"
                                             onClick={handleInlineCategoryAdd}
                                             style={{
-                                                backgroundColor: '#ef4444',
+                                                backgroundColor: '#d41424',
                                                 color: 'white',
                                                 border: 'none',
                                                 padding: '8px 12px',
@@ -469,7 +469,7 @@ const FoodMenuDashboard = () => {
                                         </button>
                                     </div>
                                     {categoryInputError && (
-                                        <div style={{ color: '#dc2626', fontSize: '12px', fontWeight: 600 }}>
+                                        <div style={{ color: '#d41424', fontSize: '12px', fontWeight: 600 }}>
                                             {categoryInputError}
                                         </div>
                                     )}
@@ -517,7 +517,7 @@ const FoodMenuDashboard = () => {
                         }} />
                     </div>
                     <button type="submit" style={{
-                        backgroundColor: '#ef4444',
+                        backgroundColor: '#d41424',
                         color: 'white',
                         border: 'none',
                         padding: '10px 24px',
@@ -537,7 +537,7 @@ const FoodMenuDashboard = () => {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
             }}>
                 <div style={{
-                    backgroundColor: '#ef4444',
+                    backgroundColor: '#d41424',
                     color: 'white',
                     padding: '15px 20px',
                     display: 'flex',
@@ -684,7 +684,7 @@ const FoodMenuDashboard = () => {
                                                 {isMobile && <span style={{ fontWeight: 700, color: '#555' }}>Status</span>}
                                                 <span style={{
                                                     backgroundColor: item.status === 'Active' ? '#d1fae5' : '#fee2e2',
-                                                    color: item.status === 'Active' ? '#065f46' : '#991b1b',
+                                                    color: item.status === 'Active' ? '#065f46' : '#b40f1d',
                                                     padding: '4px 12px',
                                                     borderRadius: '12px',
                                                     fontSize: '12px',
@@ -755,7 +755,7 @@ const FoodMenuDashboard = () => {
                                                                 borderRadius: '10px',
                                                                 border: '1px solid #fecaca',
                                                                 background: '#fff1f2',
-                                                                color: '#991b1b',
+                                                                color: '#b40f1d',
                                                                 fontSize: '12px',
                                                                 fontWeight: 700,
                                                                 display: 'inline-flex',
@@ -774,7 +774,7 @@ const FoodMenuDashboard = () => {
                                                                             border: 'none',
                                                                             borderRadius: '6px',
                                                                             padding: '4px 10px',
-                                                                            background: '#dc2626',
+                                                                            background: '#d41424',
                                                                             color: '#fff',
                                                                             cursor: 'pointer',
                                                                             fontWeight: 700,
@@ -866,7 +866,7 @@ const FoodMenuDashboard = () => {
                         }
                     `}</style>
                         <div style={{
-                            background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)',
+                            background: 'linear-gradient(135deg, #f43f5e 0%, #d41424 100%)',
                             padding: '20px 18px',
                             color: 'white',
                             display: 'flex',
@@ -985,7 +985,7 @@ const FoodMenuDashboard = () => {
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
                                     <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', paddingLeft: '2px' }}>
-                                        CATEGORY <span style={{ color: '#e11d48' }}>*</span>
+                                        CATEGORY <span style={{ color: '#d41424' }}>*</span>
                                     </label>
                                     <div style={{ position: 'relative' }}>
                                         <select
@@ -1029,9 +1029,9 @@ const FoodMenuDashboard = () => {
                                                 width: '28px',
                                                 height: '28px',
                                                 borderRadius: '8px',
-                                                border: '1px solid #e11d48',
+                                                border: '1px solid #d41424',
                                                 background: '#fff1f2',
-                                                color: '#e11d48',
+                                                color: '#d41424',
                                                 cursor: 'pointer',
                                                 fontWeight: 800,
                                                 fontSize: '16px',
@@ -1077,7 +1077,7 @@ const FoodMenuDashboard = () => {
                                                     type="button"
                                                     onClick={handleInlineCategoryAdd}
                                                     style={{
-                                                        backgroundColor: '#e11d48',
+                                                        backgroundColor: '#d41424',
                                                         color: 'white',
                                                         border: 'none',
                                                         padding: '8px 12px',
@@ -1107,7 +1107,7 @@ const FoodMenuDashboard = () => {
                                                 </button>
                                             </div>
                                             {categoryInputError && (
-                                                <div style={{ color: '#dc2626', fontSize: '12px', fontWeight: 700 }}>
+                                                <div style={{ color: '#d41424', fontSize: '12px', fontWeight: 700 }}>
                                                     {categoryInputError}
                                                 </div>
                                             )}
@@ -1255,7 +1255,7 @@ const FoodMenuDashboard = () => {
                                         height: '48px',
                                         borderRadius: '12px',
                                         border: 'none',
-                                        background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)',
+                                        background: 'linear-gradient(135deg, #f43f5e 0%, #d41424 100%)',
                                         color: 'white',
                                         fontWeight: 800,
                                         display: 'flex',

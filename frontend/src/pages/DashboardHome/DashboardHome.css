@@ -249,7 +249,7 @@
 }
 
 .stat-card-current-guests .stat-label {
-    color: #991b1b !important;
+    color: #b40f1d !important;
     font-size: 16px;
     font-weight: 700;
     margin-bottom: 8px;
@@ -884,7 +884,7 @@
 
 .gauge-card-header h3 {
     font-size: 20px;
-    color: #ef4444;
+    color: #d41424;
     font-weight: 700;
     margin-bottom: 25px;
 }

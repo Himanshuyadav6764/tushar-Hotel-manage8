@@ -104,7 +104,7 @@ const RoomDetailsPanel = ({ roomId, isOpen, onClose, onUpdateStatus, onEdit, onQ
     const getStatusStyle = (status) => {
         switch (status) {
             case 'Available': return { color: '#10b981', bg: '#ecfdf5', label: 'AVAILABLE' };
-            case 'Occupied': return { color: '#ef4444', bg: '#fef2f2', label: 'OCCUPIED' };
+            case 'Occupied': return { color: '#d41424', bg: '#fef2f2', label: 'OCCUPIED' };
             case 'Booked': return { color: '#f59e0b', bg: '#fffbeb', label: 'BOOKED' };
             case 'Under Maintenance': return { color: '#6b7280', bg: '#f3f4f6', label: 'MAINTENANCE' };
             default: return { color: '#000', bg: '#fff', label: status };

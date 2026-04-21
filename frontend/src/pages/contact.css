@@ -202,7 +202,7 @@ a.c-info-value:hover {
 }
 
 .c-field:focus-within label {
-    color: #e11d48;
+    color: #d41424;
 }
 
 .c-field input,
@@ -228,7 +228,7 @@ a.c-info-value:hover {
 
 .c-field input:focus,
 .c-field textarea:focus {
-    border-color: #e11d48;
+    border-color: #d41424;
     background: #fff;
     box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.09);
 }
@@ -243,7 +243,7 @@ a.c-info-value:hover {
     padding: 11px 24px;
     border: none;
     border-radius: 12px;
-    background: linear-gradient(135deg, #e11d48, #f43f6e);
+    background: linear-gradient(135deg, #d41424, #f43f6e);
     color: #fff;
     font-size: 15px;
     font-weight: 700;
@@ -258,7 +258,7 @@ a.c-info-value:hover {
 .c-send-btn:hover {
     transform: translateY(-3px);
     box-shadow: 0 14px 30px rgba(225, 29, 72, 0.42);
-    background: linear-gradient(135deg, #c8173f, #e11d48);
+    background: linear-gradient(135deg, #c8173f, #d41424);
 }
 
 .c-send-btn:active {

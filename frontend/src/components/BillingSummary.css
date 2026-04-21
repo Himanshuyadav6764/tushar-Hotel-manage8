@@ -131,7 +131,7 @@
 }
 
 .discount-toggle-btn-v2.active {
-    background: #e11d48;
+    background: #d41424;
     color: #fff;
 }
 
@@ -144,7 +144,7 @@
 }
 
 .req-star {
-    color: #e11d48;
+    color: #d41424;
     font-weight: 900;
     margin-left: 0.25rem;
 }
@@ -278,7 +278,7 @@
 .due-box-v2.has-due {
     background-color: #fff1f2;
     border: 1px solid #fee2e2;
-    color: #e11d48;
+    color: #d41424;
 }
 
 .due-box-v2.is-clear {

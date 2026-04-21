@@ -466,7 +466,7 @@ const CashierSection = () => {
                 <div className="stats-wrapper">
                     <div className="stat-card total">
                         <div className="stat-card-inner">
-                            <span className="stat-label">TOTAL COLLECTION TODAY</span>
+                            <span className="stat-label">TOTAL COLLECTION (LAST 24 HOURS)</span>
                             <span className="stat-value">{cs}{stats.totalCollection.toFixed(2)}</span>
                         </div>
                     </div>
@@ -709,7 +709,7 @@ const CashierSection = () => {
                                         Enter 10-digit number to track status
                                     </div>
                                 ) : trackedOrders.length === 0 ? (
-                                    <div className="placeholder-text" style={{ textAlign: 'center', color: '#ef4444', marginTop: '24px' }}>
+                                    <div className="placeholder-text" style={{ textAlign: 'center', color: '#d41424', marginTop: '24px' }}>
                                         No active orders found for this number.
                                     </div>
                                 ) : (
@@ -1884,7 +1884,7 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                                     <span>Remaining: {cs}{splitRemainingAmount.toFixed(2)}</span>
                                 </div>
                                 {splitHasMismatch && (
-                                    <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#b91c1c', fontWeight: 700 }}>
+                                    <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#b40f1d', fontWeight: 700 }}>
                                         Split total must match Grand Total before Tender.
                                     </div>
                                 )}

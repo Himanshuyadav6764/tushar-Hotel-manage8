@@ -5,7 +5,7 @@
 }
 
 .marketplace-tag {
-    color: #e11d48;
+    color: #d41424;
     font-weight: 600;
     font-size: 0.9rem;
     letter-spacing: 1px;
@@ -53,10 +53,10 @@
 }
 
 .marketplace-menu li.active {
-    color: #e11d48;
+    color: #d41424;
     font-weight: 600;
     background: #fef2f4;
-    border-left: 4px solid #e11d48;
+    border-left: 4px solid #d41424;
 }
 
 .marketplace-menu li p {
@@ -70,14 +70,14 @@
 .marketplace-menu li a {
     display: inline-block;
     margin-top: 1rem;
-    color: #e11d48;
+    color: #d41424;
     text-decoration: none;
     font-weight: 600;
     transition: all 0.3s;
 }
 
 .marketplace-menu li a:hover {
-    color: #be123c;
+    color: #b40f1d;
 }
 
 .marketplace-visual {

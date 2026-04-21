@@ -94,7 +94,7 @@
 }
 
 .confirmation-close-btn:hover {
-    background: #ef4444;
+    background: #d41424;
     color: white;
 }
 
@@ -163,7 +163,7 @@
 }
 
 .confirmation-confirm-btn.variant-danger {
-    background: linear-gradient(135deg, #ef4444 0%, #E31E24 100%);
+    background: linear-gradient(135deg, #d41424 0%, #E31E24 100%);
     color: white;
     box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
 }
@@ -190,7 +190,7 @@
 
 /* Red variant for Danger actions like Delete */
 .confirmation-confirm-btn.danger {
-    background: #ef4444;
+    background: #d41424;
     box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2);
 }
 

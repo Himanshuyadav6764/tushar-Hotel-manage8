@@ -148,8 +148,17 @@ app.use((req, res, next) => {
 let cachedDb = null;
 
 const connectDB = async () => {
-    if (cachedDb) {
+    // Reuse only when the active mongoose connection is healthy.
+    if (cachedDb && mongoose.connection.readyState === 1) {
         return cachedDb;
+    }
+
+    if (mongoose.connection.readyState === 2) {
+        return mongoose.connection;
+    }
+
+    if (cachedDb && mongoose.connection.readyState === 0) {
+        cachedDb = null;
     }
 
     try {
@@ -360,6 +369,7 @@ app.use((req, res) => {
 
 // Server configuration
 const PORT = process.env.PORT || 5000;
+const isDevRuntime = process.env.NODE_ENV !== 'production';
 
 // Function to start server with port fallback
 const startServer = (port) => {
@@ -379,8 +389,15 @@ const startServer = (port) => {
 
     server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-            const nextPort = numericPort + 1;
             console.error(`Port ${numericPort} is already in use.`);
+
+            if (isDevRuntime) {
+                console.error('Development mode requires a fixed backend port for frontend proxy.');
+                console.error('Free port 5000 or set PORT in backend/.env and update frontend API target accordingly.');
+                process.exit(1);
+            }
+
+            const nextPort = numericPort + 1;
             console.log(`Trying next available port: ${nextPort} in 1 second...`);
             setTimeout(() => {
                 startServer(nextPort);

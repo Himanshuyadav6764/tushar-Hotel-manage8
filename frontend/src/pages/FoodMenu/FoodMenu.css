@@ -64,7 +64,7 @@
     position: absolute;
     top: -5px;
     right: -5px;
-    background-color: #ef4444;
+    background-color: #d41424;
     color: white;
     border-radius: 50%;
     width: 18px;
@@ -120,7 +120,7 @@
 }
 
 .btn-add-item {
-    background-color: #ef4444;
+    background-color: #d41424;
     color: white;
     border: none;
     padding: 12px 24px;
@@ -140,8 +140,8 @@
 
 .btn-show-menu {
     background-color: white;
-    color: #ef4444;
-    border: 2px solid #ef4444;
+    color: #d41424;
+    border: 2px solid #d41424;
     padding: 12px 24px;
     border-radius: 8px;
     font-size: 14px;
@@ -182,7 +182,7 @@
 
 .form-icon {
     font-size: 24px;
-    color: #ef4444;
+    color: #d41424;
 }
 
 .form-row {
@@ -211,7 +211,7 @@
 }
 
 .required {
-    color: #ef4444;
+    color: #d41424;
 }
 
 .form-group input,
@@ -229,7 +229,7 @@
 .form-group select:focus,
 .form-group textarea:focus {
     outline: none;
-    border-color: #ef4444;
+    border-color: #d41424;
 }
 
 .form-group textarea {
@@ -263,7 +263,7 @@
 .btn-submit {
     padding: 12px 24px;
     border: none;
-    background-color: #ef4444;
+    background-color: #d41424;
     color: white;
     border-radius: 8px;
     font-size: 14px;
@@ -285,7 +285,7 @@
 }
 
 .list-header {
-    background-color: #ef4444;
+    background-color: #d41424;
     color: white;
     padding: 18px 25px;
     display: flex;
@@ -378,7 +378,7 @@
 
 .status-badge.inactive {
     background-color: #fee2e2;
-    color: #991b1b;
+    color: #b40f1d;
 }
 
 .action-buttons {
@@ -472,13 +472,13 @@
 
 .pagination-controls button:hover:not(:disabled) {
     background-color: #fef2f2;
-    border-color: #ef4444;
-    color: #ef4444;
+    border-color: #d41424;
+    color: #d41424;
 }
 
 .pagination-controls button.active {
-    background-color: #ef4444;
-    border-color: #ef4444;
+    background-color: #d41424;
+    border-color: #d41424;
     color: white;
 }
 

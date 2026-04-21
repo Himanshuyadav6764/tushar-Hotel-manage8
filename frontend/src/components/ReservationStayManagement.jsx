@@ -465,9 +465,13 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             additionalGuests: booking.additionalGuests || [],
             visitors: booking.visitors || [],
             checkInDate: booking.checkInDate ? (d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)(new Date(booking.checkInDate)) : '',
-            checkInTime: booking.actualCheckIn ? new Date(booking.actualCheckIn).toTimeString().slice(0, 5) : (booking.scheduledCheckInTime || '14:00'),
+            checkInTime: booking.actualCheckIn
+                ? new Date(booking.actualCheckIn).toTimeString().slice(0, 5)
+                : (booking.scheduledCheckInTime || booking.checkInTime || '14:00'),
             checkOutDate: booking.checkOutDate ? (d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)(new Date(booking.checkOutDate)) : '',
-            checkOutTime: booking.actualCheckOut ? new Date(booking.actualCheckOut).toTimeString().slice(0, 5) : (booking.scheduledCheckOutTime || '11:00'),
+            checkOutTime: booking.actualCheckOut
+                ? new Date(booking.actualCheckOut).toTimeString().slice(0, 5)
+                : (booking.scheduledCheckOutTime || booking.checkOutTime || '11:00'),
             actualCheckIn: booking.actualCheckIn,
             actualCheckOut: booking.actualCheckOut,
             flexibleCheckout: false,
@@ -483,8 +487,8 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     categoryId: getCategoryIdFromRoomType(r.roomType) || '',
                     roomNumber: r.roomNumber || '',
                     mealPlan: r.mealPlan || 'CP',
-                    adultsCount: r.adults || 1,
-                    childrenCount: r.children || 0,
+                    adultsCount: num(r.adults ?? r.adultsCount, 1),
+                    childrenCount: num(r.children ?? r.childrenCount, 0),
                     ratePerNight: num(r.ratePerNight ?? r.roomRate ?? r.pricePerNight ?? r.price, 0),
                     discount: num(r.discount ?? r.discountAmount, 0)
                 }))
@@ -493,8 +497,8 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     categoryId: getCategoryIdFromRoomType(booking.roomType) || '',
                     roomNumber: booking.roomNumber || '',
                     mealPlan: 'CP',
-                    adultsCount: booking.numberOfAdults || duration.adults || 1,
-                    childrenCount: booking.numberOfChildren || duration.children || 0,
+                    adultsCount: num(booking.numberOfAdults ?? duration.adults, 1),
+                    childrenCount: num(booking.numberOfChildren ?? duration.children, 0),
                     ratePerNight: pricePerNight,
                     discount: 0
                 }],
@@ -2612,7 +2616,7 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                                     {searchQuery && (
                                         <button
                                             className="btn btn-primary"
-                                            style={{ padding: '0.8rem 2rem', borderRadius: '10px', backgroundColor: '#ef4444', borderColor: '#ef4444' }}
+                                            style={{ padding: '0.8rem 2rem', borderRadius: '10px', backgroundColor: '#d41424', borderColor: '#d41424' }}
                                             onClick={() => setSearchQuery('')}
                                         >
                                             Clear Search & View All

@@ -6,7 +6,7 @@ const FEATURES = [
         title: 'Reservation Management',
         description: 'Streamline bookings and manage check-ins and check-outs with ease.',
         icon: <CalendarDays strokeWidth={1.5} size={32} />,
-        color: '#e11d48', // Red
+        color: '#d41424', // Red
         bg: '#ffe5e8', // Soft red
     },
     {

@@ -60,7 +60,7 @@
     text-transform: uppercase;
     font-size: 13px;
     letter-spacing: 0.05em;
-    border-bottom: 1px solid #dc2626;
+    border-bottom: 1px solid #d41424;
 }
 
 
@@ -184,7 +184,7 @@
 
 .facility-tag {
     background-color: #fee2e2; /* Red 100 */
-    color: #991b1b;       /* Red 800 */
+    color: #b40f1d;       /* Red 800 */
     padding: 6px 12px;
     border-radius: 999px;
     font-size: 13px;
@@ -243,7 +243,7 @@
 }
 
 .premium-payment-header {
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    background: linear-gradient(135deg, #f43f5e 0%, #d41424 100%);
     padding: 24px;
     color: white;
     display: flex;
@@ -388,7 +388,7 @@
     height: 48px;
     border-radius: 12px;
     border: none;
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    background: linear-gradient(135deg, #f43f5e 0%, #d41424 100%);
     color: #ffffff;
     font-weight: 800;
     cursor: pointer;

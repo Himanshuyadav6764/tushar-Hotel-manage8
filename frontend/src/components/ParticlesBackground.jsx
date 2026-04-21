@@ -111,7 +111,7 @@ const ParticlesBackground = () => {
             sparkle.style.top = `${y}px`;
 
             // Random color tint
-            const colors = ['#ffffff', '#ffccd5', '#e11d48']; // White, Pink, Red
+            const colors = ['#ffffff', '#ffccd5', '#d41424']; // White, Pink, Red
             sparkle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
 
             // Use clip-path for star shape

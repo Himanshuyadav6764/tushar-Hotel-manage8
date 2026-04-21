@@ -59,11 +59,11 @@
 
 .view-toggle-btn:hover {
     background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
+    color: #d41424;
 }
 
 .view-toggle-btn.active {
-    background: #ef4444;
+    background: #d41424;
     color: white;
 }
 
@@ -89,7 +89,7 @@
 }
 
 .add-room-btn {
-    background: #ef4444;
+    background: #d41424;
     color: white;
     border: none;
     padding: 12px 30px;
@@ -143,7 +143,7 @@
 
 .search-box input:focus {
     outline: none;
-    border-color: #ef4444;
+    border-color: #d41424;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
@@ -161,7 +161,7 @@
 
 .filter-select:focus {
     outline: none;
-    border-color: #ef4444;
+    border-color: #d41424;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
@@ -190,7 +190,7 @@
 
 .filter-dropdown-trigger:focus {
     outline: none;
-    border-color: #ef4444;
+    border-color: #d41424;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
@@ -234,7 +234,7 @@
 
 .filter-dropdown-option:hover {
     background: #fef2f2;
-    color: #be123c;
+    color: #b40f1d;
 }
 
 /* Rooms Grid - 6 CARDS PER ROW */
@@ -266,7 +266,7 @@
 
 .room-card.status-occupied {
     background: #fee;
-    border-left: 4px solid #ef4444;
+    border-left: 4px solid #d41424;
 }
 
 .room-card.status-available {
@@ -291,7 +291,7 @@
 .room-card-header h3 {
     margin: 0;
     font-size: 16px !important;
-    color: #ef4444;
+    color: #d41424;
     font-weight: 700;
 }
 
@@ -344,7 +344,7 @@
 .room-delete-warning span {
     font-size: 14px;
     font-weight: 700;
-    color: #991b1b;
+    color: #b40f1d;
 }
 
 .room-delete-warning-actions {
@@ -363,13 +363,13 @@
 }
 
 .room-delete-warning-yes {
-    background: #ef4444;
+    background: #d41424;
     color: #fff;
 }
 
 .room-delete-warning-no {
     background: #fee2e2;
-    color: #991b1b;
+    color: #b40f1d;
 }
 
 .room-card-delete-open {
@@ -433,7 +433,7 @@
 }
 
 .room-status.status-occupied {
-    background: #ef4444;
+    background: #d41424;
     color: white;
 }
 
@@ -450,7 +450,7 @@
 .edit-btn {
     background: white;
     border: none;
-    color: #ef4444;
+    color: #d41424;
     padding: 6px 10px !important;
     border-radius: 6px !important;
     font-size: 11px !important;
@@ -467,7 +467,7 @@
 .edit-btn:hover {
     background: #fef2f2;
     color: #E31E24;
-    box-shadow: 0 0 0 2px #ef4444;
+    box-shadow: 0 0 0 2px #d41424;
     transform: translateY(-1px);
 }
 
@@ -698,7 +698,7 @@ select.form-input option {
 }
 
 select.form-input option:checked {
-    background: #ef4444 !important;
+    background: #d41424 !important;
     color: #ffffff !important;
     font-weight: 600;
 }
@@ -733,7 +733,7 @@ select.form-input option:checked {
 .btn-submit {
     flex: 1;
     padding: 12px;
-    background: #ef4444;
+    background: #d41424;
     border: none;
     border-radius: 8px;
     font-size: 16px;
@@ -776,7 +776,7 @@ select.form-input option:checked {
 
 .room-list-item.status-occupied {
     background: #fee;
-    border-left: 4px solid #ef4444;
+    border-left: 4px solid #d41424;
 }
 
 .room-list-item.status-available {
@@ -800,7 +800,7 @@ select.form-input option:checked {
 .room-list-number h3 {
     margin: 0;
     font-size: 18px;
-    color: #ef4444;
+    color: #d41424;
     font-weight: 700;
 }
 
@@ -845,7 +845,7 @@ select.form-input option:checked {
 
 .room-list-actions .edit-btn {
     padding: 8px 16px;
-    background: #ef4444;
+    background: #d41424;
     color: white;
     border: none;
     border-radius: 6px;
@@ -1014,7 +1014,7 @@ select.form-input option:checked {
 }
 
 .premium-payment-header {
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    background: linear-gradient(135deg, #f43f5e 0%, #d41424 100%);
     padding: 24px 20px;
     color: white;
     display: flex;
@@ -1108,7 +1108,7 @@ select.form-input option:checked {
 }
 
 .premium-input-wrapper:focus-within {
-    border-color: #e11d48;
+    border-color: #d41424;
     box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.05);
 }
 
@@ -1185,7 +1185,7 @@ select.form-input option:checked {
 
 .premium-dropdown-option:hover {
     background: #fff1f2;
-    color: #be123c;
+    color: #b40f1d;
 }
 
 .edit-floor-dropdown {
@@ -1246,7 +1246,7 @@ select.form-input option:checked {
 
 .edit-floor-dropdown-option:hover {
     background: #fef2f2;
-    color: #be123c;
+    color: #b40f1d;
 }
 
 .amount-input-container {
@@ -1286,9 +1286,9 @@ select.form-input option:checked {
     flex: 1;
     height: 54px;
     border-radius: 14px;
-    border: 2px solid #e11d48;
+    border: 2px solid #d41424;
     background: #ffffff;
-    color: #e11d48;
+    color: #d41424;
     font-weight: 800;
     cursor: pointer;
     text-transform: uppercase;
@@ -1305,7 +1305,7 @@ select.form-input option:checked {
     height: 54px;
     border-radius: 14px;
     border: none;
-    background: #e11d48;
+    background: #d41424;
     color: white;
     font-weight: 800;
     cursor: pointer;
@@ -1316,7 +1316,7 @@ select.form-input option:checked {
 }
 
 .btn-primary:hover {
-    background: #be123c;
+    background: #b40f1d;
     transform: translateY(-1px);
     box-shadow: 0 6px 15px rgba(225, 29, 72, 0.3);
 }

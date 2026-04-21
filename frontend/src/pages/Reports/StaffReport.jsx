@@ -99,13 +99,13 @@ const StaffReport = () => {
         if (val >= 4) return '#10b981';
         if (val >= 3) return '#f59e0b';
         if (val >= 2) return '#f97316';
-        return '#ef4444';
+        return '#d41424';
     };
 
     const getAttendanceBadge = (status) => {
         const map = {
             'Present': { bg: '#dcfce7', color: '#166534', label: 'Present' },
-            'Absent': { bg: '#fee2e2', color: '#991b1b', label: 'Absent' },
+            'Absent': { bg: '#fee2e2', color: '#b40f1d', label: 'Absent' },
             'On Leave': { bg: '#fef3c7', color: '#92400e', label: 'On Leave' }
         };
         return map[status] || map['Present'];

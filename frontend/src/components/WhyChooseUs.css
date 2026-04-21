@@ -18,7 +18,7 @@
 }
 
 .why-section h2 span {
-    color: #e11d48;
+    color: #d41424;
 }
 
 .why-section p.subtitle {
@@ -199,7 +199,7 @@
         min-height: auto;
     }
 
-    .why-layout > * + * {
+    .why-layout>*+* {
         margin-top: 28px;
     }
 
@@ -247,6 +247,7 @@
 }
 
 @media (max-width: 600px) {
+
     .why-section .subtitle,
     .why-section p.subtitle {
         text-align: center !important;

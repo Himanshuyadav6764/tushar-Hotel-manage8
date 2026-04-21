@@ -13,7 +13,7 @@
 }
 
 .pos-tag {
-  color: #e11d48;
+  color: #d41424;
   font-weight: 600;
   font-size: 0.9rem;
   letter-spacing: 1px;
@@ -106,7 +106,7 @@
 .inventory-content h3 span,
 .reports-content h3 span,
 .ordering-content h3 span {
-  color: #e11d48;
+  color: #d41424;
 }
 
 .billing-content p,
@@ -123,7 +123,7 @@
 .inventory-link,
 .reports-link,
 .ordering-link {
-  color: #e11d48;
+  color: #d41424;
   font-weight: 600;
   text-decoration: none;
   font-size: 1.1rem;
@@ -138,7 +138,7 @@
 .reports-link:hover,
 .ordering-link:hover {
   gap: 1rem;
-  color: #be123c;
+  color: #b40f1d;
 }
 
 /* Landing Features - 3 cards, reference style */

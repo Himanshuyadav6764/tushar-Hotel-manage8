@@ -267,6 +267,41 @@ KOT (Kitchen Order Ticket) is the backbone of Bireena Atithi's food service auto
 
 📊 OVERALL FLOW SUMMARY:
 Order Placed → KOT Generated → Kitchen Receives → Prepares → Serves → Bill Ready`,
+
+    "Folio & Bill Splitting": `📄 FOLIO & BILLING MANAGEMENT
+
+Every guest has a "Folio" — a virtual account that tracks all their expenses (Room, Food, Laundry, etc.).
+
+✂️ HOW TO SPLIT A BILL / ROUTE FOLIO:
+If a guest wants to pay for certain items separately (e.g. food on one bill, room on another):
+1. Login → Folio Management
+2. Search and select the Guest Name/Room
+3. Click on the "Route Folio" or "Split Bill" button
+4. You will see two columns (Main Folio and Sub-Folio)
+5. Select the items you want to move (e.g., KOT #102)
+6. Click the arrow button to Move to Sub-Folio
+7. Save changes → Now you can generate two separate invoices for the same guest!
+
+🔄 MERGING BILLS:
+If you want to combine multiple room bills into one:
+1. Open Folio Management → Master Folio
+2. Select rooms to be linked
+3. Click "Merge to Master"
+4. All charges will now appear on a single total invoice.`,
+
+    "Check-out Process": `🚪 CHECK-OUT & FINAL SETTLEMENT
+
+Follow these steps to complete a guest stay:
+1. Go to Folio Management → Search Room Number
+2. Review all charges (Room, F&B, Minibar, Taxes)
+3. Click "Accept Payment" → Select Mode (Cash/Card/UPI)
+4. Once total balance is ₹0, click "Complete Check-out"
+5. Room status instantly changes to "Dirty" (Housekeeping notified)
+6. Print/Email the GST-compliant Tax Invoice to the guest.`,
+
+    "Table Splitting": `✂️ HOW TO SPLIT A TABLE
+
+Table View → Select Occupied Table → More Options → Split Table → Select Items to Move → Save Changes.`,
 };
 
 
@@ -281,8 +316,8 @@ I can instantly answer questions about:
 • 📋 Reservation Process
 • 🍽️ How to Order Food
 • 💰 Pricing Plans
-• 🪑 Table Booking Process
-• 🏨 About Bireena Atithi
+• ✂️ Folio & Bill Splitting
+• 🚪 Check-out Process
 
 How can I help you today? 😊`;
 
@@ -315,9 +350,8 @@ const GREETING_REPLY = `Hello! 👋 I'm Advika AI, your smart assistant for Bire
 How can I help you today? You can ask me about:
 • 📋 Reservation Process
 • 🍽️ How to Order Food
-• 💰 Pricing Plans
-• 🪑 Table Booking Process
-• 🏨 About Bireena Atithi`;
+• ✂️ Folio & Bill Splitting
+• 🚪 Check-out Process`;
 
 // ─── Pattern match ────────────────────────────────────────────────────
 const match = (text, kw) => kw.some(k => text.includes(k));
@@ -332,8 +366,10 @@ const getInstantReply = (text) => {
         return DEMO_REPLY;
     if (match(t, ["contact", "phone number", "email address", "address", "reach us", "support", "helpline", "location"]))
         return CONTACT_REPLY;
-    if (match(t, ["reservation", "booking", "book room", "reserve room", "check in", "check-in", "check out", "check-out"]))
+    if (match(t, ["reservation", "booking", "book room", "reserve room", "check in", "check-in"]))
         return INSTANT["Reservation Process"];
+    if (match(t, ["check out", "check-out", "checkout", "leave", "departure", "settle", "final bill", "discharge"]))
+        return INSTANT["Check-out Process"];
     if (match(t, ["food", "order food", "kot", "kitchen", "menu", "eating", "meal", "dining", "qr code", "in-room"]))
         return INSTANT["How to Order Food"];
     if (match(t, ["price", "pricing", "cost", "plan", "basic", "professional", "enterprise", "subscription", "₹", "fee", "how much"]))
@@ -346,6 +382,10 @@ const getInstantReply = (text) => {
         return INSTANT["Hotel Features"];
     if (match(t, ["kot feature", "kot system", "kitchen order", "what is kot", "kot kya", "kot details"]))
         return INSTANT["KOT Features"];
+    if (match(t, ["folio", "folio management", "split bill", "split bin", "bill split", "route folio", "merg", "combine bill", "routing"]))
+        return INSTANT["Folio & Bill Splitting"];
+    if (match(t, ["table split", "split table", "table splitting", "split a table"]))
+        return INSTANT["Table Splitting"];
     if (match(t, ["how kot works", "kot process", "kot flow", "kot kaise", "how does kot", "how kitchen order"]))
         return INSTANT["How KOT Works"];
     return null;
@@ -559,12 +599,11 @@ export default function AdvikaAI() {
                         <div className="quick-options">
                             <button onClick={() => sendMessage("Reservation Process", true)}>📋 Reservation Process</button>
                             <button onClick={() => sendMessage("How to Order Food", true)}>🍽️ How to Order Food</button>
+                            <button onClick={() => sendMessage("Folio & Bill Splitting", true)}>✂️ Folio & Bill Splitting</button>
+                            <button onClick={() => sendMessage("Check-out Process", true)}>🚪 Check-out Process</button>
                             <button onClick={() => sendMessage("Pricing Information", true)}>💰 Pricing Information</button>
-                            <button onClick={() => sendMessage("Table Booking Process", true)}>🪑 Table Booking Process</button>
                             <button onClick={() => sendMessage("About Bireena Atithi", true)}>🏨 About Bireena Atithi</button>
-                            <button onClick={() => sendMessage("Hotel Features", true)}>🏢 Hotel Features</button>
                             <button onClick={() => sendMessage("KOT Features", true)}>🎫 KOT Features</button>
-                            <button onClick={() => sendMessage("How KOT Works", true)}>⚙️ How KOT Works</button>
                         </div>
 
                         {/* Dynamic messages */}
@@ -574,7 +613,7 @@ export default function AdvikaAI() {
                                 ref={el => msgRefs.current[i] = el}
                                 className={msg.role === "user" ? "user-message" : "bot-message"}
                                 style={msg.role === "user" ? {
-                                    background: "linear-gradient(135deg, #e11d48, #be123c)",
+                                    background: "linear-gradient(135deg, #d41424, #b40f1d)",
                                     color: "#fff",
                                     borderRadius: "20px 20px 4px 20px",
                                     marginLeft: "auto",
@@ -603,7 +642,7 @@ export default function AdvikaAI() {
                                             top: 6,
                                             right: 8,
                                             background: speakingIdx === i
-                                                ? "linear-gradient(135deg,#e11d48,#be123c)"
+                                                ? "linear-gradient(135deg,#d41424,#b40f1d)"
                                                 : "rgba(225,29,72,0.1)",
                                             border: "none",
                                             borderRadius: "50%",
@@ -632,7 +671,7 @@ export default function AdvikaAI() {
                                 {[0, 0.2, 0.4].map((d, i) => (
                                     <span key={i} style={{
                                         width: 8, height: 8, borderRadius: "50%",
-                                        background: "#e11d48", display: "inline-block",
+                                        background: "#d41424", display: "inline-block",
                                         animation: `advika-bounce 1.2s ${d}s infinite ease-in-out`,
                                     }} />
                                 ))}

@@ -983,7 +983,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                 .payment-subline { margin-top: 2px; font-size: 10px; color: #4b5563; }
                 .totals-box { border: 1px solid #d6dbe3; border-radius: 4px; padding: 8px; margin-top: 8px; }
                 .total-row { display: flex; justify-content: space-between; gap: 8px; margin: 3px 0; font-weight: 700; }
-                .total-row.red { color: #dc2626; }
+                .total-row.red { color: #d41424; }
                 .total-row.green { color: #15803d; }
                 .empty-text { color: #6b7280; font-style: italic; margin: 4px 0 8px 0; }
                 .footer { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #d9dde4; text-align: center; }
@@ -1616,7 +1616,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                             <div className="summary-right">
                                 <div className="summary-row-right">
                                     <span className="summary-label-text">Current Balance</span>
-                                    <span className="summary-amount-right" style={{ fontSize: '1.2rem', fontWeight: '800', color: totals.remaining > 0 ? '#ef4444' : '#22c55e' }}>
+                                    <span className="summary-amount-right" style={{ fontSize: '1.2rem', fontWeight: '800', color: totals.remaining > 0 ? '#d41424' : '#22c55e' }}>
                                         {cs} {formatSummaryAmount(totals.remaining)}
                                     </span>
                                 </div>
@@ -1741,7 +1741,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                                             <div className="summary-item"><label>GUEST</label><span>{folioList.find(f => f.id === selectedRoom)?.guestName || reservation?.guestName || 'N/A'}</span></div>
                                         </div>
                                         <div className="summary-column">
-                                            <div className="summary-item"><label>BALANCE</label><span style={{ color: '#e11d48', fontWeight: '900' }}>{cs}{totals.remaining.toFixed(2)}</span></div>
+                                            <div className="summary-item"><label>BALANCE</label><span style={{ color: '#d41424', fontWeight: '900' }}>{cs}{totals.remaining.toFixed(2)}</span></div>
                                         </div>
                                     </div>
                                 </div>
@@ -1758,7 +1758,7 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                                                 onClick={() => setSelectedPrintType(fmt.key)}
                                                 style={{
                                                     background: selectedPrintType === fmt.key ? '#fef2f2' : 'white',
-                                                    border: selectedPrintType === fmt.key ? '2px solid #e11d48' : '2px solid #f1f5f9',
+                                                    border: selectedPrintType === fmt.key ? '2px solid #d41424' : '2px solid #f1f5f9',
                                                     borderRadius: '16px',
                                                     padding: '16px 8px',
                                                     display: 'flex',
@@ -1774,14 +1774,14 @@ const FolioOperations = ({ reservation, onTotalsChange, onRefresh }) => {
                                                 }}
                                             >
                                                 <span style={{ fontSize: '24px' }}>{fmt.icon}</span>
-                                                <span style={{ fontSize: '13px', fontWeight: '800', color: selectedPrintType === fmt.key ? '#e11d48' : '#475569' }}>{fmt.label}</span>
+                                                <span style={{ fontSize: '13px', fontWeight: '800', color: selectedPrintType === fmt.key ? '#d41424' : '#475569' }}>{fmt.label}</span>
                                                 <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700' }}>{fmt.desc}</span>
                                                 {selectedPrintType === fmt.key && (
                                                     <div style={{
                                                         position: 'absolute',
                                                         top: '-6px',
                                                         right: '-6px',
-                                                        background: '#e11d48',
+                                                        background: '#d41424',
                                                         color: 'white',
                                                         width: '20px',
                                                         height: '20px',

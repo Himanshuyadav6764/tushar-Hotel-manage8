@@ -170,7 +170,7 @@
 
 .rs-search-clear:hover {
     background: #fee2e2;
-    color: #ef4444;
+    color: #d41424;
 }
 
 .rs-filter-pills {
@@ -509,7 +509,7 @@
 }
 
 .rs-room-num-box:hover {
-    color: #ef4444;
+    color: #d41424;
 }
 
 .rs-progress-segment-wrap:hover .rs-progress-segment:not(.active) {

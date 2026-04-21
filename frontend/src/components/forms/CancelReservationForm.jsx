@@ -51,7 +51,7 @@ const CancelReservationForm = ({ booking, onSubmit, onCancel }) => {
 
     const labelStyle = { fontSize: '12px', fontWeight: '700', color: '#64748B', marginBottom: '6px', display: 'block' };
     const boxStyle = { width: '100%', padding: '12px', borderRadius: '10px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', backgroundColor: '#FFFFFF' };
-    const errorStyle = { margin: '4px 0 0 0', color: '#E11D48', fontSize: '12px', fontWeight: '600' };
+    const errorStyle = { margin: '4px 0 0 0', color: '#d41424', fontSize: '12px', fontWeight: '600' };
 
     return (
         <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: '#F8FAFC', color: '#1E293B', width: '100%', boxSizing: 'border-box' }}>
@@ -70,14 +70,14 @@ const CancelReservationForm = ({ booking, onSubmit, onCancel }) => {
                 </div>
 
                 {/* Warning */}
-                <div style={{ padding: '14px 16px', borderRadius: '12px', backgroundColor: '#FEF2F2', border: '1px solid #FEE2E2', color: '#991B1B', fontSize: '13px', fontWeight: '600', lineHeight: '1.5' }}>
+                <div style={{ padding: '14px 16px', borderRadius: '12px', backgroundColor: '#FEF2F2', border: '1px solid #FEE2E2', color: '#b40f1d', fontSize: '13px', fontWeight: '600', lineHeight: '1.5' }}>
                     ⚠️ This reservation will be permanently <strong>CANCELLED</strong>. Any advance paid will be processed as per the refund details below.
                 </div>
 
                 {/* Reason */}
                 <div>
-                    <span style={labelStyle}>CANCELLATION REASON <span style={{ color: '#E11D48' }}>*</span></span>
-                    <textarea name="reason" value={formData.reason} onChange={handleChange} placeholder="Why is this reservation being cancelled?" rows={2} style={{ ...boxStyle, border: errors.reason ? '2px solid #E11D48' : '1px solid #E2E8F0', resize: 'vertical' }} />
+                    <span style={labelStyle}>CANCELLATION REASON <span style={{ color: '#d41424' }}>*</span></span>
+                    <textarea name="reason" value={formData.reason} onChange={handleChange} placeholder="Why is this reservation being cancelled?" rows={2} style={{ ...boxStyle, border: errors.reason ? '2px solid #d41424' : '1px solid #E2E8F0', resize: 'vertical' }} />
                     {errors.reason && <p style={errorStyle}>{errors.reason}</p>}
                 </div>
 
@@ -89,7 +89,7 @@ const CancelReservationForm = ({ booking, onSubmit, onCancel }) => {
                     </div>
                     <div>
                         <span style={labelStyle}>REFUND AMOUNT ({cs})</span>
-                        <input type="number" name="refundAmount" value={formData.refundAmount} onChange={handleChange} min="0" max={advancePaid} step="0.01" placeholder={`Max: ${cs}${advancePaid}`} style={{ ...boxStyle, border: errors.refundAmount ? '2px solid #E11D48' : '1px solid #E2E8F0' }} />
+                        <input type="number" name="refundAmount" value={formData.refundAmount} onChange={handleChange} min="0" max={advancePaid} step="0.01" placeholder={`Max: ${cs}${advancePaid}`} style={{ ...boxStyle, border: errors.refundAmount ? '2px solid #d41424' : '1px solid #E2E8F0' }} />
                         {errors.refundAmount && <p style={errorStyle}>{errors.refundAmount}</p>}
                     </div>
                 </div>
@@ -108,7 +108,7 @@ const CancelReservationForm = ({ booking, onSubmit, onCancel }) => {
                         <span>Advance Paid</span><span style={{ fontWeight: '700', color: '#1E293B' }}>{cs}{advancePaid.toLocaleString()}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
-                        <span>Refund</span><span style={{ fontWeight: '700', color: '#E11D48' }}>- {cs}{(parseFloat(formData.refundAmount) || 0).toLocaleString()}</span>
+                        <span>Refund</span><span style={{ fontWeight: '700', color: '#d41424' }}>- {cs}{(parseFloat(formData.refundAmount) || 0).toLocaleString()}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
                         <span>Charges</span><span style={{ fontWeight: '700', color: '#059669' }}>+ {cs}{(parseFloat(formData.cancellationCharges) || 0).toLocaleString()}</span>
@@ -122,7 +122,7 @@ const CancelReservationForm = ({ booking, onSubmit, onCancel }) => {
             {/* Footer */}
             <div style={{ padding: '20px 32px 20px 16px', backgroundColor: '#FFFFFF', borderTop: '1px solid #E2E8F0', display: 'flex', gap: '12px' }}>
                 <button type="button" onClick={onCancel} disabled={isSubmitting} style={{ flex: 1, padding: '14px', backgroundColor: '#F1F5F9', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#64748B', cursor: 'pointer' }}>Go Back</button>
-                <button type="button" onClick={handleSubmit} disabled={isSubmitting} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #E11D48, #BE123C)', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#FFFFFF', cursor: 'pointer', opacity: isSubmitting ? 0.5 : 1, boxShadow: '0 4px 12px rgba(225, 29, 72, 0.3)' }}>
+                <button type="button" onClick={handleSubmit} disabled={isSubmitting} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #d41424, #b40f1d)', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#FFFFFF', cursor: 'pointer', opacity: isSubmitting ? 0.5 : 1, boxShadow: '0 4px 12px rgba(225, 29, 72, 0.3)' }}>
                     {isSubmitting ? 'Cancelling...' : 'Cancel Reservation'}
                 </button>
             </div>

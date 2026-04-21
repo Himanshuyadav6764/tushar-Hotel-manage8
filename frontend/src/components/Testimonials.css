@@ -110,7 +110,7 @@
 }
 
 .dot.active {
-    background: #e11d48;
+    background: #d41424;
     width: 32px;
     border-radius: 6px;
 }
@@ -161,7 +161,7 @@
 .stat-number {
     font-size: 2.5rem;
     font-weight: 700;
-    color: #e11d48;
+    color: #d41424;
     margin-bottom: 0.5rem;
 }
 

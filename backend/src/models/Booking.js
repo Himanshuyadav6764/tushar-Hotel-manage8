@@ -86,6 +86,11 @@ const bookingSchema = new mongoose.Schema({
         required: true,
         index: true
     },
+    // Scheduled times used by reservation/amend flows.
+    checkInTime: { type: String, default: '14:00' },
+    checkOutTime: { type: String, default: '11:00' },
+    scheduledCheckInTime: { type: String, default: '14:00' },
+    scheduledCheckOutTime: { type: String, default: '11:00' },
     actualCheckIn: Date,
     actualCheckOut: Date,
 

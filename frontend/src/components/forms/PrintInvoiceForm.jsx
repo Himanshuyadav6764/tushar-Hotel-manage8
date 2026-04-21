@@ -133,7 +133,7 @@ const PrintInvoiceForm = ({ booking, onSubmit, onCancel }) => {
                             </div>
                             <div className="summary-item">
                                 <label>GRAND TOTAL</label>
-                                <span style={{ color: '#e11d48', fontWeight: '900' }}>{cs}{grandTotal.toLocaleString('en-IN')}</span>
+                                <span style={{ color: '#d41424', fontWeight: '900' }}>{cs}{grandTotal.toLocaleString('en-IN')}</span>
                             </div>
                         </div>
                     </div>
@@ -181,7 +181,7 @@ const PrintInvoiceForm = ({ booking, onSubmit, onCancel }) => {
                                 onClick={() => setPrintType(opt.id)}
                                 style={{
                                     background: printType === opt.id ? '#fef2f2' : 'white',
-                                    border: printType === opt.id ? '2px solid #e11d48' : '2px solid #f1f5f9',
+                                    border: printType === opt.id ? '2px solid #d41424' : '2px solid #f1f5f9',
                                     borderRadius: '16px',
                                     padding: '16px 8px',
                                     display: 'flex',
@@ -197,7 +197,7 @@ const PrintInvoiceForm = ({ booking, onSubmit, onCancel }) => {
                                 }}
                             >
                                 <span style={{ fontSize: '24px' }}>{opt.icon}</span>
-                                <span style={{ fontSize: '13px', fontWeight: '800', color: printType === opt.id ? '#e11d48' : '#475569' }}>
+                                <span style={{ fontSize: '13px', fontWeight: '800', color: printType === opt.id ? '#d41424' : '#475569' }}>
                                     {opt.label}
                                 </span>
                                 {printType === opt.id && (
@@ -205,7 +205,7 @@ const PrintInvoiceForm = ({ booking, onSubmit, onCancel }) => {
                                         position: 'absolute', 
                                         top: '-6px', 
                                         right: '-6px', 
-                                        background: '#e11d48', 
+                                        background: '#d41424', 
                                         color: 'white', 
                                         width: '20px', 
                                         height: '20px', 

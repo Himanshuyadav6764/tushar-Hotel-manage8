@@ -70,7 +70,7 @@ const AddVisitorForm = ({ booking, onSubmit, onCancel }) => {
 
     const labelStyle = { fontSize: '12px', fontWeight: '700', color: '#64748B', marginBottom: '6px', display: 'block' };
     const boxStyle = { backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '12px 14px' };
-    const errorStyle = { color: '#EF4444', fontSize: '11px', marginTop: '4px', fontWeight: '600' };
+    const errorStyle = { color: '#d41424', fontSize: '11px', marginTop: '4px', fontWeight: '600' };
 
     return (
         <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: '#F8FAFC', color: '#1E293B', width: '100%', boxSizing: 'border-box' }}>
@@ -91,7 +91,7 @@ const AddVisitorForm = ({ booking, onSubmit, onCancel }) => {
                 {/* Visitor Name */}
                 <div>
                     <label style={labelStyle}>Visitor Name *</label>
-                    <input type="text" name="visitorName" value={formData.visitorName} onChange={handleChange} placeholder="Enter visitor's full name" style={{ ...boxStyle, width: '100%', fontWeight: '700', borderColor: errors.visitorName ? '#EF4444' : '#E2E8F0' }} />
+                    <input type="text" name="visitorName" value={formData.visitorName} onChange={handleChange} placeholder="Enter visitor's full name" style={{ ...boxStyle, width: '100%', fontWeight: '700', borderColor: errors.visitorName ? '#d41424' : '#E2E8F0' }} />
                     {errors.visitorName && <div style={errorStyle}>{errors.visitorName}</div>}
                 </div>
 
@@ -100,7 +100,7 @@ const AddVisitorForm = ({ booking, onSubmit, onCancel }) => {
                     <label style={labelStyle}>Mobile Number *</label>
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <div style={{ ...boxStyle, display: 'flex', alignItems: 'center', fontWeight: '700', color: '#64748B', padding: '12px', minWidth: '60px', justifyContent: 'center' }}>+91</div>
-                        <input type="tel" name="mobileNumber" value={formData.mobileNumber} onChange={handleChange} placeholder="Enter mobile number" style={{ ...boxStyle, flex: 1, fontWeight: '700', borderColor: errors.mobileNumber ? '#EF4444' : '#E2E8F0' }} />
+                        <input type="tel" name="mobileNumber" value={formData.mobileNumber} onChange={handleChange} placeholder="Enter mobile number" style={{ ...boxStyle, flex: 1, fontWeight: '700', borderColor: errors.mobileNumber ? '#d41424' : '#E2E8F0' }} />
                     </div>
                     {errors.mobileNumber && <div style={errorStyle}>{errors.mobileNumber}</div>}
                 </div>
@@ -120,7 +120,7 @@ const AddVisitorForm = ({ booking, onSubmit, onCancel }) => {
                     </div>
                     <div>
                         <label style={labelStyle}>ID Number *</label>
-                        <input type="text" name="idProofNumber" value={formData.idProofNumber} onChange={handleChange} placeholder="Enter ID number" style={{ ...boxStyle, width: '100%', fontWeight: '700', borderColor: errors.idProofNumber ? '#EF4444' : '#E2E8F0' }} />
+                        <input type="text" name="idProofNumber" value={formData.idProofNumber} onChange={handleChange} placeholder="Enter ID number" style={{ ...boxStyle, width: '100%', fontWeight: '700', borderColor: errors.idProofNumber ? '#d41424' : '#E2E8F0' }} />
                         {errors.idProofNumber && <div style={errorStyle}>{errors.idProofNumber}</div>}
                     </div>
                 </div>
@@ -147,7 +147,7 @@ const AddVisitorForm = ({ booking, onSubmit, onCancel }) => {
             {/* Footer */}
             <div style={{ padding: '20px 32px 20px 16px', backgroundColor: '#FFFFFF', borderTop: '1px solid #E2E8F0', display: 'flex', gap: '12px' }}>
                 <button type="button" onClick={onCancel} style={{ flex: 1, padding: '14px', backgroundColor: '#F1F5F9', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#64748B', cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" disabled={isSubmitting} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #E11D48, #BE123C)', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#FFFFFF', cursor: 'pointer', opacity: isSubmitting ? 0.5 : 1, boxShadow: '0 4px 12px rgba(225, 29, 72, 0.3)' }}>
+                <button type="submit" disabled={isSubmitting} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #d41424, #b40f1d)', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#FFFFFF', cursor: 'pointer', opacity: isSubmitting ? 0.5 : 1, boxShadow: '0 4px 12px rgba(225, 29, 72, 0.3)' }}>
                     {isSubmitting ? 'Adding...' : 'Add Visitor'}
                 </button>
             </div>

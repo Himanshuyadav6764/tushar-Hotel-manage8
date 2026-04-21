@@ -1,4 +1,7 @@
 const Table = require('../models/Table');
+const GuestMealOrder = require('../models/Order');
+
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Fetch all tables
 exports.getAllTables = async (req, res) => {
@@ -211,5 +214,248 @@ exports.updateTableStatus = async (req, res) => {
         res.status(200).json({ success: true, data: table });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    }
+};
+
+// Split one table into multiple sub tables.
+exports.splitTable = async (req, res) => {
+    try {
+        const { tableId } = req.params;
+        const { subTables = [] } = req.body || {};
+
+        if (!Array.isArray(subTables) || subTables.length < 2) {
+            return res.status(400).json({
+                success: false,
+                message: 'At least 2 sub-tables are required for split'
+            });
+        }
+
+        const table = await Table.findById(tableId);
+        if (!table) {
+            return res.status(404).json({ success: false, message: 'Table not found' });
+        }
+
+        let hasActiveOrder = false;
+        if (table.currentOrderId) {
+            const order = await GuestMealOrder.findById(table.currentOrderId).select('status').lean();
+            const activeOrderStatuses = ['Pending', 'Active', 'Confirmed', 'Preparing', 'Ready', 'Started', 'Served', 'Pending Payment', 'Billed'];
+            hasActiveOrder = !!(order && activeOrderStatuses.includes(order.status));
+
+            // Auto-clean stale order link when order is already closed/completed/cancelled.
+            if (!hasActiveOrder) {
+                table.currentOrderId = null;
+                table.runningOrderAmount = 0;
+                table.guests = 0;
+                table.orderStartTime = null;
+                if (table.status !== 'Available') table.status = 'Available';
+                await table.save();
+            }
+        }
+
+        if (hasActiveOrder || (table.runningOrderAmount || 0) > 0 || ['Running', 'Occupied', 'Billed'].includes(table.status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Only free tables can be split. Please close active order first.'
+            });
+        }
+
+        const normalizedSubTables = subTables.map((item) => ({
+            name: String(item?.name || '').trim(),
+            guests: Number(item?.guests) || 0,
+            waiter: String(item?.waiter || '').trim()
+        }));
+
+        const invalidRow = normalizedSubTables.find((item) => !item.name || item.guests < 1);
+        if (invalidRow) {
+            return res.status(400).json({
+                success: false,
+                message: 'Each sub-table must have a valid name and at least 1 seat'
+            });
+        }
+
+        const totalSeats = normalizedSubTables.reduce((sum, item) => sum + item.guests, 0);
+        if (totalSeats !== table.capacity) {
+            return res.status(400).json({
+                success: false,
+                message: `Total split seats (${totalSeats}) must match table capacity (${table.capacity})`
+            });
+        }
+
+        const duplicateInPayload = new Set();
+        for (const item of normalizedSubTables) {
+            const key = item.name.toLowerCase();
+            if (duplicateInPayload.has(key)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Duplicate sub-table name in split request: ${item.name}`
+                });
+            }
+            duplicateInPayload.add(key);
+        }
+
+        for (const item of normalizedSubTables) {
+            const nameRegex = new RegExp(`^${escapeRegex(item.name)}$`, 'i');
+            const exists = await Table.findOne({
+                _id: { $ne: table._id },
+                tableName: nameRegex,
+                type: table.type || 'General'
+            }).lean();
+
+            if (exists) {
+                return res.status(409).json({
+                    success: false,
+                    message: `Table name "${item.name}" already exists in type "${table.type || 'General'}"`
+                });
+            }
+        }
+
+        const highestTable = await Table.findOne().sort({ tableNumber: -1 }).select('tableNumber').lean();
+        let nextTableNumber = Number(highestTable?.tableNumber || 0) + 1;
+
+        const childTablesPayload = normalizedSubTables.map((item) => ({
+            tableName: item.name,
+            tableNumber: nextTableNumber++,
+            capacity: item.guests,
+            guests: 0,
+            status: 'Available',
+            type: table.type || 'General',
+            location: table.location || 'Main Hall',
+            assignedWaiter: item.waiter || '',
+            isSplitChild: true,
+            parentTableName: table.tableName
+        }));
+
+        const created = await Table.insertMany(childTablesPayload);
+        await Table.findByIdAndDelete(table._id);
+
+        return res.status(200).json({
+            success: true,
+            message: `Table ${table.tableName} split into ${created.length} sub-tables`,
+            data: created
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Server Error',
+            error: error.message
+        });
+    }
+};
+
+// Close split group and restore parent table.
+exports.closeSplitTable = async (req, res) => {
+    try {
+        const { tableId } = req.params;
+        const selectedTable = await Table.findById(tableId);
+
+        if (!selectedTable) {
+            return res.status(404).json({ success: false, message: 'Table not found' });
+        }
+
+        if (!selectedTable.isSplitChild || !selectedTable.parentTableName) {
+            return res.status(400).json({
+                success: false,
+                message: 'Selected table is not a split child table'
+            });
+        }
+
+        const parentTableName = String(selectedTable.parentTableName).trim();
+        const splitChildren = await Table.find({
+            isSplitChild: true,
+            parentTableName
+        });
+
+        if (!splitChildren.length) {
+            return res.status(404).json({
+                success: false,
+                message: 'No split child tables found for this parent'
+            });
+        }
+
+        const activeOrderStatuses = ['Pending', 'Active', 'Confirmed', 'Preparing', 'Ready', 'Started', 'Served', 'Pending Payment', 'Billed'];
+        const busyTables = [];
+
+        for (const child of splitChildren) {
+            let hasActiveOrder = false;
+            if (child.currentOrderId) {
+                const order = await GuestMealOrder.findById(child.currentOrderId).select('status').lean();
+                hasActiveOrder = !!(order && activeOrderStatuses.includes(order.status));
+
+                // Auto-clean stale order link if order is already closed/completed/cancelled.
+                if (!hasActiveOrder) {
+                    child.currentOrderId = null;
+                    child.runningOrderAmount = 0;
+                    child.guests = 0;
+                    child.orderStartTime = null;
+                }
+            }
+
+            const normalizedStatus = String(child.status || '').toLowerCase();
+            const isBusyStatus = ['running', 'occupied', 'billed'].includes(normalizedStatus);
+            const hasAmount = Number(child.runningOrderAmount || 0) > 0;
+
+            if (hasActiveOrder || isBusyStatus || hasAmount) {
+                busyTables.push(child);
+                continue;
+            }
+
+            if (child.status !== 'Available') {
+                child.status = 'Available';
+            }
+            await child.save();
+        }
+
+        if (busyTables.length > 0) {
+            return res.status(409).json({
+                success: false,
+                message: `Cannot close split while tables are active: ${busyTables.map((t) => t.tableName).join(', ')}`
+            });
+        }
+
+        const parentAlreadyExists = await Table.findOne({
+            tableName: new RegExp(`^${escapeRegex(parentTableName)}$`, 'i'),
+            type: selectedTable.type || 'General',
+            isSplitChild: { $ne: true }
+        }).lean();
+
+        if (parentAlreadyExists) {
+            await Table.deleteMany({ _id: { $in: splitChildren.map((child) => child._id) } });
+            return res.status(200).json({
+                success: true,
+                message: `Split already closed. Parent table ${parentTableName} is available.`,
+                data: parentAlreadyExists
+            });
+        }
+
+        const totalCapacity = splitChildren.reduce((sum, child) => sum + Number(child.capacity || 0), 0);
+        const highestTable = await Table.findOne().sort({ tableNumber: -1 }).select('tableNumber').lean();
+        const nextTableNumber = Number(highestTable?.tableNumber || 0) + 1;
+
+        const restoredParent = await Table.create({
+            tableName: parentTableName,
+            tableNumber: nextTableNumber,
+            capacity: totalCapacity,
+            guests: 0,
+            status: 'Available',
+            type: selectedTable.type || 'General',
+            location: selectedTable.location || 'Main Hall',
+            assignedWaiter: '',
+            isSplitChild: false,
+            parentTableName: ''
+        });
+
+        await Table.deleteMany({ _id: { $in: splitChildren.map((child) => child._id) } });
+
+        return res.status(200).json({
+            success: true,
+            message: `Split closed successfully. Restored table ${parentTableName}`,
+            data: restoredParent
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Server Error',
+            error: error.message
+        });
     }
 };

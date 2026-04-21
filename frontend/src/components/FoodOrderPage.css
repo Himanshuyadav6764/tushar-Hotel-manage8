@@ -1,7 +1,7 @@
 /* FoodOrderPage.css - REAL POS STYLE (Red/White Theme) */
 :root {
     --pos-red: #dc3545;
-    --pos-red-hover: #b91c1c;
+    --pos-red-hover: #b40f1d;
     --pos-red-light: #fff5f5;
     --pos-gray-bg: #f3f4f6;
     --pos-border: #e5e7eb;
@@ -411,7 +411,7 @@
 }
 
 .pos-food-card.out-of-stock .pos-card-qty-available {
-    color: #ef4444;
+    color: #d41424;
 }
 
 .pos-card-price {
@@ -1069,7 +1069,7 @@
 }
 
 .pos-note-modal-header {
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    background: linear-gradient(135deg, #f43f5e 0%, #d41424 100%);
     color: #ffffff;
     padding: 18px 20px;
     display: flex;
@@ -1186,7 +1186,7 @@
 }
 
 .pos-note-btn-primary {
-    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    background: linear-gradient(135deg, #f43f5e 0%, #d41424 100%);
     color: #ffffff;
     box-shadow: 0 10px 24px -8px rgba(225, 29, 72, 0.45);
 }

@@ -1,0 +1,27 @@
+/* ================= SCROLLING BRANDS MARQUEE ================= */
+
+.scrolling-brands-section {
+    border-bottom: 1px solid #fecdd3; /* Soft pink border merging with SaaS theme */
+}
+
+.scrolling-track {
+    /* Set animation properties */
+    animation: scroll-strip 20s linear infinite;
+    will-change: transform;
+}
+
+/* Pause running animation on hover */
+.scrolling-wrapper:hover .scrolling-track {
+    animation-play-state: paused;
+}
+
+/* Keyframes for smooth continuous infinity loop */
+/* Shifting exactly -33.333% because the array was duplicated 3 times */
+@keyframes scroll-strip {
+    0% {
+        transform: translateX(0%);
+    }
+    100% {
+        transform: translateX(-33.3333%);
+    }
+}

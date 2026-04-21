@@ -40,7 +40,7 @@
 }
 
 .tab.active {
-    background: #ef4444;
+    background: #d41424;
     color: white;
 }
 
@@ -270,7 +270,7 @@
 }
 
 .metric-card.refund .metric-value {
-    color: #ef4444;
+    color: #d41424;
 }
 
 .metric-card.total .metric-value {
@@ -278,7 +278,7 @@
 }
 
 .metric-card.total-refund .metric-value {
-    color: #b91c1c;
+    color: #b40f1d;
 }
 
 /* Footer */
@@ -404,7 +404,7 @@
 }
 
 .pink-icon {
-    background: linear-gradient(135deg, #ef4444, #E31E24);
+    background: linear-gradient(135deg, #d41424, #E31E24);
     color: white;
 }
 
@@ -648,7 +648,7 @@
 
 .pink-method .no-data-box {
     background: linear-gradient(135deg, #fee2e2, #fef2f2);
-    border-left: 4px solid #ef4444;
+    border-left: 4px solid #d41424;
 }
 
 .no-data-box p {
@@ -874,7 +874,7 @@
 
 .status-badge.failed {
     background: #fee2e2;
-    color: #991b1b;
+    color: #b40f1d;
 }
 
 .notes-cell {

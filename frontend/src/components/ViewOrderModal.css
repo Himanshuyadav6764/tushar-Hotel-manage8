@@ -28,12 +28,12 @@
 /* Header */
 .view-order-header {
     padding: 20px 25px;
-    background: linear-gradient(135deg, #dc3545 0%, #b91c1c 100%);
+    background: linear-gradient(135deg, #dc3545 0%, #b40f1d 100%);
     color: white;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 3px solid #991b1b;
+    border-bottom: 3px solid #b40f1d;
 }
 
 .view-order-header h2 {
@@ -368,8 +368,8 @@
 }
 
 .footer-btn.save-print:hover {
-    background: #b91c1c;
-    border-color: #b91c1c;
+    background: #b40f1d;
+    border-color: #b40f1d;
 }
 
 /* Toast */

@@ -155,7 +155,7 @@ const ReservationModal = ({ table, onClose, onReserve }) => {
                                 placeholder="Enter 10 digit number"
                                 maxLength="10"
                                 className="premium-input-field"
-                                style={errors.guestPhone ? { borderColor: '#e11d48' } : {}}
+                                style={errors.guestPhone ? { borderColor: '#d41424' } : {}}
                             />
                         </div>
                         {errors.guestPhone && <span className="error-text-premium">{errors.guestPhone}</span>}
@@ -173,7 +173,7 @@ const ReservationModal = ({ table, onClose, onReserve }) => {
                                 onChange={handleInputChange}
                                 placeholder="Enter Guest Name"
                                 className="premium-input-field"
-                                style={errors.guestName ? { borderColor: '#e11d48' } : {}}
+                                style={errors.guestName ? { borderColor: '#d41424' } : {}}
                             />
                         </div>
                         {errors.guestName && <span className="error-text-premium">{errors.guestName}</span>}
@@ -192,7 +192,7 @@ const ReservationModal = ({ table, onClose, onReserve }) => {
                                     onChange={handleInputChange}
                                     min={getCurrentDateISO()}
                                     className="premium-input-field"
-                                    style={errors.date ? { borderColor: '#e11d48' } : {}}
+                                    style={errors.date ? { borderColor: '#d41424' } : {}}
                                 />
                             </div>
                             {errors.date && <span className="error-text-premium">{errors.date}</span>}
@@ -201,7 +201,7 @@ const ReservationModal = ({ table, onClose, onReserve }) => {
                         {/* Session */}
                         <div className="payment-field-group" style={{ marginBottom: 0 }}>
                             <label className="field-label-premium">TIME (SESSION) <span className="req-star">*</span></label>
-                            <div className="premium-time-range" style={errors.startTime || errors.endTime ? { borderColor: '#e11d48' } : {}}>
+                            <div className="premium-time-range" style={errors.startTime || errors.endTime ? { borderColor: '#d41424' } : {}}>
                                 <input
                                     type="time"
                                     name="startTime"
@@ -246,7 +246,7 @@ const ReservationModal = ({ table, onClose, onReserve }) => {
                                     min="1"
                                     max={table.seats}
                                     className="premium-input-field"
-                                    style={errors.guests ? { borderColor: '#e11d48' } : {}}
+                                    style={errors.guests ? { borderColor: '#d41424' } : {}}
                                 />
                             </div>
                             {errors.guests && <span className="error-text-premium">{errors.guests}</span>}

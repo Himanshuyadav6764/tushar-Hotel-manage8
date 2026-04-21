@@ -2,8 +2,8 @@
 
 /* Premium Login Variables */
 :root {
-    --primary: #e11d48;
-    --primary-hover: #be123c;
+    --primary: #d41424;
+    --primary-hover: #b40f1d;
     --bg-dark: #0f172a;
     --bg-darker: #020617;
     --text-main: #1e293b;
@@ -455,7 +455,7 @@
     align-items: center;
     gap: 0.75rem;
     background: #fef2f2;
-    color: #ef4444;
+    color: #d41424;
     padding: 1rem;
     border-radius: 10px;
     border: 1px solid #fecaca;

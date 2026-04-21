@@ -1923,7 +1923,7 @@ const UniversalReport = ({ type }) => {
                             </div>
                         </div>
                         <div className="summary-stat-card report-tone-rose">
-                            <div className="stat-icon" style={{ background: '#ffe4e6', color: '#be123c' }}>💸</div>
+                            <div className="stat-icon" style={{ background: '#ffe4e6', color: '#b40f1d' }}>💸</div>
                             <div className="stat-info">
                                 <span className="stat-value">{cs}{(resSummary.summary?.cancellationRevenue || 0).toFixed(2)}</span>
                                 <span className="stat-label">Cancellation Revenue</span>
@@ -2035,7 +2035,7 @@ const UniversalReport = ({ type }) => {
                                         const val = billingSummary.breakdowns?.payment?.[method] || 0;
                                         const total = billingSummary.summary?.totalRevenue || 1;
                                         const pct = total > 0 ? ((val / total) * 100).toFixed(0) : 0;
-                                        const colors = { 'Cash': '#22c55e', 'UPI': '#3b82f6', 'Card': '#8b5cf6', 'Bank Transfer': '#f59e0b', 'Add to Room': '#ef4444', 'Mixed': '#334155' };
+                                        const colors = { 'Cash': '#22c55e', 'UPI': '#3b82f6', 'Card': '#8b5cf6', 'Bank Transfer': '#f59e0b', 'Add to Room': '#d41424', 'Mixed': '#334155' };
                                         return (
                                             <div key={method} style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px', border: '1px solid #e2e8f0' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2215,7 +2215,7 @@ const UniversalReport = ({ type }) => {
                                                 <div style={{ width: `${(a / max) * 100}%`, height: '100%', background: '#3b82f6' }}></div>
                                             </div>
                                             <div style={{ background: '#fee2e2', borderRadius: '6px', height: '10px', overflow: 'hidden' }}>
-                                                <div style={{ width: `${(b / max) * 100}%`, height: '100%', background: '#ef4444' }}></div>
+                                                <div style={{ width: `${(b / max) * 100}%`, height: '100%', background: '#d41424' }}></div>
                                             </div>
                                         </div>
                                     );

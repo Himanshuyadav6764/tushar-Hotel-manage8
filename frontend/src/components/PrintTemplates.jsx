@@ -693,7 +693,7 @@ const PrintTemplates = ({ type, data, booking }) => {
                         <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Due Balance</td>
                         <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(resolvedBalanceDue)}</td>
                     </tr>
-                    <tr style={{ color: resolvedBalanceDue > 0 ? '#b91c1c' : '#047857', fontWeight: 700 }}>
+                    <tr style={{ color: resolvedBalanceDue > 0 ? '#b40f1d' : '#047857', fontWeight: 700 }}>
                         <td style={{ padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>Remaining Due</td>
                         <td style={{ textAlign: 'right', padding: isNarrow ? '4px' : '8px', border: '1px solid #eee' }}>{amount(resolvedBalanceDue)}</td>
                     </tr>
@@ -872,11 +872,11 @@ const renderFolioPrint = () => (
         <div style={{ marginBottom: '15px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
                 <span>Sub Total</span>
-                <span style={{ fontWeight: 'bold', color: '#b91c1c' }}>Total: {amount(fallbackSubTotal)}</span>
+                <span style={{ fontWeight: 'bold', color: '#b40f1d' }}>Total: {amount(fallbackSubTotal)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0', fontSize: '10px' }}>
                 <span>Due Total</span>
-                <span style={{ fontWeight: 'bold', color: '#b91c1c' }}>{amount(dueTotal)}</span>
+                <span style={{ fontWeight: 'bold', color: '#b40f1d' }}>{amount(dueTotal)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
                 <span>Paid</span>
@@ -884,7 +884,7 @@ const renderFolioPrint = () => (
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0' }}>
                 <span>Remaining Due</span>
-                <span style={{ fontWeight: 'bold', color: resolvedBalanceDue > 0 ? '#b91c1c' : '#047857' }}>Due Balance: {amount(resolvedBalanceDue)}</span>
+                <span style={{ fontWeight: 'bold', color: resolvedBalanceDue > 0 ? '#b40f1d' : '#047857' }}>Due Balance: {amount(resolvedBalanceDue)}</span>
             </div>
         </div>
 

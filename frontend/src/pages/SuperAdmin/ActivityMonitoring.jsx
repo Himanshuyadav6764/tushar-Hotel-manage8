@@ -211,7 +211,7 @@ const ActivityMonitoring = () => {
         <div className="sa-container">
             <aside className={`sa-sidebar ${sidebarOpen ? 'open' : ''}`}>
                 <div className="sa-sidebar-header">
-                    <span style={{ fontSize: '24px', color: '#e11d48' }}>⚡</span>
+                    <span style={{ fontSize: '24px', color: '#d41424' }}>⚡</span>
                     <h2>SUPER ADMIN</h2>
                     <button
                         type="button"
@@ -260,7 +260,7 @@ const ActivityMonitoring = () => {
                             </button>
                         )}
                         <div className="sa-header-logo">
-                            <FaHotel style={{ color: '#e11d48' }} />
+                            <FaHotel style={{ color: '#d41424' }} />
                             <span>BIREENA ATITHI</span>
                         </div>
                     </div>
@@ -300,7 +300,7 @@ const ActivityMonitoring = () => {
                                 className="sa-btn-danger" 
                                 style={{ 
                                     padding: '8px 16px', 
-                                    background: '#ef4444', 
+                                    background: '#d41424', 
                                     color: '#fff', 
                                     border: 'none', 
                                     borderRadius: '6px', 
@@ -331,7 +331,7 @@ const ActivityMonitoring = () => {
                             flexDirection: 'column',
                             gap: '12px'
                         }}>
-                             <div style={{ fontWeight: 700, color: '#991b1b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                             <div style={{ fontWeight: 700, color: '#b40f1d', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <FaExclamationTriangle />
                                 DANGER ZONE: CONFIRM LOG DELETION
                              </div>
@@ -342,7 +342,7 @@ const ActivityMonitoring = () => {
                              <div style={{ display: 'flex', gap: '10px' }}>
                                 <button 
                                     onClick={handleDeleteAllLogs}
-                                    style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', fontWeight: 700 }}
+                                    style={{ background: '#d41424', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', fontWeight: 700 }}
                                     disabled={actionLoading}
                                 >
                                     {actionLoading ? 'Deleting...' : 'YES, DELETE EVERYTHING'}
@@ -381,7 +381,7 @@ const ActivityMonitoring = () => {
                             borderRadius: '8px',
                             border: '1px solid #fecaca',
                             background: '#fee2e2',
-                            color: '#991b1b',
+                            color: '#b40f1d',
                             marginBottom: '16px'
                         }}>
                             {error}
@@ -499,7 +499,7 @@ const ActivityMonitoring = () => {
                                             <td style={{ padding: '10px' }}>{log.statusCode}</td>
                                             <td style={{ padding: '10px' }}>
                                                 {log.suspicious ? (
-                                                    <span style={{ color: '#b91c1c', fontWeight: 700 }}>
+                                                    <span style={{ color: '#b40f1d', fontWeight: 700 }}>
                                                         <FaExclamationTriangle style={{ marginRight: '6px' }} />
                                                         {log.suspiciousReasons?.join(', ') || 'yes'}
                                                     </span>
@@ -524,7 +524,7 @@ const ActivityMonitoring = () => {
                             ) : (suspiciousSummary.reasonsBreakdown || []).map((item) => (
                                 <div key={item._id} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #fee2e2', borderRadius: '8px', padding: '10px 12px', background: '#fff7f7' }}>
                                     <span style={{ color: '#7f1d1d', fontWeight: 600 }}>{item._id}</span>
-                                    <span style={{ color: '#b91c1c', fontWeight: 700 }}>{item.count}</span>
+                                    <span style={{ color: '#b40f1d', fontWeight: 700 }}>{item.count}</span>
                                 </div>
                             ))}
                         </div>
@@ -574,7 +574,7 @@ const ActivityMonitoring = () => {
                             ) : (suspiciousSummary.topSourceIps || []).map((item) => (
                                 <div key={item._id || 'unknown-ip'} style={{ display: 'flex', justifyContent: 'space-between', border: '1px solid #fee2e2', borderRadius: '8px', padding: '10px 12px', background: '#fffafa' }}>
                                     <span style={{ color: '#7f1d1d', fontWeight: 600 }}>{item._id || 'unknown'}</span>
-                                    <span style={{ color: '#b91c1c', fontWeight: 700 }}>{item.count}</span>
+                                    <span style={{ color: '#b40f1d', fontWeight: 700 }}>{item.count}</span>
                                 </div>
                             ))}
                         </div>

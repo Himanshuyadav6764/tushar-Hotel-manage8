@@ -53,13 +53,13 @@
 }
 
 .sr-btn-primary {
-    background: linear-gradient(135deg, #E31E24, #b91c1c);
+    background: linear-gradient(135deg, #E31E24, #b40f1d);
     color: #fff;
     box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
 }
 
 .sr-btn-primary:hover {
-    background: linear-gradient(135deg, #b91c1c, #991b1b);
+    background: linear-gradient(135deg, #b40f1d, #b40f1d);
     transform: translateY(-1px);
     box-shadow: 0 4px 16px rgba(220, 38, 38, 0.35);
 }
@@ -284,7 +284,7 @@
 }
 
 .sr-tab.active {
-    background: linear-gradient(135deg, #E31E24, #b91c1c);
+    background: linear-gradient(135deg, #E31E24, #b40f1d);
     color: #fff;
     box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
 }
@@ -670,7 +670,7 @@
 .sr-dist-bar-fill {
     height: 100%;
     border-radius: 4px;
-    background: linear-gradient(90deg, #E31E24, #ef4444);
+    background: linear-gradient(90deg, #E31E24, #d41424);
     transition: width 0.5s ease;
 }
 

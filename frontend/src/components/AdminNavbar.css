@@ -134,7 +134,7 @@
     right: 2px;
     width: 8px;
     height: 8px;
-    background: #ef4444;
+    background: #d41424;
     border-radius: 50%;
     border: 2px solid #fff;
 }
@@ -158,7 +158,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #ef4444;
+    background: #d41424;
     /* Bright Red */
     border-radius: 50%;
     width: 38px;
@@ -236,7 +236,7 @@
 }
 
 .dropdown-item.logout {
-    color: #ef4444;
+    color: #d41424;
 }
 
 .dropdown-item.logout:hover {

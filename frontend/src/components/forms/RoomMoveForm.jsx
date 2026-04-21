@@ -113,7 +113,7 @@ const RoomMoveForm = ({ booking: initialBooking, onSubmit, onCancel }) => {
     if (loading) {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
-                <div style={{ width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #E11D48', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                <div style={{ width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #d41424', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                 <span style={{ fontWeight: '600', color: '#64748B' }}>Fetching room details...</span>
                 <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
             </div>
@@ -123,7 +123,7 @@ const RoomMoveForm = ({ booking: initialBooking, onSubmit, onCancel }) => {
     if (fetchError) {
         return (
             <div style={{ padding: '40px', textAlign: 'center' }}>
-                <p style={{ color: '#EF4444', fontWeight: '600', marginBottom: '16px' }}>{fetchError}</p>
+                <p style={{ color: '#d41424', fontWeight: '600', marginBottom: '16px' }}>{fetchError}</p>
                 <button onClick={onCancel} style={{ color: '#64748B', textDecoration: 'underline', border: 'none', background: 'none', cursor: 'pointer' }}>Close</button>
             </div>
         );
@@ -131,7 +131,7 @@ const RoomMoveForm = ({ booking: initialBooking, onSubmit, onCancel }) => {
 
     const labelStyle = { fontSize: '12px', fontWeight: '700', color: '#64748B', marginBottom: '6px', display: 'block' };
     const boxStyle = { backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '12px 14px' };
-    const errorStyle = { color: '#EF4444', fontSize: '11px', marginTop: '4px', fontWeight: '600' };
+    const errorStyle = { color: '#d41424', fontSize: '11px', marginTop: '4px', fontWeight: '600' };
 
     return (
         <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: '#F8FAFC', color: '#1E293B', width: '100%', boxSizing: 'border-box' }}>
@@ -174,11 +174,11 @@ const RoomMoveForm = ({ booking: initialBooking, onSubmit, onCancel }) => {
                 <div>
                     <label style={labelStyle}>Move Guest To</label>
                     {availableRooms.length === 0 ? (
-                        <div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#FEF2F2', border: '1px solid #FEE2E2', color: '#991B1B', fontSize: '13px', fontWeight: '600' }}>
+                        <div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#FEF2F2', border: '1px solid #FEE2E2', color: '#b40f1d', fontSize: '13px', fontWeight: '600' }}>
                             No available rooms found. Try again later.
                         </div>
                     ) : (
-                        <select name="newRoomId" value={formData.newRoomId} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700', appearance: 'none', cursor: 'pointer', borderColor: errors.newRoomId ? '#EF4444' : '#E2E8F0' }}>
+                        <select name="newRoomId" value={formData.newRoomId} onChange={handleChange} style={{ ...boxStyle, width: '100%', fontWeight: '700', appearance: 'none', cursor: 'pointer', borderColor: errors.newRoomId ? '#d41424' : '#E2E8F0' }}>
                             <option value="">Select New Room</option>
                             {availableRooms.map(room => (
                                 <option key={room._id} value={room._id}>
@@ -192,7 +192,7 @@ const RoomMoveForm = ({ booking: initialBooking, onSubmit, onCancel }) => {
 
                 {/* Rate Difference */}
                 {formData.newRoomId && adjustment.total !== 0 && (
-                    <div style={{ padding: '12px 16px', borderRadius: '12px', backgroundColor: adjustment.total > 0 ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${adjustment.total > 0 ? '#FEE2E2' : '#DCFCE7'}`, fontSize: '13px', color: adjustment.total > 0 ? '#991B1B' : '#166534', fontWeight: '600' }}>
+                    <div style={{ padding: '12px 16px', borderRadius: '12px', backgroundColor: adjustment.total > 0 ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${adjustment.total > 0 ? '#FEE2E2' : '#DCFCE7'}`, fontSize: '13px', color: adjustment.total > 0 ? '#b40f1d' : '#166534', fontWeight: '600' }}>
                         {adjustment.total > 0 ? '⚠️' : '✅'} {cs}{Math.abs(adjustment.diff)}/{adjustment.diff > 0 ? 'more' : 'less'} per night.
                         Total <strong>{cs}{Math.abs(adjustment.total).toLocaleString()}</strong> will be {adjustment.total > 0 ? 'charged' : 'reduced'} for {adjustment.nights} remaining nights.
                     </div>
@@ -201,7 +201,7 @@ const RoomMoveForm = ({ booking: initialBooking, onSubmit, onCancel }) => {
                 {/* Reason */}
                 <div>
                     <label style={labelStyle}>Reason for Room Move *</label>
-                    <textarea name="reason" value={formData.reason} onChange={handleChange} placeholder="e.g. AC Repair, Guest Request..." rows={3} style={{ ...boxStyle, width: '100%', fontWeight: '600', resize: 'none', fontSize: '13px', borderColor: errors.reason ? '#EF4444' : '#E2E8F0' }} />
+                    <textarea name="reason" value={formData.reason} onChange={handleChange} placeholder="e.g. AC Repair, Guest Request..." rows={3} style={{ ...boxStyle, width: '100%', fontWeight: '600', resize: 'none', fontSize: '13px', borderColor: errors.reason ? '#d41424' : '#E2E8F0' }} />
                     {errors.reason && <div style={errorStyle}>{errors.reason}</div>}
                 </div>
 
@@ -215,7 +215,7 @@ const RoomMoveForm = ({ booking: initialBooking, onSubmit, onCancel }) => {
             {/* Footer */}
             <div style={{ padding: '20px 32px 20px 16px', backgroundColor: '#FFFFFF', borderTop: '1px solid #E2E8F0', display: 'flex', gap: '12px' }}>
                 <button type="button" onClick={onCancel} style={{ flex: 1, padding: '14px', backgroundColor: '#F1F5F9', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#64748B', cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" disabled={isSubmitting || !formData.newRoomId} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #E11D48, #BE123C)', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#FFFFFF', cursor: 'pointer', opacity: (!formData.newRoomId || isSubmitting) ? 0.5 : 1, boxShadow: '0 4px 12px rgba(225, 29, 72, 0.3)' }}>
+                <button type="submit" disabled={isSubmitting || !formData.newRoomId} style={{ flex: 1, padding: '14px', background: 'linear-gradient(135deg, #d41424, #b40f1d)', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '700', color: '#FFFFFF', cursor: 'pointer', opacity: (!formData.newRoomId || isSubmitting) ? 0.5 : 1, boxShadow: '0 4px 12px rgba(225, 29, 72, 0.3)' }}>
                     {isSubmitting ? 'Processing...' : 'Confirm Room Move'}
                 </button>
             </div>
