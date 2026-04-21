@@ -51,6 +51,9 @@ export default defineConfig(({ mode }) => {
           secure: false,
         },
       },
+      watch: {
+        ignored: ['**/android/**']
+      }
     },
     build: {
       sourcemap: false,
