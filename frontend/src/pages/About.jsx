@@ -333,8 +333,8 @@ const About = () => {
                             { name: "Himanshu Yadav", role: "FULL STACK DEVELOPER", img: "/images/himanshu.jpg", linkedin: "#" },
                             { name: "Ankit Kumar", role: "PROJECT MANAGER", img: "/images/ankit.jpeg", linkedin: "#" },
                             { name: "Tushar Kumar", role: "BACKEND DEVELOPER", img: "/images/tushar.jpg", linkedin: "#" },
-                            { name: "Shekhar Kumar", role: "BACKEND DEVELOPER", img: "/images/shekhar.jpg", linkedin: "https://www.linkedin.com/in/shekhar-kumar-65b6ab283/" },
-                            { name: "Md Arshad Raza", role: "FRONTEND DEVELOPER", img: "/images/arshad.jpg", linkedin: "#" }
+                            { name: "Shekhar Kumar", role: "BACKEND DEVELOPER", img: "/images/shekhar.jpg", linkedin: "https://www.linkedin.com/in/shekhar-kumar-65b6ab283/" }
+
                         ].map((member, i) => (
                             <Reveal key={i} delay={i * 0.1}>
                                 <div className="team-card-v3 group">
