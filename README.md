@@ -1,6 +1,6 @@
 # Hotel Management System for Hotels
 
-in india
+in india for hotes
 
 A comprehensive MERN stack application for hotel management.
 
