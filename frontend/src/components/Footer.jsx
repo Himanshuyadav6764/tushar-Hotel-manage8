@@ -12,7 +12,7 @@ import {
     Sparkles
 } from "lucide-react";
 import Reveal from "./Reveal";
-import "./footer.css";
+import "./Footer.css";
 import FooterLogo from "../assets/footer-logo.png";
 
 const Footer = () => {
