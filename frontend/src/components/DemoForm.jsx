@@ -2,6 +2,7 @@ import { useState } from 'react';
 import './DemoForm.css';
 
 const DemoForm = () => {
+    const whatsappNumber = '919304942225';
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -19,8 +20,18 @@ const DemoForm = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        console.log('Form submitted:', formData);
-        // Add your form submission logic here
+
+        const whatsappMessage = [
+            'New Demo Request',
+            `Name: ${formData.name}`,
+            `Email: ${formData.email}`,
+            `Phone: ${formData.phone}`,
+            `City: ${formData.city}`,
+            `Hotel Name: ${formData.hotelName}`
+        ].join('\n');
+
+        const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
+        window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     };
 
     return (
