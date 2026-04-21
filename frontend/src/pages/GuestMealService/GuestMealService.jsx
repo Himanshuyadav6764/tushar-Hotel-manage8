@@ -983,11 +983,10 @@ const GuestMealService = () => {
         });
 
         try {
-            const response = await apiCall('/api/guest-meal/tables/split', {
+            const response = await apiCall(`/api/tables/${splitTableId}/split`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    sourceTableId: splitTableId,
                     subTables: normalizedSubTables
                 })
             });
@@ -1371,10 +1370,8 @@ const GuestMealService = () => {
         if (!table || !(table.tableId || table._id)) return;
 
         try {
-            const response = await apiCall('/api/guest-meal/tables/split/merge', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tableId: table.tableId || table._id })
+            const response = await apiCall(`/api/tables/${table.tableId || table._id}/close-split`, {
+                method: 'POST'
             });
 
             const data = await response.json();
