@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const HousekeepingTask = require('../models/HousekeepingTask');
 const Room = require('../models/Room');
+const { emitOpsNotification } = require('../utils/opsRealtimeEmitter');
 
 // GET all pending housekeeping tasks
 router.get('/list', async (req, res) => {
@@ -52,6 +53,23 @@ router.post('/mark-clean', async (req, res) => {
         task.pendingAcknowledgedAt = null;
         await task.save();
 
+        emitOpsNotification(req, {
+            eventId: `housekeeping-${String(task._id)}-${task.updatedAt ? new Date(task.updatedAt).getTime() : Date.now()}`,
+            module: 'housekeeping',
+            entity: 'housekeeping-task',
+            entityId: String(task._id),
+            title: 'Housekeeping Task Updated',
+            message: `Room ${task.roomNumber} marked clean.`,
+            data: {
+                _id: String(task._id),
+                roomNumber: task.roomNumber,
+                status: task.status,
+                pendingAcknowledged: false,
+                createdAt: task.createdAt,
+                updatedAt: task.updatedAt,
+            },
+        });
+
         res.json({
             success: true,
             message: `Room ${task.roomNumber} marked as clean`
@@ -100,6 +118,23 @@ router.post('/mark-pending', async (req, res) => {
             task.pendingAcknowledged = true;
             task.pendingAcknowledgedAt = new Date();
             await task.save();
+
+            emitOpsNotification(req, {
+                eventId: `housekeeping-${String(task._id)}-${task.updatedAt ? new Date(task.updatedAt).getTime() : Date.now()}`,
+                module: 'housekeeping',
+                entity: 'housekeeping-task',
+                entityId: String(task._id),
+                title: 'Housekeeping Task Pending',
+                message: `Room ${effectiveRoomNumber} moved to pending follow-up.`,
+                data: {
+                    _id: String(task._id),
+                    roomNumber: effectiveRoomNumber,
+                    status: task.status,
+                    pendingAcknowledged: true,
+                    createdAt: task.createdAt,
+                    updatedAt: task.updatedAt,
+                },
+            });
         }
 
         res.json({

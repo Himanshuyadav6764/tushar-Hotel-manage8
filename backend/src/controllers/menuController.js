@@ -1,5 +1,15 @@
 const MenuItem = require('../models/Menu');
 
+const normalizeCategoryName = (value = '') => {
+    const normalized = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!normalized) return '';
+
+    return normalized
+        .split(' ')
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(' ');
+};
+
 // @desc    Get all menu items
 // @route   GET /api/menu/list
 // @access  Public
@@ -11,7 +21,7 @@ const getMenuItems = async (req, res) => {
 
         // Filter by category if provided
         if (category && category !== 'All Categories') {
-            query.category = category;
+            query.category = normalizeCategoryName(category);
         }
 
         // Search by item name if provided
@@ -19,7 +29,7 @@ const getMenuItems = async (req, res) => {
             query.itemName = { $regex: search, $options: 'i' };
         }
 
-        const menuItems = await MenuItem.find(query).sort({ createdAt: -1 });
+        const menuItems = await MenuItem.find(query).sort({ updatedAt: -1, createdAt: -1 });
 
         res.status(200).json({
             success: true,
@@ -42,8 +52,13 @@ const addMenuItem = async (req, res) => {
     try {
         const { itemName, foodCode, category, price, description, status, quantity, unit, image } = req.body;
 
+        const normalizedItemName = String(itemName || '').replace(/\s+/g, ' ').trim();
+        const normalizedFoodCode = String(foodCode || '').replace(/\s+/g, '').trim().toUpperCase();
+        const normalizedCategory = normalizeCategoryName(category);
+        const normalizedStatus = String(status || 'Active').trim();
+
         // Validation
-        if (!itemName || !foodCode || !category || !price) {
+        if (!normalizedItemName || !normalizedFoodCode || !normalizedCategory || !price) {
             return res.status(400).json({
                 success: false,
                 message: 'Please provide item name, food code, category, and price'
@@ -51,7 +66,7 @@ const addMenuItem = async (req, res) => {
         }
 
         // Check if food code already exists
-        const existingItem = await MenuItem.findOne({ foodCode });
+        const existingItem = await MenuItem.findOne({ foodCode: normalizedFoodCode });
         if (existingItem) {
             return res.status(400).json({
                 success: false,
@@ -61,13 +76,13 @@ const addMenuItem = async (req, res) => {
 
         // Create new menu item
         const newItemData = {
-            itemName,
-            foodCode,
-            category,
+            itemName: normalizedItemName,
+            foodCode: normalizedFoodCode,
+            category: normalizedCategory,
             price,
             description: description || '',
             image: typeof image === 'string' ? image.trim() : '',
-            status: status || 'Active',
+            status: normalizedStatus || 'Active',
             quantity: (quantity !== undefined && quantity !== null) ? Number(quantity) : 0,
             unit: unit || 'PCS'
         };
@@ -97,6 +112,18 @@ const updateMenuItem = async (req, res) => {
     try {
         const { id } = req.params;
         let updateData = { ...req.body };
+
+        if (updateData.itemName !== undefined) {
+            updateData.itemName = String(updateData.itemName || '').replace(/\s+/g, ' ').trim();
+        }
+
+        if (updateData.foodCode !== undefined) {
+            updateData.foodCode = String(updateData.foodCode || '').replace(/\s+/g, '').trim().toUpperCase();
+        }
+
+        if (updateData.category !== undefined) {
+            updateData.category = normalizeCategoryName(updateData.category);
+        }
 
         // Ensure quantity is a number if present
         if (updateData.quantity !== undefined && updateData.quantity !== null) {

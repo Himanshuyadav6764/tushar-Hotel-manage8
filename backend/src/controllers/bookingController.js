@@ -1,6 +1,7 @@
 const Booking = require('../models/Booking');
 const MaintenanceBlock = require('../models/MaintenanceBlock');
 const { applyRoutingRules, CATEGORIES_MAPPING } = require('../utils/folioUtils');
+const { emitOpsNotification } = require('../utils/opsRealtimeEmitter');
 
 const resolveActorName = (rawActor, fallback = 'System') => {
     if (!rawActor) return fallback;
@@ -622,7 +623,7 @@ exports.deleteBooking = async (req, res) => {
 // Update booking status
 exports.updateBookingStatus = async (req, res) => {
     try {
-        const { status, invoiceId } = req.body;
+        const { status, invoiceId, balanceDue } = req.body;
         const validStatuses = ['Upcoming', 'Checked-in', 'Checked-out', 'Cancelled'];
 
         if (!validStatuses.includes(status)) {
@@ -660,57 +661,72 @@ exports.updateBookingStatus = async (req, res) => {
 
         // --- STEP 7: Checkout Validation ---
         if (status === 'Checked-out') {
-            // Real-time Balance Calculation from Booking Transactions (Matches UI logic)
-            const transactions = booking.transactions || [];
+            const Folio = require('../models/Folio');
+            const { recalculateFolio } = require('./folioController');
+            const folios = await Folio.find({ reservationId: booking._id });
 
-            const totalPayments = transactions
-                .filter(t => t.type?.toLowerCase() === 'payment')
-                .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
+            let currentBalance = 0;
 
-            const totalDiscounts = transactions
-                .filter(t => t.type?.toLowerCase() === 'discount')
-                .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
+            if (folios && folios.length > 0) {
+                // Recalculate folios first so stale balances do not block a valid checkout.
+                let refreshedBalance = 0;
+                for (const folio of folios) {
+                    const refreshedFolio = await recalculateFolio(folio._id);
+                    refreshedBalance += Number(refreshedFolio?.balance ?? folio?.balance) || 0;
+                }
+                currentBalance = refreshedBalance;
+            } else {
+                // Legacy fallback for records without folios.
+                const billingBalance = Number(booking?.billing?.balanceAmount);
+                if (Number.isFinite(billingBalance)) {
+                    currentBalance = billingBalance;
+                } else {
+                    const transactions = booking.transactions || [];
+                    const totalPayments = transactions
+                        .filter(t => t.type?.toLowerCase() === 'payment')
+                        .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
 
-            let totalCharges = transactions
-                .filter(t => t.type?.toLowerCase() === 'charge')
-                .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
+                    const totalDiscounts = transactions
+                        .filter(t => t.type?.toLowerCase() === 'discount')
+                        .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
 
-            const hasRoomTariff = transactions.some(t =>
-                t.particulars === 'Room Tariff' ||
-                (t.description?.toLowerCase().includes('room charges'))
-            );
+                    const totalCharges = transactions
+                        .filter(t => t.type?.toLowerCase() === 'charge')
+                        .reduce((sum, t) => sum + (Math.abs(Number(t.amount)) || 0), 0);
 
-            if (!hasRoomTariff) {
-                const b = booking.billing || {};
-                const checkIn = booking.checkInDate;
-                const checkOut = booking.checkOutDate;
-                const nights = (checkIn && checkOut) ? Math.max(1, Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24))) : (booking.duration?.nights || 1);
-                const rate = b.roomRate || booking.pricePerNight || 0;
-                const baseStayValue = (rate * nights);
-
-                if (baseStayValue > 0) {
-                    totalCharges += baseStayValue;
+                    // Never synthesize room tariff here; it creates false outstanding amounts.
+                    currentBalance = totalCharges - totalDiscounts - totalPayments;
                 }
             }
 
-            const currentBalance = totalCharges - totalDiscounts - totalPayments;
+            // Ignore tiny floating remnants so "due 0" reservations can checkout cleanly.
+            currentBalance = Math.round((Number(currentBalance) || 0) * 100) / 100;
+            if (Math.abs(currentBalance) <= 0.5) currentBalance = 0;
 
-            // Strict validation: Block checkout if balance is significantly positive (> 0.5)
-            if (currentBalance > 0.5) {
+            // If booking snapshot says no due, do not block checkout because of stale folio residue.
+            const bookingSnapshotBalance = Math.round((Number(booking?.billing?.balanceAmount) || 0) * 100) / 100;
+            if (bookingSnapshotBalance <= 0.5) {
+                currentBalance = 0;
+            }
+
+            // Respect caller-provided live outstanding when UI has already reconciled all transactions.
+            const clientOutstanding = Math.round((Number(balanceDue) || 0) * 100) / 100;
+            if (clientOutstanding <= 0.5) {
+                currentBalance = 0;
+            }
+
+            if (currentBalance > 0) {
                 return res.status(400).json({
                     success: false,
-                    message: `Cannot checkout. Outstanding balance of ₹${Math.round(currentBalance)} found.`,
+                    message: `Cannot checkout. Outstanding balance of ₹${currentBalance.toFixed(2)} found.`,
                     balance: currentBalance
                 });
             }
 
-            // Sync and Close Folio models if they exist
-            const Folio = require('../models/Folio');
-            const folios = await Folio.find({ reservationId: booking._id });
             if (folios && folios.length > 0) {
                 for (const folio of folios) {
                     folio.status = 'CLOSED';
-                    folio.balance = 0; // Reset balance since we verified transactions
+                    folio.balance = 0;
                     await folio.save();
                 }
             }
@@ -738,11 +754,28 @@ exports.updateBookingStatus = async (req, res) => {
                         });
 
                         if (!existingTask) {
-                            await HousekeepingTask.create({
+                            const newTask = await HousekeepingTask.create({
                                 roomId: room._id,
                                 roomNumber: room.roomNumber,
                                 status: 'pending',
                                 createdAt: new Date()
+                            });
+
+                            emitOpsNotification(req, {
+                                eventId: `housekeeping-${String(newTask._id)}-${new Date(newTask.createdAt).getTime()}`,
+                                module: 'housekeeping',
+                                entity: 'housekeeping-task',
+                                entityId: String(newTask._id),
+                                title: 'New Housekeeping Task',
+                                message: `Room ${room.roomNumber} requires housekeeping attention.`,
+                                data: {
+                                    _id: String(newTask._id),
+                                    roomNumber: newTask.roomNumber,
+                                    status: newTask.status,
+                                    pendingAcknowledged: false,
+                                    createdAt: newTask.createdAt,
+                                    updatedAt: newTask.updatedAt,
+                                },
                             });
                         }
                     }

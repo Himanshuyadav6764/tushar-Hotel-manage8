@@ -40,6 +40,11 @@ const Sidebar = ({ isOpen, activeMenu, onMenuClick, onLogout, toggleSidebar }) =
     };
 
     const isRestrictedAdmin = user?.role === 'admin' && Array.isArray(user?.permissions) && user.permissions.length > 0;
+    const permissionLabels = Array.isArray(user?.permissions) ? user.permissions : [];
+    const normalizedPermissionLabels = new Set(permissionLabels.map((label) => String(label || '').trim().toLowerCase()).filter(Boolean));
+    const isSuperAdmin = user?.role === 'super_admin' || user?.role === 'superadmin';
+    const hasExplicitAssignments = !isSuperAdmin && permissionLabels.length > 0;
+    const hasPermissionLabel = (label) => normalizedPermissionLabels.has(String(label || '').trim().toLowerCase());
 
     const toggleDropdown = (id) => {
         if (id === 'proper-configuration') {
@@ -73,6 +78,7 @@ const Sidebar = ({ isOpen, activeMenu, onMenuClick, onLogout, toggleSidebar }) =
         { id: 'room-service', iconVal: <Icons.Reservation />, label: 'Room Service' },
         { id: 'housekeeping', iconVal: <Icons.Reservation />, label: 'Housekeeping View' },
         { id: MODULES.VIEW_ORDER, iconVal: <Icons.Report />, label: 'KOT Order' },
+        { id: 'online-order-nav', accessModule: MODULES.VIEW_ORDER, iconVal: <Icons.Meal />, label: 'Online Order' },
         { id: MODULES.FOOD_ORDER, iconVal: <Icons.Meal />, label: 'Food Order' },
         { id: MODULES.CASHIER_SECTION, iconVal: <Icons.Cashier />, label: 'Cashier Section' },
         { id: MODULES.GUEST_MEAL_SERVICE, iconVal: <Icons.Meal />, label: 'Table View' },
@@ -131,13 +137,29 @@ const Sidebar = ({ isOpen, activeMenu, onMenuClick, onLogout, toggleSidebar }) =
 
     // Filter items based on role access FIRST - Check parent OR any child access
     const roleFilteredItems = menuItems.filter(item => {
+        if (hasExplicitAssignments) {
+            if (item.id === MODULES.VIEW_ORDER) {
+                return hasPermissionLabel('KOT Order') || hasPermissionLabel('View order');
+            }
+            if (item.id === 'online-order-nav') {
+                // Keep Online Order visible for admin panel even when explicit labels are partial.
+                if (user?.role === 'admin') {
+                    return canAccessModule(MODULES.VIEW_ORDER)
+                        || hasPermissionLabel('Online Order')
+                        || hasPermissionLabel('KOT Order')
+                        || hasPermissionLabel('View order');
+                }
+                return hasPermissionLabel('Online Order');
+            }
+        }
+
         // ... previous logic
         if (item.hasDropdown) {
-            const hasParentAccess = canAccessModule(item.id);
+            const hasParentAccess = canAccessModule(item.accessModule || item.id);
             const hasChildAccess = item.dropdownItems.some(sub => canAccessModule(sub.id));
             return hasParentAccess || hasChildAccess;
         }
-        return canAccessModule(item.id);
+        return canAccessModule(item.accessModule || item.id);
     });
 
     // Auto-expand dropdown when sub-item is active

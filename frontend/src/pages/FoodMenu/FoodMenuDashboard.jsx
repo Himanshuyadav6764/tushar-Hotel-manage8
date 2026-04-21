@@ -2,6 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import API_URL, { apiCall } from '../../config/api';
 import { useSettings } from '../../context/SettingsContext';
+import {
+    FIXED_MENU_CATEGORIES,
+    FIXED_CATEGORY_ICONS,
+    normalizeCategoryName,
+    mergeCategoryLists
+} from '../../constants/menuCategories';
 
 const CUSTOM_CATEGORY_STORAGE_KEY = 'foodMenuCustomCategories';
 
@@ -31,23 +37,15 @@ const FoodMenuDashboard = () => {
 
     const categories = [
         'All Categories',
-        ...Array.from(new Set([
-            ...customCategories,
-            ...menuItems.map(item => (item.category || '').trim()).filter(Boolean)
-        ]))
+        ...mergeCategoryLists(
+            FIXED_MENU_CATEGORIES,
+            customCategories,
+            menuItems.map((item) => item.category)
+        )
     ];
 
     // Category icons mapping
-    const categoryIcons = {
-        'Starters': '🍴',
-        'Main Course': '🍛',
-        'Breakfast': '☕',
-        'Rice': '🍚',
-        'Desserts': '🍨',
-        'Beverages': '🥤',
-        'Chinese': '🥡',
-        'Continental': '🍝'
-    };
+    const categoryIcons = FIXED_CATEGORY_ICONS;
 
     const inferCategoryIcon = (categoryName) => {
         const value = (categoryName || '').toLowerCase();
@@ -74,16 +72,6 @@ const FoodMenuDashboard = () => {
         return `${icon} ${categoryName}`;
     };
 
-    const formatCategoryName = (value) => {
-        const normalized = (value || '').replace(/\s+/g, ' ').trim();
-        if (!normalized) return '';
-
-        return normalized
-            .split(' ')
-            .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-            .join(' ');
-    };
-
     const openCategoryInput = (mode = 'add') => {
         setActiveCategoryInputMode(mode);
         setNewCategoryValue('');
@@ -97,7 +85,7 @@ const FoodMenuDashboard = () => {
     };
 
     const handleInlineCategoryAdd = () => {
-        const formattedCategory = formatCategoryName(newCategoryValue);
+        const formattedCategory = normalizeCategoryName(newCategoryValue);
 
         if (!formattedCategory) {
             setCategoryInputError('Please enter category name.');
@@ -165,7 +153,7 @@ const FoodMenuDashboard = () => {
         try {
             const storedCategories = JSON.parse(localStorage.getItem(CUSTOM_CATEGORY_STORAGE_KEY) || '[]');
             if (Array.isArray(storedCategories)) {
-                setCustomCategories(storedCategories.map(formatCategoryName).filter(Boolean));
+                setCustomCategories(storedCategories.map(normalizeCategoryName).filter(Boolean));
             }
         } catch (error) {
             console.error('Error loading custom categories:', error);
@@ -207,7 +195,7 @@ const FoodMenuDashboard = () => {
         const newItem = {
             itemName: addFormData.itemName,
             foodCode: addFormData.foodCode || foodCode, // Required by backend
-            category: addFormData.category,
+            category: normalizeCategoryName(addFormData.category),
             price: parseFloat(addFormData.price),
             description: addFormData.description || '',
             image: normalizeImageUrl(addFormData.image),
@@ -222,8 +210,7 @@ const FoodMenuDashboard = () => {
             });
             const data = await response.json();
             if (data.success) {
-                // Add new item to the TOP of the list
-                setMenuItems([data.data, ...menuItems]);
+                await fetchMenuItems();
                 setShowAddForm(false);
                 closeCategoryInput();
                 setAddFormData({ itemName: '', price: '', foodCode: '', description: '', category: '', image: '' });
@@ -256,7 +243,7 @@ const FoodMenuDashboard = () => {
         const updatedItem = {
             itemName: editFormData.itemName,
             foodCode: editFormData.foodCode || editingItem.foodCode,
-            category: editFormData.category,
+            category: normalizeCategoryName(editFormData.category),
             price: parseFloat(editFormData.price),
             description: editFormData.description || '',
             image: normalizeImageUrl(editFormData.image)
@@ -270,9 +257,7 @@ const FoodMenuDashboard = () => {
             });
             const data = await response.json();
             if (data.success) {
-                setMenuItems(menuItems.map(item =>
-                    item._id === editingItem._id ? data.data : item
-                ));
+                await fetchMenuItems();
                 setShowEditModal(false);
                 closeCategoryInput();
                 setEditingItem(null);
@@ -307,7 +292,7 @@ const FoodMenuDashboard = () => {
                 method: 'DELETE',
             });
             if (response.ok) {
-                setMenuItems(menuItems.filter(item => item._id !== id));
+                await fetchMenuItems();
             }
         } catch (error) {
             console.error('Error deleting item:', error);
@@ -318,7 +303,9 @@ const FoodMenuDashboard = () => {
 
     const filteredItems = menuItems.filter(item => {
         const matchesSearch = item.itemName.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesCategory = filterCategory === 'All Categories' || item.category === filterCategory;
+        const matchesCategory =
+            filterCategory === 'All Categories'
+            || String(item.category || '').trim().toLowerCase() === String(filterCategory || '').trim().toLowerCase();
         return matchesSearch && matchesCategory;
     });
 

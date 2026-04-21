@@ -1,12 +1,45 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production'
 
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['logo.png', 'images/Bireena atithi.png'],
+        workbox: {
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024
+        },
+        manifest: {
+          name: 'Bireena Atithi',
+          short_name: 'Bireena',
+          description: 'Bireena Atithi hotel management app',
+          theme_color: '#d90416',
+          background_color: '#d90416',
+          display: 'standalone',
+          start_url: '/',
+          icons: [
+            {
+              src: '/images/Bireena atithi.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any maskable'
+            },
+            {
+              src: '/images/Bireena atithi.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any maskable'
+            }
+          ]
+        }
+      })
+    ],
     envDir: './',
     server: {
       port: 3000,

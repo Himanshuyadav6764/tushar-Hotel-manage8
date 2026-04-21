@@ -1,0 +1,157 @@
+.guest-order-success-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ececf2 0%, #dfe1eb 100%);
+  padding: 20px;
+}
+
+.guest-order-card {
+  width: 100%;
+  max-width: 560px;
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: 0 18px 45px rgba(20, 26, 42, 0.15);
+  overflow: hidden;
+}
+
+.guest-order-header {
+  background: linear-gradient(120deg, #ff2f54 0%, #e31e24 100%);
+  color: #fff;
+  padding: 24px;
+}
+
+.guest-order-header h1 {
+  margin: 0 0 6px;
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+.guest-order-header p {
+  margin: 0;
+  opacity: 0.92;
+  font-size: 18px;
+}
+
+.guest-order-summary {
+  margin: 18px;
+  padding: 16px;
+  border: 1px solid #e8eaf0;
+  border-radius: 16px;
+  background: #fdfdff;
+}
+
+.guest-order-summary p {
+  margin: 8px 0;
+  font-size: 18px;
+  color: #30374a;
+}
+
+.status-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.status-tag.pending,
+.status-tag.active {
+  background: #fff7e8;
+  color: #b45309;
+}
+
+.status-tag.preparing {
+  background: #f0f7ff;
+  color: #1d4ed8;
+}
+
+.status-tag.ready,
+.status-tag.served,
+.status-tag.closed {
+  background: #e9fce9;
+  color: #0f766e;
+}
+
+.status-tag.cancelled {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.line-items {
+  margin-top: 10px;
+  border-top: 1px dashed #d9dce7;
+  padding-top: 8px;
+}
+
+.line-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 16px;
+  color: #334155;
+  padding: 4px 0;
+}
+
+.guest-order-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 0 18px 14px;
+}
+
+.guest-order-btn {
+  border: 1px solid #d8dce8;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+  cursor: pointer;
+}
+
+.guest-order-btn.primary {
+  background: #e31e24;
+  color: #fff;
+  border-color: #e31e24;
+}
+
+.guest-order-btn.danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.guest-order-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.guest-order-message {
+  margin: 0 18px 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cancel-note {
+  margin: 0 18px 18px;
+  color: #9a3412;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .guest-order-header h1 {
+    font-size: 28px;
+  }
+
+  .guest-order-header p,
+  .guest-order-summary p {
+    font-size: 16px;
+  }
+}

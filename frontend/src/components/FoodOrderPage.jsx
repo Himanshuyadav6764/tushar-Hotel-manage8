@@ -5,20 +5,17 @@ import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'framer-motion';
 import API_URL_CONFIG, { apiCall } from '../config/api';
 import { useSettings } from '../context/SettingsContext';
+import {
+    FIXED_MENU_CATEGORIES,
+    FIXED_CATEGORY_ICONS,
+    normalizeCategoryName,
+    mergeCategoryLists
+} from '../constants/menuCategories';
 import './FoodOrderPage.css';
 
-const DEFAULT_MENU_CATEGORIES = ['Starters', 'Main Course', 'Breakfast', 'Rice', 'Desserts', 'Beverages', 'Chinese', 'Continental'];
+const DEFAULT_MENU_CATEGORIES = FIXED_MENU_CATEGORIES;
 const CUSTOM_CATEGORY_STORAGE_KEY = 'foodMenuCustomCategories';
-const DEFAULT_CATEGORY_ICONS = {
-    'Starters': '🍴',
-    'Main Course': '🍛',
-    'Breakfast': '☕',
-    'Rice': '🍚',
-    'Desserts': '🍨',
-    'Beverages': '🥤',
-    'Chinese': '🥡',
-    'Continental': '🍝'
-};
+const DEFAULT_CATEGORY_ICONS = FIXED_CATEGORY_ICONS;
 
 const FoodOrderPage = ({ onClose, room: roomProp }) => {
     const navigate = useNavigate();
@@ -26,6 +23,7 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
     const { settings, getCurrencySymbol, getFullAddress } = useSettings();
     const cs = getCurrencySymbol();
     const { room: roomState, source, orderMode } = location.state || {};
+    const isGuestQrFlow = source === 'qr-room' || location.state?.guestQrFlow === true;
 
     // Prefer prop over state (prop comes from AdminDashboard posGuestDetails)
     const room = roomProp || roomState;
@@ -71,6 +69,8 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
             navigate('/admin/guest-meal-service');
         } else if (source === 'food-menu') {
             navigate('/admin/food-menu');
+        } else if (source === 'qr-room') {
+            navigate('/');
         } else {
             navigate('/admin/dashboard');
         }
@@ -108,11 +108,11 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
     const getCategoryIcon = (name) => DEFAULT_CATEGORY_ICONS[name] || inferCategoryIcon(name);
 
     const categories = useMemo(() => {
-        const combinedCategories = Array.from(new Set([
-            ...DEFAULT_MENU_CATEGORIES,
-            ...customCategories,
-            ...menuItems.map(item => (item.category || '').trim()).filter(Boolean)
-        ]));
+        const combinedCategories = mergeCategoryLists(
+            DEFAULT_MENU_CATEGORIES,
+            customCategories,
+            menuItems.map((item) => item.category)
+        );
 
         return combinedCategories.map(name => ({ id: name, name, icon: getCategoryIcon(name) }));
     }, [customCategories, menuItems]);
@@ -121,7 +121,7 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
         try {
             const storedCategories = JSON.parse(localStorage.getItem(CUSTOM_CATEGORY_STORAGE_KEY) || '[]');
             if (Array.isArray(storedCategories)) {
-                setCustomCategories(storedCategories.map(c => (c || '').trim()).filter(Boolean));
+                setCustomCategories(storedCategories.map((c) => normalizeCategoryName(c)).filter(Boolean));
             }
         } catch (error) {
             console.error('Error loading custom categories for POS:', error);
@@ -249,7 +249,9 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
         // Priority 3: Filter by Category
         const currentCatName = getCurrentCategoryName();
         if (!currentCatName) return allItems;
-        return allItems.filter(item => item.category === currentCatName);
+        return allItems.filter(item =>
+            String(item.category || '').trim().toLowerCase() === String(currentCatName || '').trim().toLowerCase()
+        );
     };
 
     const currentItems = getFilteredItems();
@@ -264,6 +266,7 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
     // Order Type State ( Default: Dine In )
     const [activeOrderType, setActiveOrderType] = useState(() => {
         if (location.state?.orderMode === 'takeaway') return 'takeaway';
+        if (location.state?.orderMode === 'online') return 'online';
         if (room?.mode === 'takeaway' || room?.roomNumber === 'Take Away') return 'takeaway';
         if (source === 'room-service' || orderMode === 'roomservice') return 'roomservice';
         if (room?.id) return 'dinein';
@@ -275,6 +278,8 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
     useEffect(() => {
         if (location.state?.orderMode === 'takeaway') {
             setActiveOrderType('takeaway');
+        } else if (location.state?.orderMode === 'online') {
+            setActiveOrderType('online');
         } else if (room?.mode === 'takeaway' || room?.roomNumber === 'Take Away') {
             setActiveOrderType('takeaway');
         } else if (source === 'room-service' || orderMode === 'roomservice') {
@@ -393,14 +398,14 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
     useEffect(() => {
         if (orderId) {
             fetchOrderById(orderId);
-        } else if (room?.id) {
+        } else if (room?.id && !isGuestQrFlow) {
             if (skipAutoFetchExistingRef.current) {
                 skipAutoFetchExistingRef.current = false;
                 return;
             }
             fetchExistingOrder();
         }
-    }, [room, orderId]);
+    }, [room, orderId, isGuestQrFlow]);
 
     const fetchOrderById = async (id) => {
         try {
@@ -498,31 +503,35 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
                 (activeOrderType === 'takeaway' ? { roomNumber: 'Take Away', guestName: 'Walk-in' } :
                     (activeOrderType === 'roomservice' ? { roomNumber: 'Room Service', guestName: 'Guest' } : null));
 
-            if (!effectiveRoom) return false;
+            if (!effectiveRoom) return { success: false, message: 'Room context missing' };
 
             const tId = effectiveRoom.id || effectiveRoom._id;
             const tNum = parseInt((effectiveRoom.roomNumber ? String(effectiveRoom.roomNumber) : '0').replace(/\D/g, ''), 10) || 0;
             const finalGuestName = effectiveRoom.guestName || location.state?.customerName || 'Walk-in';
 
             // Only block if it's a dine-in order with no table
-            if (!tId && !orderId && activeOrderType !== 'takeaway' && activeOrderType !== 'roomservice' && activeOrderType !== 'room') {
+            if (!tId && !orderId && activeOrderType !== 'takeaway' && activeOrderType !== 'roomservice' && activeOrderType !== 'room' && !isGuestQrFlow) {
                 console.error('Missing table ID and order ID');
-                return false;
+                return { success: false, message: 'Table/room context missing' };
             }
+
+            const resolvedOrderType = isGuestQrFlow
+                ? 'Online'
+                : ((activeOrderType === 'roomservice' || activeOrderType === 'room') ? 'Post to Room' :
+                    activeOrderType === 'takeaway' ? 'Take Away' :
+                    activeOrderType === 'online' ? 'Online' : 'Direct Payment');
 
             const foodTaxRate = Boolean(settings.inclusiveTax)
                 ? (((parseFloat(settings.cgst) || 0) + (parseFloat(settings.sgst) || 0)) || (parseFloat(settings.foodGst) || 0))
                 : 0;
 
             const orderData = {
-                tableId: (activeOrderType === 'takeaway' || activeOrderType === 'roomservice' || activeOrderType === 'room') ? null : tId,
+                tableId: (activeOrderType === 'takeaway' || activeOrderType === 'roomservice' || activeOrderType === 'room' || isGuestQrFlow) ? null : tId,
                 tableNumber: activeOrderType === 'takeaway' ? 0 : tNum,
                 guestName: selectedCustomer?.name || finalGuestName,
                 guestPhone: selectedCustomer?.phone || effectiveRoom.phoneNumber || location.state?.customerPhone || null,
                 roomNumber: selectedCustomer?.roomNumber || effectiveRoom.roomNumber || 'Take Away',
-                orderType: (activeOrderType === 'roomservice' || activeOrderType === 'room') ? 'Post to Room' :
-                    activeOrderType === 'takeaway' ? 'Take Away' :
-                    activeOrderType === 'online' ? 'Online' : 'Direct Payment',
+                orderType: resolvedOrderType,
                 taxRate: foodTaxRate,
                 notes: billComment, // Bill Wise Comment
                 kotNote: kotNote, // Special Note (KOT Only)
@@ -562,16 +571,16 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
 
             const data = await response.json();
             if (data.success) {
+                const resolvedOrderId = data.data?.order?._id || data.data?._id || data.data?.id || orderId;
                 if (!orderId) {
-                    const newId = data.data.order ? data.data.order._id : (data.data._id || data.data.id);
-                    setOrderId(newId);
+                    setOrderId(resolvedOrderId);
                 }
-                return true;
+                return { success: true, orderId: resolvedOrderId };
             }
-            return false;
+            return { success: false, message: data.message || 'Failed to save order' };
         } catch (error) {
             console.error('Error saving order:', error);
-            return false;
+            return { success: false, message: error.message || 'Failed to save order' };
         }
     };
 
@@ -586,12 +595,25 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
             return;
         }
 
-        const success = await saveOrderToBackend();
-        if (success) {
+        const result = await saveOrderToBackend();
+        if (result.success) {
             addToast('Saved to KOT', 'success');
+            if (isGuestQrFlow) {
+                navigate('/order-success', {
+                    state: {
+                        room,
+                        order: {
+                            id: result.orderId,
+                            items: cart
+                        },
+                        orderStatus: 'Pending'
+                    }
+                });
+                return;
+            }
             resetFormAfterKotSave();
         } else {
-            addToast('Failed to save KOT');
+            addToast(result.message || 'Failed to save KOT');
         }
     };
 
@@ -600,17 +622,17 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
             addToast('Direct open mode: KOT save is disabled');
             return;
         }
-        const success = await saveOrderToBackend();
-        if (success) {
+        const result = await saveOrderToBackend();
+        if (result.success) {
             setPrintModal('KOT');
         } else {
-            addToast('Failed to save KOT');
+            addToast(result.message || 'Failed to save KOT');
         }
     };
 
     const handleSaveBill = async () => {
-        const success = await saveOrderToBackend();
-        if (success) {
+        const result = await saveOrderToBackend();
+        if (result.success) {
             addToast('Bill saved successfully');
             let targetFilter = 'All';
             if (activeOrderType === 'takeaway') targetFilter = 'Take Away';
@@ -619,37 +641,37 @@ const FoodOrderPage = ({ onClose, room: roomProp }) => {
 
             navigate('/admin/dashboard', { state: { activeMenu: 'view-order', activeFilter: targetFilter } });
         } else {
-            addToast('Failed to save bill');
+            addToast(result.message || 'Failed to save bill');
         }
     };
 
     const handleSavePrintBill = async () => {
-        const success = await saveOrderToBackend();
-        if (success) {
+        const result = await saveOrderToBackend();
+        if (result.success) {
             setPrintModal('BILL');
         } else {
-            addToast('Failed to save bill');
+            addToast(result.message || 'Failed to save bill');
         }
     };
 
     const handleRoomPosting = async () => {
-        const success = await saveOrderToBackend();
-        if (success) {
+        const result = await saveOrderToBackend();
+        if (result.success) {
             addToast('Room posted successfully');
             // Show SMS/Email options directly or stay on page
             // For now, staying on page to allow SMS/Email then navigate
         } else {
-            addToast('Failed to post to room');
+            addToast(result.message || 'Failed to post to room');
         }
     };
 
     const handleTenderSubmit = async () => {
-        const success = await saveOrderToBackend();
-        if (success) {
+        const result = await saveOrderToBackend();
+        if (result.success) {
             addToast(`Payment of ${cs}${total} received via ${paymentMethod}`);
             // Success logic - we can either close or stay to show SMS/Email
         } else {
-            addToast('Error processing payment');
+            addToast(result.message || 'Error processing payment');
         }
     };
 

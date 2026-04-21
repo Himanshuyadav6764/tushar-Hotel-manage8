@@ -2,21 +2,17 @@ import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import API_URL, { apiCall } from '../../config/api';
 import { useSettings } from '../../context/SettingsContext';
+import {
+    FIXED_MENU_CATEGORIES,
+    FIXED_CATEGORY_ICONS,
+    normalizeCategoryName,
+    mergeCategoryLists
+} from '../../constants/menuCategories';
 import './GuestMealOrderPage.css';
 
-const DEFAULT_MENU_CATEGORIES = ['Starters', 'Main Course', 'Breads', 'Breakfast', 'Rice', 'Desserts', 'Beverages', 'Chinese', 'Continental'];
+const DEFAULT_MENU_CATEGORIES = FIXED_MENU_CATEGORIES;
 const CUSTOM_CATEGORY_STORAGE_KEY = 'foodMenuCustomCategories';
-const DEFAULT_CATEGORY_ICONS = {
-    'Starters': '🍴',
-    'Main Course': '🍛',
-    'Breads': '🍞',
-    'Breakfast': '☕',
-    'Rice': '🍚',
-    'Desserts': '🍨',
-    'Beverages': '🥤',
-    'Chinese': '🥡',
-    'Continental': '🍝'
-};
+const DEFAULT_CATEGORY_ICONS = FIXED_CATEGORY_ICONS;
 
 const GuestMealOrderPage = () => {
     const location = useLocation();
@@ -56,11 +52,11 @@ const GuestMealOrderPage = () => {
     const getItemIcon = (category) => DEFAULT_CATEGORY_ICONS[category] || inferCategoryIcon(category);
 
     const categories = useMemo(() => {
-        const merged = Array.from(new Set([
-            ...DEFAULT_MENU_CATEGORIES,
-            ...customCategories,
-            ...Object.keys(groupedItems)
-        ]));
+        const merged = mergeCategoryLists(
+            DEFAULT_MENU_CATEGORIES,
+            customCategories,
+            Object.keys(groupedItems)
+        );
 
         return merged.map(name => ({ id: name, name, icon: getItemIcon(name) }));
     }, [customCategories, groupedItems]);
@@ -69,7 +65,7 @@ const GuestMealOrderPage = () => {
         try {
             const storedCategories = JSON.parse(localStorage.getItem(CUSTOM_CATEGORY_STORAGE_KEY) || '[]');
             if (Array.isArray(storedCategories)) {
-                setCustomCategories(storedCategories.map(c => (c || '').trim()).filter(Boolean));
+                setCustomCategories(storedCategories.map((c) => normalizeCategoryName(c)).filter(Boolean));
             }
         } catch (error) {
             console.error('Error loading custom categories for guest meal:', error);
@@ -85,20 +81,21 @@ const GuestMealOrderPage = () => {
                 if (data.success) {
                     const groups = {};
                     data.data.forEach(item => {
+                        const normalizedCategory = normalizeCategoryName(item.category);
                         // Map API data to UI format
                         const mappedItem = {
                             id: item._id,
                             name: item.itemName,
                             price: item.price,
-                            category: item.category,
+                            category: normalizedCategory,
                             description: item.description,
                             status: item.status, // 'Active' or 'Inactive'
                             image: item.image || '',
-                            fallbackIcon: getItemIcon(item.category)
+                            fallbackIcon: getItemIcon(normalizedCategory)
                         };
 
-                        if (!groups[item.category]) groups[item.category] = [];
-                        groups[item.category].push(mappedItem);
+                        if (!groups[normalizedCategory]) groups[normalizedCategory] = [];
+                        groups[normalizedCategory].push(mappedItem);
                     });
                     setGroupedItems(groups);
                 }

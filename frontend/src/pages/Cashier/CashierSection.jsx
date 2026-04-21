@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import API_URL, { apiCall } from '../../config/api';
+import OrderNotificationPanel from '../../components/OrderNotificationPanel';
 import './CashierSection.css';
 
 const CashierSection = () => {
@@ -52,11 +53,13 @@ const CashierSection = () => {
         const hasTable = permissionLabels.includes('Cashier Section (Table)');
         const hasRoom = permissionLabels.includes('Cashier Section (Room Service)');
         const hasTakeAway = permissionLabels.includes('Cashier Section (Take Away)');
+        const hasOnline = permissionLabels.includes('Cashier Section (Online Order)');
 
         if (hasExplicitAssignments) {
             if (type === 'Table') return hasTable;
             if (type === 'Room') return hasRoom;
             if (type === 'Take Away') return hasTakeAway;
+            if (type === 'Online Order') return hasOnline;
             return false;
         }
 
@@ -67,7 +70,10 @@ const CashierSection = () => {
     const canAccessOrderType = (orderType) => {
         if (orderType === 'Table') return hasCashierPermission('Table');
         if (orderType === 'Room') return hasCashierPermission('Room');
-        if (['Take Away', 'Delivery', 'Online'].includes(orderType)) return hasCashierPermission('Take Away');
+        if (orderType === 'Take Away' || orderType === 'Delivery') return hasCashierPermission('Take Away');
+        if (['Online', 'Online Order'].includes(orderType)) {
+            return hasCashierPermission('Online Order') || hasCashierPermission('Take Away');
+        }
         return false;
     };
 
@@ -77,6 +83,8 @@ const CashierSection = () => {
     if (hasCashierPermission('Take Away')) {
         modeTabs.push('Take Away');
         modeTabs.push('Delivery');
+    }
+    if (hasCashierPermission('Online Order') || hasCashierPermission('Take Away')) {
         modeTabs.push('Online Order');
     }
     const allowedTabs = modeTabs.length > 1 ? ['All', ...modeTabs] : modeTabs;
@@ -91,6 +99,15 @@ const CashierSection = () => {
             setActiveTab(allowedTabs[0]);
         }
     }, [allowedTabs, activeTab]);
+
+    useEffect(() => {
+        const requestedTab = location.state?.initialTab;
+        if (!requestedTab) return;
+
+        if (allowedTabs.includes(requestedTab)) {
+            setActiveTab(requestedTab);
+        }
+    }, [location.state, allowedTabs]);
 
     useEffect(() => {
         const requestedMode = location.state?.cashierMode;
@@ -138,12 +155,13 @@ const CashierSection = () => {
 
     // Auto-select order if navigated from another page (e.g. Room Service Bill Details)
     useEffect(() => {
-        if (location.state && location.state.room && location.state.room.orderId && orders.length > 0) {
-            const orderToSelect = orders.find(o => o.id === location.state.room.orderId);
+        const targetOrderId = location.state?.room?.orderId || location.state?.orderId;
+        if (targetOrderId && orders.length > 0) {
+            const orderToSelect = orders.find(o => o.id === targetOrderId);
             if (orderToSelect && selectedOrder?.id !== orderToSelect.id) {
                 console.log(`[CashierSection] Auto-selecting order:`, orderToSelect.id);
                 setSelectedOrder(orderToSelect);
-                setActiveTab('All'); // Ensure we are on a tab where the order is visible
+                setActiveTab(location.state?.initialTab || 'All');
 
                 // Consume one-time navigation state so periodic refresh doesn't keep re-selecting.
                 navigate(location.pathname, { replace: true, state: null });
@@ -187,15 +205,23 @@ const CashierSection = () => {
                         || '';
                     const cleanTableName = String(rawTableName).replace(/_MERGED_/g, '').trim();
                     const tableLabel = cleanTableName || (order.tableNumber ? String(order.tableNumber) : 'Walk-In');
+                    const inferredRoomNumber = order.roomNumber
+                        || (order.orderType === 'Room Service' || order.orderType === 'Post to Room' || order.orderType === 'Room Order'
+                            ? String(order.roomNumber || '').trim()
+                            : (order.orderType === 'Online' || order.orderType === 'Online Order' || order.orderType === 'Delivery'
+                                ? String(order.roomNumber || order.tableNumber || '').trim()
+                                : ''));
 
                     return {
                         id: order._id,
                         type: (order.orderType === 'Table Order' || order.orderType === 'Dine-In' || order.orderType === 'Direct Payment') ? 'Table' :
                             (order.orderType === 'Room Service' || order.orderType === 'Post to Room' || order.orderType === 'Room Order') ? 'Room' :
-                                (order.orderType === 'Take Away' || order.orderType === 'Delivery' || order.orderType === 'Online') ? order.orderType : 'Table',
+                                (order.orderType === 'Take Away' || order.orderType === 'Delivery') ? order.orderType :
+                                    (order.orderType === 'Online' || order.orderType === 'Online Order') ? 'Online' : 'Table',
                         name: (order.orderType === 'Table Order' || order.orderType === 'Dine-In' || order.orderType === 'Direct Payment') ? tableLabel :
                             (order.orderType === 'Room Service' || order.orderType === 'Post to Room' || order.orderType === 'Room Order') ? `Room ${order.roomNumber || 'Unknown'}` :
-                                (order.orderType === 'Take Away' || order.orderType === 'Delivery' || order.orderType === 'Online') ? order.orderType : `Table ${order.tableNumber || ''}`,
+                                (order.orderType === 'Take Away' || order.orderType === 'Delivery') ? order.orderType :
+                                    (order.orderType === 'Online' || order.orderType === 'Online Order') ? 'Online Order' : `Table ${order.tableNumber || ''}`,
                         guest: `${order.guestName || 'Guest'}${order.guestPhone ? ` - ${order.guestPhone}` : ''}`,
                         amount: order.finalAmount || 0,
                         status: 'Pending',
@@ -209,6 +235,8 @@ const CashierSection = () => {
                         billNo: `${settings.invoicePrefix || settings.billingInvoicePrefix || '#'}${order._id.toString().substr(-6).toUpperCase()}`,
                         kotInfo: `KOT - ${order._id.toString().substr(-4)}`,
                         notes: order.notes || ''
+                        ,
+                        roomNumber: inferredRoomNumber || ''
                     };
                 });
 
@@ -400,7 +428,7 @@ const CashierSection = () => {
             if (activeTab === 'Room') return order.type === 'Room';
             if (activeTab === 'Take Away') return order.type === 'Take Away';
             if (activeTab === 'Delivery') return order.type === 'Delivery';
-            if (activeTab === 'Online Order') return order.type === 'Online';
+            if (activeTab === 'Online Order') return order.type === 'Online' || order.type === 'Online Order' || order.type === 'Delivery';
             return true;
         })).filter(order => {
             // Apply search filter
@@ -422,6 +450,7 @@ const CashierSection = () => {
                 <div className="cashier-header">
                     <h1>Cashier Dashboard</h1>
                     <div className="header-actions">
+                        <OrderNotificationPanel scope="cashier" />
                         <button className="btn-track" onClick={() => setShowTrackModal(true)}>
                             <span className="icon">📡</span> Track Order
                         </button>
@@ -851,6 +880,28 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
     const tenderResetTimerRef = useRef(null);
     const sideNoteTimerRef = useRef(null);
 
+    const resolveRoomNumberFromOrder = useCallback((sourceOrder) => {
+        if (!sourceOrder) return '';
+
+        if (sourceOrder.roomNumber !== undefined && sourceOrder.roomNumber !== null) {
+            const directRoom = String(sourceOrder.roomNumber).trim();
+            if (directRoom) return directRoom;
+        }
+
+        if (sourceOrder.type === 'Room' && typeof sourceOrder.name === 'string' && sourceOrder.name.includes('Room')) {
+            const parsed = sourceOrder.name.replace('Room', '').trim();
+            if (parsed) return parsed;
+        }
+
+        return '';
+    }, []);
+
+    const findBookingByRoom = useCallback((roomNumber) => {
+        if (!roomNumber) return null;
+        const normalizedRoom = String(roomNumber).trim();
+        return checkedInRooms.find((booking) => String(booking.roomNumber).trim() === normalizedRoom) || null;
+    }, [checkedInRooms]);
+
     // Derived: list of folios for current booking
     const availableFolios = useMemo(() => {
         if (!selectedBooking) return [];
@@ -920,13 +971,11 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                     : parseFloat(autoDiscVal) || 0
                 : 0;
             setReceivedAmount(Math.max(0, grandTotalComputed - autoDiscAmt).toString());
-
-            // Pre-fill room number if it's a Room order
-            if (order.type === 'Room' && order.name.includes('Room')) {
-                const rNum = order.name.replace('Room', '').trim();
+            const rNum = resolveRoomNumberFromOrder(order);
+            if (rNum) {
                 setTargetRoom(rNum);
-                const booking = checkedInRooms.find(b => b.roomNumber === rNum);
-                if (booking) setSelectedBooking(booking);
+                const booking = findBookingByRoom(rNum);
+                setSelectedBooking(booking);
             } else {
                 setTargetRoom('');
                 setSelectedBooking(null);
@@ -950,7 +999,24 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
             setBankTransactionId('');
             setCardTransactionId('');
         }
-    }, [order]);
+    }, [order, findBookingByRoom, resolveRoomNumberFromOrder]);
+
+    useEffect(() => {
+        if (!order || paymentType !== 'Add to Room') return;
+
+        // Auto-fetch room/guest when switching to Room Folio for online orders.
+        const resolvedRoom = resolveRoomNumberFromOrder(order);
+        if (!resolvedRoom) return;
+
+        if (!targetRoom || String(targetRoom).trim() !== resolvedRoom) {
+            setTargetRoom(resolvedRoom);
+        }
+
+        const booking = findBookingByRoom(resolvedRoom);
+        if (booking && (!selectedBooking || String(selectedBooking.roomNumber).trim() !== String(booking.roomNumber).trim())) {
+            setSelectedBooking(booking);
+        }
+    }, [order, paymentType, targetRoom, selectedBooking, findBookingByRoom, resolveRoomNumberFromOrder]);
 
     useEffect(() => {
         return () => {
@@ -1189,6 +1255,10 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                     <div class="info-row">
                         <span class="info-label">Guest:</span>
                         <span class="info-value">${printOrder.guest}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Room No:</span>
+                        <span class="info-value">${printOrder.roomNumber || '-'}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Source:</span>
@@ -1479,7 +1549,8 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
         amount: 0,
         items: [],
         billNo: '-',
-        kotInfo: '-'
+        kotInfo: '-',
+        roomNumber: '-'
     };
 
     const isPlaceholder = !order;
@@ -1502,7 +1573,7 @@ const CashierPayment = ({ order, onPaymentComplete, onClearSelection, checkedInR
                         <div className="avatar">👤</div>
                         <div className="guest-meta">
                             <h3>{displayOrder.name}</h3>
-                            <p>Today 1 - </p>
+                            <p>Room No: {displayOrder.roomNumber || '-'} </p>
                         </div>
                     </div>
                     <div className="bill-badge">

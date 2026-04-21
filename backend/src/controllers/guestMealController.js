@@ -1,11 +1,87 @@
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const Table = require('../models/Table');
 const GuestMealOrder = require('../models/Order');
 const MenuItem = require('../models/Menu');
 const Room = require('../models/Room');
-const Transaction = require('../models/Transaction');
+const Booking = require('../models/Booking');
+const { emitOpsNotification } = require('../utils/opsRealtimeEmitter');
 
-const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const buildOrderRealtimeMessage = (order, changeType = 'updated') => {
+    const shortId = String(order?._id || '').slice(-6).toUpperCase();
+    const place = order?.roomNumber
+        ? `Room ${order.roomNumber}`
+        : order?.tableNumber
+            ? `Table ${order.tableNumber}`
+            : order?.guestName || 'Guest';
+
+    if (changeType === 'new') {
+        return `New ${order?.orderType || 'order'} #${shortId} received for ${place}.`;
+    }
+
+    return `Order #${shortId} status is now ${order?.status || 'updated'} (${place}).`;
+};
+
+const emitOrderRealtimeEvent = (req, order, changeType = 'updated') => {
+    if (!order?._id) return;
+
+    const statusToken = String(order.status || 'na').toLowerCase().replace(/\s+/g, '-');
+
+    emitOpsNotification(req, {
+        eventId: `order-${String(order._id)}-${changeType}-${statusToken}-${Date.now()}`,
+        module: 'orders',
+        entity: 'order',
+        entityId: String(order._id),
+        title: 'Order Update',
+        message: buildOrderRealtimeMessage(order, changeType),
+        data: {
+            _id: String(order._id),
+            orderType: order.orderType,
+            status: order.status,
+            roomNumber: order.roomNumber,
+            tableNumber: order.tableNumber,
+            guestName: order.guestName,
+            createdAt: order.createdAt,
+            updatedAt: order.updatedAt,
+        },
+    });
+};
+
+const readGuestAccessPayload = (req) => {
+    const rawToken = req.headers['x-guest-access-token'];
+    if (!rawToken) return null;
+    try {
+        const payload = jwt.verify(String(rawToken), process.env.JWT_SECRET);
+        if (payload?.type !== 'guest_room_qr') return null;
+        return payload;
+    } catch (_) {
+        return null;
+    }
+};
+
+const isCheckedInStatus = (status) => {
+    const normalized = String(status || '').trim().toLowerCase();
+    return normalized === 'checked-in' || normalized === 'checkedin' || normalized === 'in_house';
+};
+
+const isGuestAllowedForOrder = (guestPayload, order) => {
+    if (!guestPayload || !order) return false;
+
+    const tokenRoom = String(guestPayload.roomNumber || '').trim();
+    const orderRoom = String(order.roomNumber || '').trim();
+    const tokenBooking = String(guestPayload.bookingDocId || '').trim();
+    const orderBooking = String(order.booking || '').trim();
+
+    if (!tokenRoom || tokenRoom !== orderRoom) {
+        return false;
+    }
+
+    if (orderBooking && tokenBooking && tokenBooking !== orderBooking) {
+        return false;
+    }
+
+    return true;
+};
 
 // ============================================================================
 // TABLE MANAGEMENT CONTROLLERS
@@ -37,9 +113,9 @@ exports.getAllTables = async (req, res) => {
             currentOrderId: table.currentOrderId,
             orderStatus: table.currentOrderId ? table.currentOrderId.status : null,
             mergedTableIds: table.mergedTableIds || [],
-            isSplitChild: !!table.isSplitChild,
-            parentTableName: table.parentTableName || '',
-            assignedWaiter: table.assignedWaiter || '',
+            isSplitChild: Boolean(table.isSplitChild),
+            parentTableId: table.parentTableId || null,
+            splitChildTableIds: table.splitChildTableIds || [],
             amount: table.runningOrderAmount || 0,
             duration: table.getOrderDuration() || 0,
             createdAt: table.createdAt,
@@ -60,246 +136,108 @@ exports.getAllTables = async (req, res) => {
     }
 };
 
-// Split one table into multiple child tables.
+// Split one table into multiple sub tables (e.g. T1-A, T1-B)
 exports.splitTable = async (req, res) => {
     try {
-        const { tableId } = req.params;
-        const { subTables = [] } = req.body || {};
+        const { sourceTableId, subTables } = req.body;
 
-        if (!Array.isArray(subTables) || subTables.length < 2) {
-            return res.status(400).json({ success: false, message: 'At least 2 sub-tables are required' });
-        }
-
-        const parentTable = await Table.findById(tableId);
-        if (!parentTable) {
-            return res.status(404).json({ success: false, message: 'Table not found' });
-        }
-
-        let hasActiveOrder = false;
-        if (parentTable.currentOrderId) {
-            const order = await GuestMealOrder.findById(parentTable.currentOrderId).select('status').lean();
-            const activeOrderStatuses = ['Pending', 'Active', 'Confirmed', 'Preparing', 'Ready', 'Started', 'Served', 'Pending Payment', 'Billed'];
-            hasActiveOrder = !!(order && activeOrderStatuses.includes(order.status));
-
-            // Auto-clean stale link when order is already closed/completed/cancelled.
-            if (!hasActiveOrder) {
-                parentTable.currentOrderId = null;
-                parentTable.runningOrderAmount = 0;
-                parentTable.guests = 0;
-                parentTable.orderStartTime = null;
-                if (parentTable.status !== 'Available') parentTable.status = 'Available';
-                await parentTable.save();
-            }
-        }
-
-        if (hasActiveOrder || (parentTable.runningOrderAmount || 0) > 0 || ['Running', 'Occupied', 'Billed'].includes(parentTable.status)) {
+        if (!sourceTableId || !Array.isArray(subTables) || subTables.length < 2) {
             return res.status(400).json({
                 success: false,
-                message: 'Only free tables can be split. Please close active order first.'
+                message: 'Source table and at least 2 sub tables are required'
             });
         }
 
-        const normalizedRows = subTables.map((row) => ({
-            name: String(row?.name || '').trim(),
-            guests: Number(row?.guests) || 0,
-            waiter: String(row?.waiter || '').trim()
-        }));
-
-        if (normalizedRows.some((row) => !row.name || row.guests < 1)) {
-            return res.status(400).json({ success: false, message: 'Each sub-table must have a name and seats >= 1' });
+        const sourceTable = await Table.findById(sourceTableId);
+        if (!sourceTable) {
+            return res.status(404).json({ success: false, message: 'Source table not found' });
         }
 
-        const totalSeats = normalizedRows.reduce((sum, row) => sum + row.guests, 0);
-        if (totalSeats !== Number(parentTable.capacity || 0)) {
-            return res.status(400).json({
-                success: false,
-                message: `Total split seats (${totalSeats}) must match parent capacity (${parentTable.capacity})`
+        if (sourceTable.isSplitChild) {
+            return res.status(400).json({ success: false, message: 'Split child table cannot be split again' });
+        }
+
+        if (Array.isArray(sourceTable.splitChildTableIds) && sourceTable.splitChildTableIds.length > 0) {
+            return res.status(400).json({ success: false, message: 'Table is already split. Merge first.' });
+        }
+
+        const existingTables = await Table.find({}, { tableName: 1, tableNumber: 1 });
+        const existingNames = new Set(existingTables.map(t => String(t.tableName || '').trim().toLowerCase()));
+        const usedNumbers = new Set(existingTables.map(t => Number(t.tableNumber)).filter(Number.isFinite));
+
+        const normalizedSubs = subTables.map((sub, idx) => {
+            const suffix = String.fromCharCode(65 + idx);
+            const fallbackName = `${sourceTable.tableName}-${suffix}`;
+            const requestedName = String(sub?.name || '').trim();
+            const finalName = requestedName || fallbackName;
+
+            return {
+                name: finalName,
+                guests: Math.max(1, Number(sub?.guests || 1)),
+                waiter: String(sub?.waiter || '').trim()
+            };
+        });
+
+        const duplicateNames = new Set();
+        for (const sub of normalizedSubs) {
+            const key = sub.name.toLowerCase();
+            if (existingNames.has(key) || duplicateNames.has(key)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Table name "${sub.name}" already exists. Please rename split tables.`
+                });
+            }
+            duplicateNames.add(key);
+        }
+
+        let nextTableNumber = Math.max(0, ...Array.from(usedNumbers)) + 1;
+        const childDocs = [];
+
+        for (const sub of normalizedSubs) {
+            while (usedNumbers.has(nextTableNumber)) {
+                nextTableNumber += 1;
+            }
+            usedNumbers.add(nextTableNumber);
+
+            childDocs.push({
+                tableName: sub.name,
+                tableNumber: nextTableNumber,
+                capacity: sub.guests,
+                status: sourceTable.status === 'Billed' ? 'Available' : sourceTable.status,
+                guests: sub.guests,
+                type: sourceTable.type || 'General',
+                location: sourceTable.location || 'Main Hall',
+                isSplitChild: true,
+                parentTableId: sourceTable._id,
+                splitChildTableIds: [],
+                reservations: []
             });
+
+            nextTableNumber += 1;
         }
 
-        const payloadNameSet = new Set();
-        for (const row of normalizedRows) {
-            const key = row.name.toLowerCase();
-            if (payloadNameSet.has(key)) {
-                return res.status(400).json({ success: false, message: `Duplicate sub-table name: ${row.name}` });
-            }
-            payloadNameSet.add(key);
+        const createdChildren = await Table.insertMany(childDocs);
 
-            const existing = await Table.findOne({
-                _id: { $ne: parentTable._id },
-                tableName: { $regex: new RegExp(`^${escapeRegex(row.name)}$`, 'i') }
-            }).lean();
-            if (existing) {
-                return res.status(409).json({ success: false, message: `Table name ${row.name} already exists` });
-            }
-        }
-
-        const maxTable = await Table.findOne().sort({ tableNumber: -1 }).select('tableNumber').lean();
-        let nextTableNumber = Number(maxTable?.tableNumber || 0) + 1;
-
-        const childRows = normalizedRows.map((row) => ({
-            tableName: row.name,
-            tableNumber: nextTableNumber++,
-            capacity: row.guests,
-            guests: 0,
-            type: parentTable.type || 'General',
-            location: parentTable.location || 'Main Hall',
-            status: 'Available',
-            assignedWaiter: row.waiter || '',
-            isSplitChild: true,
-            parentTableName: parentTable.tableName
-        }));
-
-        const created = await Table.insertMany(childRows);
-        await Table.findByIdAndDelete(parentTable._id);
-
-        const formatted = created.map((table) => ({
-            _id: table._id,
-            tableId: table._id,
-            tableNumber: table.tableNumber,
-            tableName: table.tableName,
-            type: table.type,
-            location: table.location || 'Main Hall',
-            status: table.status,
-            capacity: table.capacity,
-            guests: table.guests,
-            reservations: table.reservations || [],
-            runningOrderAmount: table.runningOrderAmount || 0,
-            mergedTableIds: table.mergedTableIds || [],
-            isSplitChild: !!table.isSplitChild,
-            parentTableName: table.parentTableName || '',
-            assignedWaiter: table.assignedWaiter || '',
-            amount: table.runningOrderAmount || 0,
-            duration: 0,
-            createdAt: table.createdAt,
-            updatedAt: table.updatedAt
-        }));
+        sourceTable.splitChildTableIds = createdChildren.map(t => t._id);
+        sourceTable.status = 'Available';
+        sourceTable.guests = 0;
+        sourceTable.currentOrderId = null;
+        sourceTable.runningOrderAmount = 0;
+        sourceTable.orderStartTime = null;
+        await sourceTable.save();
 
         return res.status(200).json({
             success: true,
-            message: `Table ${parentTable.tableName} split into ${formatted.length} tables`,
-            data: formatted
-        });
-    } catch (error) {
-        return res.status(500).json({ success: false, message: 'Error splitting table', error: error.message });
-    }
-};
-
-// Close split group and restore original parent table.
-exports.closeSplitTable = async (req, res) => {
-    try {
-        const { tableId } = req.params;
-        const selectedTable = await Table.findById(tableId);
-
-        if (!selectedTable) {
-            return res.status(404).json({ success: false, message: 'Table not found' });
-        }
-
-        if (!selectedTable.isSplitChild || !selectedTable.parentTableName) {
-            return res.status(400).json({
-                success: false,
-                message: 'Selected table is not a split child table'
-            });
-        }
-
-        const parentTableName = String(selectedTable.parentTableName).trim();
-        const splitChildren = await Table.find({
-            isSplitChild: true,
-            parentTableName
-        });
-
-        if (!splitChildren.length) {
-            return res.status(404).json({
-                success: false,
-                message: 'No split child tables found for this parent'
-            });
-        }
-
-        const activeOrderStatuses = ['Pending', 'Active', 'Confirmed', 'Preparing', 'Ready', 'Started', 'Served', 'Pending Payment', 'Billed'];
-        const busyTables = [];
-
-        for (const child of splitChildren) {
-            let hasActiveOrder = false;
-            if (child.currentOrderId) {
-                const order = await GuestMealOrder.findById(child.currentOrderId).select('status').lean();
-                hasActiveOrder = !!(order && activeOrderStatuses.includes(order.status));
-
-                // Auto-clean stale order link if order is already closed/completed/cancelled.
-                if (!hasActiveOrder) {
-                    child.currentOrderId = null;
-                    child.runningOrderAmount = 0;
-                    child.guests = 0;
-                    child.orderStartTime = null;
-                }
+            message: `Table split into ${createdChildren.length} sub tables`,
+            data: {
+                parentTable: sourceTable,
+                splitTables: createdChildren
             }
-
-            const normalizedStatus = String(child.status || '').toLowerCase();
-            const isBusyStatus = ['running', 'occupied', 'billed'].includes(normalizedStatus);
-            const hasAmount = Number(child.runningOrderAmount || 0) > 0;
-
-            if (hasActiveOrder || isBusyStatus || hasAmount) {
-                busyTables.push(child);
-                continue;
-            }
-
-            // Normalize free split child state before close.
-            if (child.status !== 'Available') {
-                child.status = 'Available';
-            }
-            await child.save();
-        }
-
-        if (busyTables.length > 0) {
-            return res.status(409).json({
-                success: false,
-                message: `Cannot close split while tables are active: ${busyTables.map((t) => t.tableName).join(', ')}`
-            });
-        }
-
-        const parentAlreadyExists = await Table.findOne({
-            tableName: new RegExp(`^${escapeRegex(parentTableName)}$`, 'i'),
-            type: selectedTable.type || 'General',
-            isSplitChild: { $ne: true }
-        }).lean();
-
-        if (parentAlreadyExists) {
-            // Idempotent close: if parent already exists from prior partial close, remove children and finish.
-            await Table.deleteMany({ _id: { $in: splitChildren.map((child) => child._id) } });
-            return res.status(200).json({
-                success: true,
-                message: `Split already closed. Parent table ${parentTableName} is available.`,
-                data: parentAlreadyExists
-            });
-        }
-
-        const totalCapacity = splitChildren.reduce((sum, child) => sum + Number(child.capacity || 0), 0);
-        const highestTable = await Table.findOne().sort({ tableNumber: -1 }).select('tableNumber').lean();
-        const nextTableNumber = Number(highestTable?.tableNumber || 0) + 1;
-
-        const restoredParent = await Table.create({
-            tableName: parentTableName,
-            tableNumber: nextTableNumber,
-            capacity: totalCapacity,
-            guests: 0,
-            status: 'Available',
-            type: selectedTable.type || 'General',
-            location: selectedTable.location || 'Main Hall',
-            assignedWaiter: '',
-            isSplitChild: false,
-            parentTableName: ''
-        });
-
-        await Table.deleteMany({ _id: { $in: splitChildren.map((child) => child._id) } });
-
-        return res.status(200).json({
-            success: true,
-            message: `Split closed successfully. Restored table ${parentTableName}`,
-            data: restoredParent
         });
     } catch (error) {
         return res.status(500).json({
             success: false,
-            message: 'Error closing split table',
+            message: 'Error splitting table',
             error: error.message
         });
     }
@@ -732,16 +670,99 @@ exports.releaseTable = async (req, res) => {
     }
 };
 
+// Merge all split children back into the parent table
+exports.mergeSplitTables = async (req, res) => {
+    try {
+        const { tableId } = req.body;
+
+        if (!tableId) {
+            return res.status(400).json({ success: false, message: 'tableId is required' });
+        }
+
+        const table = await Table.findById(tableId);
+        if (!table) {
+            return res.status(404).json({ success: false, message: 'Table not found' });
+        }
+
+        const parentId = table.isSplitChild ? table.parentTableId : table._id;
+        if (!parentId) {
+            return res.status(400).json({ success: false, message: 'Split parent table not found' });
+        }
+
+        const parentTable = await Table.findById(parentId);
+        if (!parentTable) {
+            return res.status(404).json({ success: false, message: 'Parent table not found' });
+        }
+
+        let childIds = Array.isArray(parentTable.splitChildTableIds) ? parentTable.splitChildTableIds : [];
+        if (childIds.length === 0) {
+            const childRows = await Table.find({ parentTableId: parentTable._id, isSplitChild: true }, { _id: 1 });
+            childIds = childRows.map(row => row._id);
+        }
+
+        if (childIds.length === 0) {
+            return res.status(400).json({ success: false, message: 'No split tables found to merge' });
+        }
+
+        await Table.deleteMany({ _id: { $in: childIds } });
+
+        parentTable.splitChildTableIds = [];
+        parentTable.status = 'Available';
+        parentTable.guests = 0;
+        parentTable.currentOrderId = null;
+        parentTable.runningOrderAmount = 0;
+        parentTable.orderStartTime = null;
+        await parentTable.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Split tables merged successfully',
+            data: parentTable
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Error merging split tables',
+            error: error.message
+        });
+    }
+};
+
 // Create new order for a table
 exports.createOrder = async (req, res) => {
     try {
         const { tableId, tableNumber, orderType = 'Direct Payment', roomNumber, guestName, numberOfGuests = 1, taxRate = 0, notes, kotNote, guest, guestPhone } = req.body;
+        const guestAccessPayload = !req.user ? readGuestAccessPayload(req) : null;
+        const isGuestOnlineOrder = Boolean(guestAccessPayload) && orderType === 'Online';
+
+        if (!req.user && !guestAccessPayload) {
+            return res.status(401).json({
+                success: false,
+                message: 'Guest access token missing or expired. Please scan QR again.'
+            });
+        }
+
+        if (guestAccessPayload) {
+            if (orderType !== 'Post to Room' && orderType !== 'Online') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Guest QR flow only supports room orders.'
+                });
+            }
+
+            if (String(roomNumber || '').trim() !== String(guestAccessPayload.roomNumber || '').trim()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Room mismatch in guest order request.'
+                });
+            }
+        }
 
         let table = null;
         let room = null;
 
         // Skip table validation for Take Away and Post to Room
-        if (orderType !== 'Take Away' && orderType !== 'Post to Room') {
+        if (orderType !== 'Take Away' && orderType !== 'Post to Room' && !isGuestOnlineOrder) {
             if (!tableId || !tableId.match(/^[0-9a-fA-F]{24}$/)) {
                 return res.status(400).json({ success: false, message: 'Invalid or missing tableId' });
             }
@@ -772,21 +793,31 @@ exports.createOrder = async (req, res) => {
         }
 
         // For Room Service (Post to Room), try to find the room for linking
-        if (orderType === 'Post to Room' && roomNumber) {
-            const Room = require('../models/Room');
+        if ((orderType === 'Post to Room' || isGuestOnlineOrder) && roomNumber) {
             room = await Room.findOne({ roomNumber: roomNumber });
+
+            if (guestAccessPayload) {
+                const verifiedBooking = await Booking.findById(guestAccessPayload.bookingDocId);
+                if (!verifiedBooking || !isCheckedInStatus(verifiedBooking.status)) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Booking is no longer active for this room.'
+                    });
+                }
+            }
         }
 
         // Create new order
         const orderData = {
-            tableId: (orderType === 'Take Away' || orderType === 'Post to Room') ? null : tableId,
-            table: (orderType === 'Take Away' || orderType === 'Post to Room') ? null : tableId,
+            tableId: (orderType === 'Take Away' || orderType === 'Post to Room' || isGuestOnlineOrder) ? null : tableId,
+            table: (orderType === 'Take Away' || orderType === 'Post to Room' || isGuestOnlineOrder) ? null : tableId,
             tableNumber: (orderType === 'Take Away') ? 0 : tableNumber,
             room: room ? room._id : null,
+            booking: guestAccessPayload?.bookingDocId || null,
             orderType,
-            roomNumber: orderType === 'Post to Room' ? roomNumber : null,
-            guestName: guestName || (orderType === 'Take Away' ? 'Walk-in Customer' : null),
-            guestPhone: guestPhone || req.body.guestPhone || null,
+            roomNumber: (orderType === 'Post to Room' || isGuestOnlineOrder) ? roomNumber : null,
+            guestName: guestAccessPayload?.guestName || guestName || (orderType === 'Take Away' ? 'Walk-in Customer' : null),
+            guestPhone: guestAccessPayload?.mobileNumber || guestPhone || req.body.guestPhone || null,
             guest: guest || null,
             notes: notes || null,
             kotNote: kotNote || null,
@@ -797,7 +828,7 @@ exports.createOrder = async (req, res) => {
                 total: (item.price || 0) * (item.quantity || 1)
             })),
             taxRate: Number(taxRate) || 0,
-            status: orderType === 'Post to Room' ? 'Pending' : 'Active',
+            status: (orderType === 'Post to Room' || orderType === 'Online') ? 'Pending' : 'Active',
             paymentMethod: 'Pending',
             paymentStatus: 'Pending'
         };
@@ -840,6 +871,8 @@ exports.createOrder = async (req, res) => {
             }
         }
 
+        emitOrderRealtimeEvent(req, order, 'new');
+
         res.status(201).json({
             success: true,
             message: 'Order created successfully',
@@ -861,6 +894,14 @@ exports.createOrder = async (req, res) => {
 // Get order by ID
 exports.getOrderById = async (req, res) => {
     try {
+        const guestAccessPayload = !req.user ? readGuestAccessPayload(req) : null;
+        if (!req.user && !guestAccessPayload) {
+            return res.status(401).json({
+                success: false,
+                message: 'Guest access token missing or expired. Please scan QR again.'
+            });
+        }
+
         const order = await GuestMealOrder.findById(req.params.orderId)
             .populate('tableId');
 
@@ -868,6 +909,13 @@ exports.getOrderById = async (req, res) => {
             return res.status(404).json({
                 success: false,
                 message: 'Order not found'
+            });
+        }
+
+        if (guestAccessPayload && !isGuestAllowedForOrder(guestAccessPayload, order)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied for this order.'
             });
         }
 
@@ -879,6 +927,44 @@ exports.getOrderById = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error fetching order',
+            error: error.message
+        });
+    }
+};
+
+// Get latest guest order for current QR guest session
+exports.getLatestGuestOrder = async (req, res) => {
+    try {
+        const guestAccessPayload = readGuestAccessPayload(req);
+        if (!guestAccessPayload) {
+            return res.status(401).json({
+                success: false,
+                message: 'Guest access token missing or expired. Please scan QR again.'
+            });
+        }
+
+        const query = {
+            roomNumber: String(guestAccessPayload.roomNumber || '').trim(),
+            orderType: { $in: ['Online', 'Post to Room'] }
+        };
+
+        if (guestAccessPayload.bookingDocId) {
+            query.booking = guestAccessPayload.bookingDocId;
+        }
+
+        const latestOrder = await GuestMealOrder.findOne(query)
+            .sort({ createdAt: -1 })
+            .populate('tableId');
+
+        return res.status(200).json({
+            success: true,
+            data: latestOrder || null,
+            message: latestOrder ? 'Latest order fetched' : 'No order found for this room yet.'
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Error fetching latest guest order',
             error: error.message
         });
     }
@@ -920,6 +1006,14 @@ exports.updateOrderItems = async (req, res) => {
     try {
         const { orderId } = req.params;
         const { items, taxRate, notes, kotNote, guestName, guestPhone, guest } = req.body;
+        const guestAccessPayload = !req.user ? readGuestAccessPayload(req) : null;
+
+        if (!req.user && !guestAccessPayload) {
+            return res.status(401).json({
+                success: false,
+                message: 'Guest access token missing or expired. Please scan QR again.'
+            });
+        }
 
         const order = await GuestMealOrder.findById(orderId);
         if (!order) {
@@ -927,6 +1021,15 @@ exports.updateOrderItems = async (req, res) => {
                 success: false,
                 message: 'Order not found'
             });
+        }
+
+        if (guestAccessPayload) {
+            if (!isGuestAllowedForOrder(guestAccessPayload, order)) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Guest token is not valid for this order.'
+                });
+            }
         }
 
         if (items) {
@@ -985,6 +1088,11 @@ exports.updateOrderItems = async (req, res) => {
         if (guestPhone !== undefined) order.guestPhone = guestPhone;
         if (guest !== undefined) order.guest = guest;
 
+        if (guestAccessPayload) {
+            order.guestName = guestAccessPayload.guestName || order.guestName;
+            order.guestPhone = guestAccessPayload.mobileNumber || order.guestPhone;
+        }
+
         await order.save();
 
         // Update table running order amount if linked to a table
@@ -995,6 +1103,8 @@ exports.updateOrderItems = async (req, res) => {
                 await table.save();
             }
         }
+
+        emitOrderRealtimeEvent(req, order, 'updated');
 
         res.status(200).json({
             success: true,
@@ -1092,6 +1202,8 @@ exports.billOrder = async (req, res) => {
             io.emit('salesUpdated');
         }
 
+        emitOrderRealtimeEvent(req, order, 'updated');
+
         res.status(200).json({
             success: true,
             message: 'Order billed successfully',
@@ -1133,6 +1245,8 @@ exports.sendToCashier = async (req, res) => {
             table.status = 'Running'; // Keeping it running until Cashier processes it
             await table.save();
         }
+
+        emitOrderRealtimeEvent(req, order, 'updated');
 
         res.status(200).json({
             success: true,
@@ -1177,6 +1291,8 @@ exports.closeOrder = async (req, res) => {
             await table.save();
         }
 
+        emitOrderRealtimeEvent(req, order, 'updated');
+
         res.status(200).json({
             success: true,
             message: 'Order closed and table reset successfully',
@@ -1197,9 +1313,10 @@ exports.closeOrder = async (req, res) => {
 // Get all orders (for View Order page - Active/Billed)
 exports.getAllOrders = async (req, res) => {
     try {
-        const orders = await GuestMealOrder.find({
-            status: { $ne: 'Cancelled' }
-        }).populate('tableId').sort({ createdAt: -1 }).limit(500);
+        const orders = await GuestMealOrder.find({})
+            .populate('tableId')
+            .sort({ createdAt: -1 })
+            .limit(500);
 
         res.status(200).json({
             success: true,
@@ -1210,6 +1327,58 @@ exports.getAllOrders = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error fetching orders',
+            error: error.message
+        });
+    }
+};
+
+// Guest cancellation from QR flow.
+exports.cancelOrderByGuest = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const guestAccessPayload = readGuestAccessPayload(req);
+
+        if (!guestAccessPayload) {
+            return res.status(401).json({
+                success: false,
+                message: 'Guest access token missing or expired. Please scan QR again.'
+            });
+        }
+
+        const order = await GuestMealOrder.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        if (!isGuestAllowedForOrder(guestAccessPayload, order)) {
+            return res.status(403).json({ success: false, message: 'Access denied for this order.' });
+        }
+
+        const currentStatus = String(order.status || '').trim();
+        const cancellableStatuses = ['Pending', 'Active', 'Preparing'];
+        if (!cancellableStatuses.includes(currentStatus)) {
+            return res.status(409).json({
+                success: false,
+                message: 'Order cannot be cancelled once it is Ready or beyond.'
+            });
+        }
+
+        order.status = 'Cancelled';
+        order.notes = [order.notes, '[Guest Cancelled]'].filter(Boolean).join(' | ');
+        await order.save();
+
+        emitOrderRealtimeEvent(req, order, 'updated');
+
+        return res.status(200).json({
+            success: true,
+            message: 'Order cancelled successfully.',
+            data: order
+        });
+    } catch (error) {
+        console.error('Error cancelling order by guest:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error cancelling order',
             error: error.message
         });
     }
@@ -1287,6 +1456,8 @@ exports.updateOrderStatus = async (req, res) => {
             }
         }
 
+        emitOrderRealtimeEvent(req, updatedOrder, 'updated');
+
         return res.status(200).json({
             success: true,
             message: `Order status updated to ${status}`,
@@ -1314,22 +1485,19 @@ exports.getDashboardStats = async (req, res) => {
         const runningTables = await Table.countDocuments({ status: 'Running' });
         const billedTables = await Table.countDocuments({ status: 'Billed' });
 
-        // Rolling 24-hour window keeps cashier cards stable across refresh/timezone changes.
-        const now = new Date();
-        const since24h = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+        // Get today's revenue
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-        const recentClosed = await GuestMealOrder.find({
+        const todayClosed = await GuestMealOrder.find({
             status: 'Closed',
-            $or: [
-                { closedAt: { $gte: since24h } },
-                { closedAt: { $exists: false }, updatedAt: { $gte: since24h } },
-                { closedAt: null, updatedAt: { $gte: since24h } }
-            ]
-        }).select('revenue finalAmount paymentMethod paymentSplits closedAt updatedAt');
+            closedAt: { $gte: today }
+        });
 
-        const totalRevenue = recentClosed.reduce((sum, order) => sum + Number(order.revenue || order.finalAmount || 0), 0);
-        const totalOrders = recentClosed.length;
+        const totalRevenue = todayClosed.reduce((sum, order) => sum + order.revenue, 0);
+        const totalOrders = await GuestMealOrder.countDocuments({ status: 'Closed', closedAt: { $gte: today } });
 
+        // Calculate payment breakdowns for today
         const collections = {
             Cash: 0,
             UPI: 0,
@@ -1338,60 +1506,12 @@ exports.getDashboardStats = async (req, res) => {
             Room: 0
         };
 
-        const normalizeMode = (value = '') => {
-            const lower = String(value).toLowerCase().trim();
-            if (lower === 'cash') return 'Cash';
-            if (lower === 'upi') return 'UPI';
-            if (lower === 'card') return 'Card';
-            if (lower === 'room billing' || lower === 'room') return 'Room';
-            if (lower === 'online') return 'Online';
-            return null;
-        };
-
-        // Primary source for cashier-mode collections: immutable Transaction entries.
-        const recentRestaurantTransactions = await Transaction.find({
-            type: 'Income',
-            category: 'Restaurant',
-            status: { $ne: 'Failed' },
-            date: { $gte: since24h }
-        }).select('amount paymentMethod');
-
-        recentRestaurantTransactions.forEach((txn) => {
-            const key = normalizeMode(txn.paymentMethod);
-            const amount = Number(txn.amount || 0);
-            if (key && ['Cash', 'UPI', 'Card', 'Online'].includes(key) && amount > 0) {
-                collections[key] += amount;
-            }
-        });
-
-        const hasRestaurantTransactions = recentRestaurantTransactions.length > 0;
-
-        recentClosed.forEach((order) => {
-            const payable = Number(order.finalAmount || order.revenue || 0);
-            const splits = Array.isArray(order.paymentSplits) ? order.paymentSplits : [];
-
-            // Room-billed amounts are not present in Transaction model, keep them from order records.
-            if (normalizeMode(order.paymentMethod) === 'Room') {
-                collections.Room += payable;
-                return;
-            }
-
-            if (splits.length > 0) {
-                if (hasRestaurantTransactions) return;
-                splits.forEach((split) => {
-                    const key = normalizeMode(split?.mode);
-                    const amount = Number(split?.amount || 0);
-                    if (key && ['Cash', 'UPI', 'Card', 'Online'].includes(key) && amount > 0) {
-                        collections[key] += amount;
-                    }
-                });
-                return;
-            }
-
-            const key = normalizeMode(order.paymentMethod);
-            // Fallback for legacy orders where transaction row may be missing.
-            if (!hasRestaurantTransactions && key && ['Cash', 'UPI', 'Card', 'Online'].includes(key)) {
-                collections[key] += payable;
+        todayClosed.forEach(order => {
+            const method = order.paymentMethod;
+            if (method && collections.hasOwnProperty(method)) {
+                collections[method] += order.finalAmount || 0;
+            } else if (method === 'Room Billing') {
+                collections.Room += order.finalAmount || 0;
             }
         });
 
@@ -1404,10 +1524,7 @@ exports.getDashboardStats = async (req, res) => {
                 billedTables,
                 totalRevenue,
                 totalOrders,
-                collections,
-                windowHours: 24,
-                windowStart: since24h,
-                windowEnd: now
+                collections
             }
         });
     } catch (error) {
@@ -1782,9 +1899,6 @@ exports.settleOrder = async (req, res) => {
 
             order.paymentMethod = isSplitPayment ? 'Mixed' : paymentMode; // Cash, Card, UPI, or Mixed
             order.paymentStatus = 'Completed';
-            order.paymentSplits = isSplitPayment
-                ? normalizedSplits
-                : [{ mode: normalizePaymentMethod(paymentMode), amount: Number(amount || order.finalAmount || 0) }];
             applySettledBillMeta();
 
             // Also record in overall cashier Transaction model
@@ -1831,6 +1945,8 @@ exports.settleOrder = async (req, res) => {
             await table.save();
         }
 
+        emitOrderRealtimeEvent(req, order, 'updated');
+
         res.status(200).json({
             success: true,
             message: 'Order settled successfully',
@@ -1857,6 +1973,11 @@ exports.getOutletStatus = async (req, res) => {
         const endOfDay = new Date();
         endOfDay.setHours(23, 59, 59, 999);
         const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const pendingLikeStatuses = ['Active', 'Pending', 'Pending Payment'];
+        const inProgressLikeStatuses = ['Active', 'Pending', 'Preparing', 'Started', 'Pending Payment'];
+        const roomOrderTypes = ['Room Service', 'Room Order', 'Post to Room'];
+        const takeAwayOrderTypes = ['Take Away', 'TakeAway'];
+        const onlineOrderTypes = ['Online', 'Online Order', 'Delivery'];
 
         // ============ 1. DINE-IN (Tables) ============
         const totalTables = await Table.countDocuments();
@@ -1866,23 +1987,23 @@ exports.getOutletStatus = async (req, res) => {
 
         // Dine-In Kitchen Stats
         const dineInPending = await GuestMealOrder.countDocuments({
-            status: { $in: ['Active', 'Pending', 'Pending Payment'] },
-            orderType: { $nin: ['Room Service', 'Room Order', 'Post to Room', 'Take Away'] }
+            status: { $in: pendingLikeStatuses },
+            orderType: { $nin: [...roomOrderTypes, ...takeAwayOrderTypes, ...onlineOrderTypes] }
         });
         const dineInPreparing = await GuestMealOrder.countDocuments({
-            status: 'Preparing',
-            orderType: { $nin: ['Room Service', 'Room Order', 'Post to Room', 'Take Away'] }
+            status: { $in: ['Preparing', 'Started'] },
+            orderType: { $nin: [...roomOrderTypes, ...takeAwayOrderTypes, ...onlineOrderTypes] }
         });
         const dineInReady = await GuestMealOrder.countDocuments({
             status: 'Ready',
-            orderType: { $nin: ['Room Service', 'Room Order', 'Post to Room', 'Take Away'] }
+            orderType: { $nin: [...roomOrderTypes, ...takeAwayOrderTypes, ...onlineOrderTypes] }
         });
 
         // Dine-In Avg Prep Time (Include 'Ready' and 'Closed')
         const recentDineIn = await GuestMealOrder.find({
             status: { $in: ['Closed', 'Ready', 'Served', 'Billed'] },
             updatedAt: { $gte: dayAgo },
-            orderType: { $nin: ['Room Service', 'Room Order', 'Post to Room', 'Take Away'] }
+            orderType: { $nin: [...roomOrderTypes, ...takeAwayOrderTypes, ...onlineOrderTypes] }
         });
         let diPrepTotal = 0, diPrepCount = 0;
         recentDineIn.forEach(o => {
@@ -1903,23 +2024,23 @@ exports.getOutletStatus = async (req, res) => {
         const occupiedRoomsCount = await Room.countDocuments({ status: { $in: ['Occupied', 'Booked'] } });
 
         const roomPending = await GuestMealOrder.countDocuments({
-            status: { $in: ['Active', 'Pending', 'Pending Payment'] },
-            orderType: { $in: ['Room Service', 'Room Order', 'Post to Room'] }
+            status: { $in: pendingLikeStatuses },
+            orderType: { $in: roomOrderTypes }
         });
         const roomPreparing = await GuestMealOrder.countDocuments({
-            status: 'Preparing',
-            orderType: { $in: ['Room Service', 'Room Order', 'Post to Room'] }
+            status: { $in: ['Preparing', 'Started'] },
+            orderType: { $in: roomOrderTypes }
         });
         const roomReady = await GuestMealOrder.countDocuments({
             status: 'Ready',
-            orderType: { $in: ['Room Service', 'Room Order', 'Post to Room'] }
+            orderType: { $in: roomOrderTypes }
         });
 
         // Room Service Avg Prep Time (Include 'Ready', 'Closed', 'Served')
         const recentRoom = await GuestMealOrder.find({
             status: { $in: ['Closed', 'Ready', 'Served', 'Billed'] },
             updatedAt: { $gte: dayAgo },
-            orderType: { $in: ['Room Service', 'Room Order', 'Post to Room'] }
+            orderType: { $in: roomOrderTypes }
         });
         let rmPrepTotal = 0, rmPrepCount = 0;
         recentRoom.forEach(o => {
@@ -1938,15 +2059,15 @@ exports.getOutletStatus = async (req, res) => {
 
         // ============ 3. TAKE AWAY ============
         const taPending = await GuestMealOrder.countDocuments({
-            orderType: 'Take Away',
-            status: { $in: ['Active', 'Pending', 'Preparing'] }
+            orderType: { $in: takeAwayOrderTypes },
+            status: { $in: inProgressLikeStatuses }
         });
         const taReady = await GuestMealOrder.countDocuments({
-            orderType: 'Take Away',
+            orderType: { $in: takeAwayOrderTypes },
             status: 'Ready'
         });
         const taClosedToday = await GuestMealOrder.countDocuments({
-            orderType: 'Take Away',
+            orderType: { $in: takeAwayOrderTypes },
             status: 'Closed',
             updatedAt: { $gte: startOfDay, $lte: endOfDay }
         });
@@ -1955,19 +2076,19 @@ exports.getOutletStatus = async (req, res) => {
 
         // Take Away Kitchen Stats
         const taKOTPending = await GuestMealOrder.countDocuments({
-            status: { $in: ['Active', 'Pending', 'Pending Payment'] },
-            orderType: 'Take Away'
+            status: { $in: pendingLikeStatuses },
+            orderType: { $in: takeAwayOrderTypes }
         });
         const taKOTPreparing = await GuestMealOrder.countDocuments({
-            status: 'Preparing',
-            orderType: 'Take Away'
+            status: { $in: ['Preparing', 'Started'] },
+            orderType: { $in: takeAwayOrderTypes }
         });
 
         // Take Away Avg Prep Time (Include 'Ready', 'Closed', 'Picked Up')
         const recentTA = await GuestMealOrder.find({
             status: { $in: ['Closed', 'Ready', 'PickedUp', 'Served', 'Billed'] },
             updatedAt: { $gte: dayAgo },
-            orderType: 'Take Away'
+            orderType: { $in: takeAwayOrderTypes }
         });
         let taPrepTotal = 0, taPrepCount = 0;
         recentTA.forEach(o => {
@@ -1983,7 +2104,49 @@ exports.getOutletStatus = async (req, res) => {
         if (taPending > 10) { taLoad = 'High'; taStaff = 'Busy'; taRisk = 'High'; }
         else if (taPending > 5) { taLoad = 'Moderate'; taStaff = 'Active'; taRisk = 'Moderate'; }
 
-        console.log(`[getOutletStatus] Tables=${totalTables}, Occupied=${occupiedTablesCount}, RoomOccupied=${occupiedRoomsCount}, RoomPending=${roomPending}, TAPending=${taPending}`);
+        // ============ 4. ONLINE ORDER ============
+        const onlinePending = await GuestMealOrder.countDocuments({
+            orderType: { $in: onlineOrderTypes },
+            status: { $in: inProgressLikeStatuses }
+        });
+        const onlineReady = await GuestMealOrder.countDocuments({
+            orderType: { $in: onlineOrderTypes },
+            status: 'Ready'
+        });
+        const onlineClosedToday = await GuestMealOrder.countDocuments({
+            orderType: { $in: onlineOrderTypes },
+            status: 'Closed',
+            updatedAt: { $gte: startOfDay, $lte: endOfDay }
+        });
+        const onlineTotalToday = onlinePending + onlineReady + onlineClosedToday;
+        const onlineCompletionRate = onlineTotalToday > 0
+            ? Math.round(((onlineTotalToday - onlinePending) / onlineTotalToday) * 100)
+            : 0;
+
+        const onlineKOTPreparing = await GuestMealOrder.countDocuments({
+            orderType: { $in: onlineOrderTypes },
+            status: { $in: ['Preparing', 'Started'] }
+        });
+
+        const recentOnline = await GuestMealOrder.find({
+            status: { $in: ['Closed', 'Ready', 'PickedUp', 'Served', 'Billed'] },
+            updatedAt: { $gte: dayAgo },
+            orderType: { $in: onlineOrderTypes }
+        });
+        let onlinePrepTotal = 0, onlinePrepCount = 0;
+        recentOnline.forEach(o => {
+            if (o.updatedAt && o.createdAt) {
+                const t = (o.updatedAt - o.createdAt) / 60000;
+                if (t > 0 && t < 180) { onlinePrepTotal += t; onlinePrepCount++; }
+            }
+        });
+        const onlineAvgPrep = onlinePrepCount > 0 ? Math.round(onlinePrepTotal / onlinePrepCount) : 0;
+
+        let onlineLoad = 'Low', onlineStaff = 'Normal', onlineRisk = 'Minimal';
+        if (onlinePending > 10) { onlineLoad = 'High'; onlineStaff = 'Busy'; onlineRisk = 'High'; }
+        else if (onlinePending > 5) { onlineLoad = 'Moderate'; onlineStaff = 'Active'; onlineRisk = 'Moderate'; }
+
+        console.log(`[getOutletStatus] Tables=${totalTables}, Occupied=${occupiedTablesCount}, RoomOccupied=${occupiedRoomsCount}, RoomPending=${roomPending}, TAPending=${taPending}, OnlinePending=${onlinePending}`);
 
         res.status(200).json({
             success: true,
@@ -2004,6 +2167,13 @@ exports.getOutletStatus = async (req, res) => {
                     pending: taPending,
                     ready: taReady,
                     completionRate: taCompletionRate
+                },
+                online: {
+                    total: onlineTotalToday,
+                    pending: onlinePending,
+                    ready: onlineReady,
+                    completed: onlineClosedToday,
+                    completionRate: onlineCompletionRate
                 },
                 kitchen: {
                     pending: dineInPending,
@@ -2031,6 +2201,15 @@ exports.getOutletStatus = async (req, res) => {
                     load: taLoad,
                     staffLoad: taStaff,
                     delayRisk: taRisk
+                },
+                onlineKitchen: {
+                    pending: onlinePending,
+                    preparing: onlineKOTPreparing,
+                    ready: onlineReady,
+                    avgPrepTime: onlineAvgPrep,
+                    load: onlineLoad,
+                    staffLoad: onlineStaff,
+                    delayRisk: onlineRisk
                 }
             }
         });
@@ -2080,6 +2259,25 @@ exports.deleteOrder = async (req, res) => {
 
         await GuestMealOrder.findByIdAndDelete(orderId);
         console.log(`[deleteOrder] Order deleted successfully: ${orderId}`);
+
+        emitOpsNotification(req, {
+            eventId: `order-${String(orderId)}-deleted-${Date.now()}`,
+            module: 'orders',
+            entity: 'order',
+            entityId: String(orderId),
+            title: 'Order Removed',
+            message: `Order #${String(orderId).slice(-6).toUpperCase()} was deleted.`,
+            data: {
+                _id: String(orderId),
+                status: 'Deleted',
+                orderType: order.orderType,
+                roomNumber: order.roomNumber,
+                tableNumber: order.tableNumber,
+                guestName: order.guestName,
+                createdAt: order.createdAt,
+                updatedAt: new Date().toISOString(),
+            },
+        });
 
         res.status(200).json({
             success: true,

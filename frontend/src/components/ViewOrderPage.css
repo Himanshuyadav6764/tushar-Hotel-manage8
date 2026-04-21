@@ -3,14 +3,21 @@
   background-color: #f8fafc;
   min-height: 100vh;
   font-family: 'Inter', sans-serif;
-  overflow-x: hidden;
+}
+
+.vo-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 /* --- Navigation & Tabs --- */
 .view-order-tabs {
   display: flex;
   gap: 15px;
-  margin-bottom: 24px;
+  margin-bottom: 0;
   align-items: center;
   background: white;
   padding: 8px 12px;
@@ -33,8 +40,8 @@
 
 .tab-btn.active {
   background-color: white;
-  color: #E31E24;
-  border: 1.5px solid #E31E24;
+  color: #dc2626;
+  border: 1.5px solid #dc2626;
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.12);
 }
 
@@ -88,7 +95,7 @@
 }
 
 .filter-search-input:focus {
-  border-color: #E31E24;
+  border-color: #dc2626;
   box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08);
   outline: none;
 }
@@ -99,9 +106,9 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  border: 1.5px solid #d41424;
+  border: 1.5px solid #ef4444;
   background-color: #fff;
-  color: #d41424;
+  color: #ef4444;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -110,29 +117,283 @@
 }
 
 .filter-pill.active {
-  background-color: #d41424;
+  background-color: #ef4444;
   color: white;
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+/* --- Online Order Management Mode --- */
+.oom-top-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.oom-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.oom-header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.oom-back-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  border: 1px solid #d6dde8;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.oom-title {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.oom-subtitle {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.oom-count-badge {
+  background: #fff7ed;
+  color: #f97316;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  border: 1px solid #fed7aa;
+}
+
+.oom-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.oom-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid #dbe2ea;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.oom-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.oom-card-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+.oom-room {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: #e31e24;
+  line-height: 1;
+}
+
+.oom-room-type {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #94a3b8;
+  letter-spacing: 0.06em;
+}
+
+.oom-card-close {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.oom-delete-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  background: #fff1f2;
+  border: 1px solid #fecaca;
+  color: #9f1239;
+  border-radius: 10px;
+  padding: 8px 10px;
+  min-width: 150px;
+  z-index: 20;
+  box-shadow: 0 10px 20px rgba(225, 29, 72, 0.2);
+  font-size: 0.74rem;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.oom-delete-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.oom-delete-yes,
+.oom-delete-no {
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.oom-delete-yes {
+  background: #dc2626;
+  color: #fff;
+}
+
+.oom-delete-no {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.oom-guest-row {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 10px;
+}
+
+.oom-status-pill {
+  display: inline-block;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+.oom-detail-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.oom-detail-label {
+  color: #94a3b8;
+  font-size: 0.7rem;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.oom-detail-value {
+  color: #1e293b;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.oom-card-footer {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.oom-action-row {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.oom-time {
+  color: #94a3b8;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.oom-bill-btn {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.oom-send-btn {
+  background: #fff;
+  color: #ef4444;
+  border: 1.5px solid #fca5a5;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.oom-bill-btn.disabled,
+.oom-send-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.oom-empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  padding: 18px;
+  color: #64748b;
+  font-weight: 700;
 }
 
 /* --- KDS Grid --- */
 .orders-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); /* Auto-fill for responsive square cards */
+  gap: 12px;
 }
 
 .order-card {
   background: #ffffff;
-  border-radius: 6px;
-  border: 1px solid #d41424;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  border: 1px solid #ef4444;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
-  height: 280px;
+  height: 300px; /* Increased height to 300px */
 }
 
 .order-card:hover {
@@ -148,18 +409,18 @@
 
 /* Header */
 .card-header {
-  padding: 3px 6px;
+  padding: 4px 6px; /* Reduced vertical padding */
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #E31E24;
+  background-color: #dc2626;
   color: white;
-  min-height: 24px;
+  min-height: 28px; /* Slightly reduced header height */
   flex-shrink: 0;
 }
 
 .header-table {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -168,7 +429,7 @@
 }
 
 .header-time {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   font-weight: 600;
   opacity: 0.9;
 }
@@ -204,20 +465,20 @@
 
 /* Status Strip */
 .status-strip {
-  padding: 0 6px;
-  font-size: 0.6rem;
+  padding: 0 10px;
+  font-size: 0.65rem;
   font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 18px;
-  min-height: 18px;
+  gap: 6px;
+  height: 24px; /* Fixed strip height */
+  min-height: 24px;
   flex-shrink: 0;
 }
 
 .status-strip.pending-delay {
   background-color: #fff1f2;
-  color: #E31E24;
+  color: #dc2626;
 }
 
 .status-strip.preparing-timer {
@@ -227,7 +488,7 @@
 
 .status-strip.preparing-delay {
   background-color: #fee2e2;
-  color: #b40f1d;
+  color: #b91c1c;
   animation: blink-bg 2s infinite;
 }
 
@@ -247,22 +508,21 @@
 
 /* Body (Bill List) */
 .card-body {
-  padding: 3px 5px;
+  padding: 6px; /* Slightly increased padding again */
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
+  overflow: hidden; /* Hide overflow to force scroll inside items */
 }
 
 .item-list {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  max-height: 72px; /* ~4 items at 18px each */
+  gap: 4px;
+  max-height: 100%; /* Take remaining space */
   overflow-y: auto;
-  padding-right: 2px;
+  padding-right: 4px;
 }
 
 /* Custom scrollbar */
@@ -286,12 +546,12 @@
 .order-item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  font-size: 0.7rem;
+  align-items: center; /* Align items properly */
+  font-size: 0.8rem; /* Returned to 0.8rem */
   font-weight: 500;
   color: #334155;
-  padding: 1px 0;
-  line-height: 1.2;
+  padding: 2px 0; /* Slightly increased padding */
+  line-height: 1.3;
 }
 
 .item-name-qty {
@@ -309,36 +569,10 @@
 .item-price {
   font-weight: 600;
   color: #0f172a;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
 }
 
-/* Special Note (Outside card-body, always visible) */
-.order-special-note {
-  padding: 3px 5px;
-  background: #fffbeb;
-  border-top: 1px solid #fcd34d;
-  font-size: 0.62rem;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  flex-shrink: 0;
-  line-height: 1.2;
-  overflow: hidden;
-}
-
-.special-note-icon {
-  font-size: 0.7rem;
-  flex-shrink: 0;
-}
-
-.special-note-text {
-  color: #92400e;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Order Notes Display (legacy - inside card body) */
+/* Order Notes Display (Inside Card Body) */
 .order-notes-display {
   margin-top: 6px;
   padding: 4px 6px;
@@ -370,27 +604,27 @@
 .status-actions {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 2px;
-  padding: 3px;
+  gap: 4px;
+  padding: 6px;
   background-color: #f8fafc;
   border-top: 1px solid #f1f5f9;
-  flex-shrink: 0;
+  flex-shrink: 0; /* Fixed footer area */
 }
 
 /* Removed duplicate .status-btn definition here, consolidated below */
 .status-icon {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   margin: 0;
 }
 
 /* Footer Actions */
 .card-footer {
   display: flex;
-  gap: 3px;
-  padding: 3px;
+  gap: 4px; /* Reduced gap */
+  padding: 4px; /* Reduced padding */
   background: white;
   border-top: 1px solid #e2e8f0;
-  flex-shrink: 0;
+  flex-shrink: 0; /* Fixed footer area */
 }
 
 /* Status Button Styles */
@@ -402,13 +636,13 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 2px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  padding: 4px 0;
-  font-size: 0.58rem;
+  border-radius: 6px;
+  padding: 6px 0;
+  font-size: 0.65rem;
 }
 
 .status-btn:hover {
@@ -436,13 +670,6 @@
     box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
     border-color: #fdba74;
   }
-}
-
-.blinking-green {
-  animation: glow-green 1.5s infinite !important;
-  color: #16a34a !important;
-  border: 1px solid #86efac !important;
-  background: #f0fdf4 !important;
 }
 
 @keyframes glow-blue {
@@ -499,22 +726,22 @@
 
 /* Icons */
 .status-icon {
-  font-size: 0.8rem;
+  font-size: 0.9rem; /* Reduced from 1.15rem */
 }
 
 /* Footer Actions */
 .card-footer {
   display: grid;
   grid-template-columns: 1fr 1.5fr;
-  gap: 4px;
-  padding: 4px 6px 6px;
+  gap: 8px; /* Reduced gap */
+  padding: 8px 10px 12px; /* Reduced padding */
   background-color: #fff;
 }
 
 .action-btn {
-  padding: 3px 2px;
-  border-radius: 4px;
-  font-size: 0.62rem;
+  padding: 5px 2px; /* Reduced padding */
+  border-radius: 6px;
+  font-size: 0.7rem; /* Reduced from 0.8rem */
   font-weight: 800;
   border: 1.2px solid transparent;
   cursor: pointer;
@@ -531,20 +758,18 @@
 
 .action-btn.send:hover {
   background-color: #dcfce7;
-  transform: translateY(-1px);
 }
 
 
 .action-btn.done {
-  background-color: #d41424;
+  background-color: #ef4444;
   color: white;
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
 .action-btn.done:hover {
-  background-color: #E31E24;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.3);
+  background-color: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
 .disabled {
@@ -568,115 +793,35 @@
 
 @media (max-width: 900px) {
   .orders-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
 @media (max-width: 600px) {
+  .vo-top-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .oom-top-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .oom-title {
+    font-size: 1.3rem;
+  }
+
+  .oom-grid {
+    grid-template-columns: 1fr;
+  }
+
   .orders-grid {
-    grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .view-order-container {
     padding: 12px;
-  }
-}
-
-@media (max-width: 992px) {
-  .view-order-container {
-    padding: 14px;
-  }
-
-  .view-order-tabs {
-    width: 100%;
-    border-radius: 14px;
-    padding: 8px;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .tab-btn {
-    flex: 1 1 calc(50% - 8px);
-    min-width: 140px;
-    padding: 10px 14px;
-    font-size: 13px;
-  }
-
-  .view-order-filters {
-    gap: 10px;
-    margin-bottom: 16px;
-  }
-
-  .search-wrapper,
-  .filter-search-input {
-    min-width: 0;
-    width: 100%;
-  }
-
-  .orders-grid {
-    grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
-    gap: 10px;
-  }
-}
-
-@media (max-width: 768px) {
-  .orders-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  }
-
-  .order-card {
-    height: auto;
-    min-height: 318px;
-  }
-
-  .item-list {
-    max-height: 120px;
-  }
-
-  .status-actions {
-    gap: 4px;
-    padding: 5px;
-  }
-
-  .status-btn {
-    font-size: 0.68rem;
-    padding: 6px 2px;
-  }
-
-  .card-footer {
-    gap: 6px;
-    padding: 6px;
-  }
-
-  .action-btn {
-    font-size: 0.72rem;
-    min-height: 30px;
-    padding: 5px 6px;
-  }
-
-  .filter-pill {
-    padding: 8px 14px;
-    font-size: 12px;
-  }
-}
-
-@media (max-width: 480px) {
-  .orders-grid {
-    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
-    gap: 8px;
-  }
-
-  .tab-btn {
-    flex: 1 1 100%;
-    min-width: 0;
-  }
-
-  .header-table {
-    max-width: 62%;
-  }
-
-  .status-strip {
-    font-size: 0.64rem;
   }
 }
 
@@ -716,7 +861,7 @@
 .bill-history-card {
   background: white;
   border-radius: 12px;
-  border: 1.5px solid #d41424;
+  border: 1.5px solid #ef4444;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   display: flex;
@@ -734,7 +879,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #E31E24;
+  background-color: #dc2626;
   color: white;
 }
 
@@ -811,7 +956,7 @@
 
 .bill-status-badge span.billed {
   background: #fef2f2;
-  color: #E31E24;
+  color: #dc2626;
   border: 1px solid #fecdd3;
 }
 
@@ -860,7 +1005,7 @@
 
 .bill-action-btn.view {
   background-color: #fef2f2;
-  color: #E31E24;
+  color: #dc2626;
   border-color: #fee2e2;
 }
 
@@ -870,13 +1015,13 @@
 }
 
 .bill-action-btn.delete {
-  background-color: #d41424;
+  background-color: #ef4444;
   color: white;
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
 .bill-action-btn.delete:hover {
-  background-color: #E31E24;
+  background-color: #dc2626;
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(220, 38, 38, 0.3);
 }
@@ -952,7 +1097,7 @@
 }
 
 .receipt-close-btn:hover {
-  color: #d41424;
+  color: #ef4444;
 }
 
 .receipt-content {

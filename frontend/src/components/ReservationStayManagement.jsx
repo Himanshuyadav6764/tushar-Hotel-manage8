@@ -22,6 +22,7 @@ import HousekeepingView from './HousekeepingView';
 import RoomService from './RoomService';
 import { useSettings } from '../context/SettingsContext';
 import { calculateRoomTaxBySlab } from '../utils/roomTax';
+import { calculateReservationBillingSummary } from '../utils/reservationBilling';
 
 const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
     const location = useLocation();
@@ -1422,10 +1423,13 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
             return;
         }
 
+        const liveBilling = calculateReservationBillingSummary(reservation, settings);
+        const effectiveOutstanding = Math.max(0, Number(liveBilling?.balance) || 0);
+
         // Check for pending balance - Prevent Check-out if not fully paid (only if mandatorySettlement is enabled)
-        if (reservation.status === 'IN_HOUSE' && reservation.balanceDue > 0.5 && settings.billingRules?.mandatorySettlement !== false) {
+        if (reservation.status === 'IN_HOUSE' && effectiveOutstanding > 0.5 && settings.billingRules?.mandatorySettlement !== false) {
             setPaymentAlertMessage(
-                `Payment Pending! \n\nGuest: ${reservation.guestName} \nRoom: ${reservation.roomNumber} \n\nOutstanding Balance: ${cs}${reservation.balanceDue?.toLocaleString('en-IN')} \n\nPlease settle the full bill in the Folio section before proceeding with check-out.`
+                `Payment Pending! \n\nGuest: ${reservation.guestName} \nRoom: ${reservation.roomNumber} \n\nOutstanding Balance: ${cs}${effectiveOutstanding.toLocaleString('en-IN')} \n\nPlease settle the full bill in the Folio section before proceeding with check-out.`
             );
             setShowPaymentAlert(true);
             return;
@@ -1434,15 +1438,18 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
         setInvoiceGenerationInProgress(true);
 
         try {
+            const normalizedOutstanding = Math.round((effectiveOutstanding || 0) * 100) / 100;
             const billingDataForInvoice = {
-                roomCharges: reservation.roomCharges,
+                roomCharges: liveBilling?.roomCharges || reservation.roomCharges || 0,
                 serviceChargeAmount: reservation.serviceCharge || reservation.serviceChargeAmount || 0,
-                totalDiscount: reservation.discount,
-                subtotal: (reservation.roomCharges || 0) + (reservation.serviceCharge || reservation.serviceChargeAmount || 0) - (reservation.discount || 0),
+                totalDiscount: liveBilling?.totalDiscounts || reservation.discount || 0,
+                subtotal: (liveBilling?.roomCharges || reservation.roomCharges || 0)
+                    + (reservation.serviceCharge || reservation.serviceChargeAmount || 0)
+                    - (liveBilling?.totalDiscounts || reservation.discount || 0),
                 taxAmount: reservation.tax,
-                totalAmount: reservation.totalAmount,
-                paidAmount: reservation.paidAmount,
-                balanceDue: reservation.balanceDue,
+                totalAmount: liveBilling?.grandTotal || reservation.totalAmount || 0,
+                paidAmount: liveBilling?.totalPaid || reservation.paidAmount || 0,
+                balanceDue: normalizedOutstanding,
                 paymentMode: reservation.paymentMode
             };
 
@@ -1465,7 +1472,8 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         status: 'Checked-out',
-                        invoiceId: invoice.invoiceId
+                        invoiceId: invoice.invoiceId,
+                        balanceDue: normalizedOutstanding
                     })
                 });
 
@@ -1491,21 +1499,8 @@ const ReservationStayManagement = ({ viewMode = 'dashboard' }) => {
                     // ignore refresh error
                 }
 
-                // Show specific error from backend
-                if (error.message && error.message.includes('Pending payment')) {
-                    alert(error.message);
-                } else {
-                    // Fallback to local update
-                    setReservations(reservations.map(r =>
-                        r.id === reservation.id ? {
-                            ...r,
-                            status: 'CHECKED_OUT',
-                            invoiceId: invoice.invoiceId,
-                            updatedAt: new Date().toISOString()
-                        } : r
-                    ));
-                    alert('Checkout completed. ' + (error.message || ''));
-                }
+                // Do not force local checkout on backend validation failure.
+                alert(error.message || 'Failed to update checkout status');
             }
         } finally {
             setInvoiceGenerationInProgress(false);

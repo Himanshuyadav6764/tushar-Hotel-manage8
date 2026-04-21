@@ -44,6 +44,19 @@ const tableSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Table'
     }],
+    isSplitChild: {
+        type: Boolean,
+        default: false
+    },
+    parentTableId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Table',
+        default: null
+    },
+    splitChildTableIds: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Table'
+    }],
     originalTableName: String,
     originalCapacity: Number,
 

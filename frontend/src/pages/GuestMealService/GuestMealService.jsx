@@ -4,6 +4,7 @@ import API_URL, { apiCall } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import ReservationListModal from '../../components/ReservationListModal';
+import OrderNotificationPanel from '../../components/OrderNotificationPanel';
 import './GuestMealService.css';
 
 // MenuItem helper component for premium feel
@@ -61,7 +62,7 @@ const GuestMealService = () => {
             .blink-yellow { background-color: #fca5a5; box-shadow: 0 0 10px #fca5a5; }   /* Pending - Reddish/Yellow per user request? User said Pending -> Yellow blink. Preparing -> Red blink. */
             /* Wait, user said Pending -> Yellow, Preparing -> Red. Let's fix colors. */
             .blink-yellow-real { background-color: #fbbf24; box-shadow: 0 0 10px #fbbf24; }
-            .blink-red-real { background-color: #d41424; box-shadow: 0 0 10px #d41424; }
+            .blink-red-real { background-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
             .blink-green-real { background-color: #22c55e; box-shadow: 0 0 10px #22c55e; }
             @keyframes pulse {
                 0% { transform: scale(1); }
@@ -356,9 +357,6 @@ const GuestMealService = () => {
     const [showSplitModal, setShowSplitModal] = useState(false);
     const [splitTableId, setSplitTableId] = useState(null);
     const [splitParts, setSplitParts] = useState(2);
-    const [isSplitSubmitting, setIsSplitSubmitting] = useState(false);
-    const [splitFeedback, setSplitFeedback] = useState({ type: '', message: '' });
-    const [closeSplitConfirmTable, setCloseSplitConfirmTable] = useState(null);
     // Verify User State
     const [showVerifyModal, setShowVerifyModal] = useState(false);
     const [verifyPhoneInput, setVerifyPhoneInput] = useState('');
@@ -480,11 +478,6 @@ const GuestMealService = () => {
         // Prevent sending if already sent (pending payment/billed)
         if (table.status === 'Billed' || table.orderStatus === 'Pending Payment') {
             showToast('Already Sent', 'Bill is already with cashier');
-            return;
-        }
-
-        if (table.orderStatus !== 'Served') {
-            showToast('Send Disabled', 'Send is allowed only when order turns green (Served).');
             return;
         }
 
@@ -644,76 +637,10 @@ const GuestMealService = () => {
         }
     };
 
-    const executeCloseSplitGroup = async (table) => {
-        try {
-            const targetId = table.tableId || table._id;
-            if (!targetId) {
-                showToast('Close Split Failed', 'Table ID is missing.');
-                return;
-            }
-
-            const closeSplitEndpoints = [
-                `/api/guest-meal/tables/${targetId}/close-split`,
-                `/api/tables/${targetId}/close-split`
-            ];
-
-            let closed = false;
-            let lastErrorMessage = 'Unable to close split table.';
-
-            for (const endpoint of closeSplitEndpoints) {
-                const response = await apiCall(endpoint, { method: 'POST' });
-                const responseText = await response.text();
-
-                let data = null;
-                try {
-                    data = responseText ? JSON.parse(responseText) : null;
-                } catch {
-                    data = null;
-                }
-
-                if (response.ok && data?.success) {
-                    closed = true;
-                    showToast('Split Closed', data.message || 'Split closed successfully.');
-                    fetchTables();
-                    break;
-                }
-
-                if (response.status !== 404) {
-                    lastErrorMessage = data?.message || responseText || 'Unable to close split table.';
-                }
-            }
-
-            if (!closed) {
-                throw new Error(lastErrorMessage);
-            }
-        } catch (error) {
-            console.error('Close split error:', error);
-            showToast('Close Split Failed', error.message || 'Unable to close split table right now.');
-        }
-    };
-
-    const handleCloseSplitGroup = (table) => {
-        const targetId = table?.tableId || table?._id;
-        if (!targetId) {
-            showToast('Close Split Failed', 'Table ID is missing.');
-            return;
-        }
-        setCloseSplitConfirmTable(table);
-    };
-
-    const handleConfirmCloseSplit = async () => {
-        if (!closeSplitConfirmTable) return;
-        const selectedTable = closeSplitConfirmTable;
-        setCloseSplitConfirmTable(null);
-        await executeCloseSplitGroup(selectedTable);
-    };
-
     // Handle Menu Action
     const handleMenuAction = (action, table) => {
         if (action === 'Split Table') {
             openSplitModal(table);
-        } else if (action === 'Close Split') {
-            handleCloseSplitGroup(table);
         } else if (action === 'Edit Table') {
             openEditTableModal(table);
         } else if (action === 'Delete Table') {
@@ -723,7 +650,12 @@ const GuestMealService = () => {
         } else if (action === 'Move Guests') {
             openMoveModal(table);
         } else if (action === 'Merge Table') {
-            openMergeModal(table);
+            const hasSplitChildren = Array.isArray(table.splitChildTableIds) && table.splitChildTableIds.length > 0;
+            if (table.isSplitChild || hasSplitChildren) {
+                handleSplitMerge(table);
+            } else {
+                openMergeModal(table);
+            }
         } else if (action === 'Close Table') {
             openCloseModal(table);
         } else if (action === 'Verify User') {
@@ -812,7 +744,7 @@ const GuestMealService = () => {
                 setTables(prev => prev.map(t => (t.tableId === tableToVerify.tableId || t._id === tableToVerify._id) ? { ...t, status: 'Occupied' } : t));
 
                 // Navigate with guest details
-                navigate('/admin/dashboard', {
+                navigate('/admin/food-order', {
                     state: {
                         activeMenu: 'food-order',
                         orderMode: 'dinein',
@@ -913,7 +845,7 @@ const GuestMealService = () => {
                 const resDigits = normalizePhoneDigits(r.phone);
                 if (!resDigits) return;
                 const isMatch = resDigits.includes(inputDigits) || inputDigits.includes(resDigits);
-                if (!isMatch) return;
+                if (!table || !table.tableId) return;
 
                 const timelineMeta = getReservationTimelineMeta(r);
                 if (timelineMeta.isExpiredFromView) return;
@@ -987,7 +919,6 @@ const GuestMealService = () => {
     const openSplitModal = (table) => {
         setSplitTableId(table.tableId || table._id);
         setSplitParts(2);
-        setSplitFeedback({ type: '', message: '' });
 
         const guests = table.guests || table.capacity;
         const initialSubTables = [
@@ -1036,73 +967,43 @@ const GuestMealService = () => {
 
     // Submit Split
     const handleSplitSubmit = async () => {
-        const currentTable = tables.find((t) => (t.tableId || t._id) === splitTableId);
-        if (!currentTable) {
-            setSplitFeedback({ type: 'error', message: 'Selected table not found. Please refresh and try again.' });
+        if (!splitTableId || !Array.isArray(splitSubTables) || splitSubTables.length < 2) {
+            showToast('Split Failed', 'Please configure at least 2 sub tables.');
             return;
         }
 
-        const normalizedSubTables = splitSubTables.map((sub) => ({
-            name: String(sub.name || '').trim(),
-            guests: Number(sub.guests) || 0,
-            waiter: String(sub.waiter || '').trim()
-        }));
+        const sourceTableName = tables.find(t => (t.tableId || t._id) === splitTableId)?.tableName || 'T';
+        const normalizedSubTables = splitSubTables.map((sub, index) => {
+            const fallbackName = `${sourceTableName}-${String.fromCharCode(65 + index)}`;
+            return {
+                name: String(sub?.name || '').trim() || fallbackName,
+                guests: Math.max(1, Number(sub?.guests || 1)),
+                waiter: String(sub?.waiter || '').trim()
+            };
+        });
 
-        if (normalizedSubTables.some((sub) => !sub.name || sub.guests < 1)) {
-            setSplitFeedback({ type: 'error', message: 'Each sub-table needs valid name and minimum 1 seat.' });
-            return;
-        }
-
-        const totalSeats = normalizedSubTables.reduce((sum, sub) => sum + sub.guests, 0);
-        const parentCapacity = Number(currentTable.capacity || 0);
-        if (totalSeats !== parentCapacity) {
-            setSplitFeedback({ type: 'error', message: `Total seats (${totalSeats}) must match parent capacity (${parentCapacity}).` });
-            return;
-        }
-
-        setIsSplitSubmitting(true);
-        setSplitFeedback({ type: '', message: '' });
         try {
-            const response = await apiCall(`/api/guest-meal/tables/${splitTableId}/split`, {
+            const response = await apiCall('/api/guest-meal/tables/split', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ splitParts, subTables: normalizedSubTables })
+                body: JSON.stringify({
+                    sourceTableId: splitTableId,
+                    subTables: normalizedSubTables
+                })
             });
+            const data = await response.json();
 
-            let data;
-            try {
-                data = await response.json();
-            } catch {
-                data = { success: false, message: 'Invalid split response from server' };
+            if (!data.success) {
+                showToast('Split Failed', data.message || 'Unable to split table.');
+                return;
             }
 
-            if (!response.ok || !data.success) {
-                throw new Error(data.message || 'Unable to split table');
-            }
-
-            const created = Array.isArray(data.data) ? data.data : [];
-            setTables((prevTables) => {
-                const withoutParent = prevTables.filter((t) => (t.tableId || t._id) !== splitTableId);
-                return sortTablesForDisplay([...withoutParent, ...created]);
-            });
-
-            setStatusFilter('All');
-            setTypeFilter('All');
-            setLocationFilter('All');
-            setSearchQuery('');
-
-            showToast('Split Success', data.message || 'Table split successfully.');
+            await fetchTables();
             setShowSplitModal(false);
-            setSplitTableId(null);
-            setSplitSubTables([]);
-            setSplitFeedback({ type: '', message: '' });
-
-            fetchTables();
+            showToast('Split Success', `${normalizedSubTables.length} sub tables created.`);
         } catch (error) {
-            setSplitFeedback({ type: 'error', message: error.message || 'Unable to split table right now.' });
-            showToast('Split Failed', error.message || 'Unable to split table right now.');
-        } finally {
-            setIsSplitSubmitting(false);
+            console.error('Split table error:', error);
+            showToast('Split Failed', 'Network error while splitting table.');
         }
     };
 
@@ -1466,6 +1367,29 @@ const GuestMealService = () => {
 
 
 
+    const handleSplitMerge = async (table) => {
+        if (!table || !(table.tableId || table._id)) return;
+
+        try {
+            const response = await apiCall('/api/guest-meal/tables/split/merge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tableId: table.tableId || table._id })
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.message || 'Failed to merge split tables');
+            }
+
+            await fetchTables();
+            showToast('Merge Success', 'All split tables merged back to parent table.');
+        } catch (error) {
+            console.error('Split merge error:', error);
+            showToast('Merge Failed', error.message || 'Failed to merge split tables.');
+        }
+    };
+
     // --- MERGE TABLE LOGIC ---
     const openMergeModal = (table) => {
         setMergeSourceTable(table);
@@ -1494,7 +1418,7 @@ const GuestMealService = () => {
                 setShowMergeModal(false);
 
                 // Navigate to POS with the updated table info
-                navigate('/admin/dashboard', {
+                navigate('/admin/food-order', {
                     state: {
                         activeMenu: 'food-order',
                         orderMode: 'dinein',
@@ -1708,7 +1632,14 @@ const GuestMealService = () => {
         const appliedFilterMinutes = timeToMinutes(toTime24(appliedTime));
 
         // Create working copy with dynamic status calculation and exclude merged templates
-        let tableList = tables.filter(t => !t.tableName.startsWith('_MERGED_')).map(table => {
+        let tableList = tables
+            .filter(t => {
+                if (String(t.tableName || '').startsWith('_MERGED_')) return false;
+                const hasSplitChildren = Array.isArray(t.splitChildTableIds) && t.splitChildTableIds.length > 0;
+                if (hasSplitChildren && !t.isSplitChild) return false;
+                return true;
+            })
+            .map(table => {
             // Check for current active reservation
             const activeRes = (table.reservations || []).find(res => {
                 const timeline = getReservationTimelineMeta(res);
@@ -1727,8 +1658,8 @@ const GuestMealService = () => {
                 calculatedStatus = 'Reserved';
             }
 
-            return { ...table, calculatedStatus, activeReservation: activeRes };
-        });
+                return { ...table, calculatedStatus, activeReservation: activeRes };
+            });
 
         // Apply Status Filter using calculatedStatus
         if (statusFilter !== 'All') {
@@ -1900,7 +1831,7 @@ const GuestMealService = () => {
         }
 
         // Navigate to food order
-        navigate('/admin/dashboard', {
+        navigate('/admin/food-order', {
             state: {
                 activeMenu: 'food-order',
                 orderMode: 'dinein', // Lock to Dine In only
@@ -2060,12 +1991,15 @@ const GuestMealService = () => {
                         <h1 className="gms-page-title">Dining Dashboard</h1>
                         <p className="gms-subtitle">Manage your restaurant tables and reservations</p>
                     </div>
-                    <button
-                        className="btn btn-primary add-table-btn-gms"
-                        onClick={openCreateTableModal}
-                    >
-                        + ADD TABLE
-                    </button>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+                        <OrderNotificationPanel scope="table-view" />
+                        <button
+                            className="btn btn-primary add-table-btn-gms"
+                            onClick={openCreateTableModal}
+                        >
+                            + ADD TABLE
+                        </button>
+                    </div>
                 </div>
 
                 <div className="gms-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
@@ -2074,7 +2008,7 @@ const GuestMealService = () => {
                         <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#111827', marginTop: '8px' }}>{stats.available}</div>
                     </div>
                     <div style={{ background: '#fef2f2', padding: '20px', borderRadius: '12px', border: '1px solid #fee2e2' }}>
-                        <div style={{ fontSize: '0.875rem', color: '#b40f1d', fontWeight: '600' }}>Occupied (Running)</div>
+                        <div style={{ fontSize: '0.875rem', color: '#991b1b', fontWeight: '600' }}>Occupied (Running)</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#111827', marginTop: '8px' }}>{stats.running}</div>
                     </div>
                     <div style={{ background: '#fff7ed', padding: '20px', borderRadius: '12px', border: '1px solid #ffedd5' }}>
@@ -2690,7 +2624,7 @@ const GuestMealService = () => {
                         </div>
 
                         <div className="add-payment-body">
-                            <div style={{ padding: '14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', marginBottom: '18px', color: '#b40f1d', fontWeight: '600' }}>
+                            <div style={{ padding: '14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', marginBottom: '18px', color: '#991b1b', fontWeight: '600' }}>
                                 Start a walk-in order for this table by entering guest count.
                             </div>
 
@@ -2731,7 +2665,7 @@ const GuestMealService = () => {
             {/* Split Table Modal */}
             {
                 showSplitModal && (
-                    <div className="add-payment-overlay" onClick={() => { setShowSplitModal(false); setSplitFeedback({ type: '', message: '' }); }}>
+                    <div className="add-payment-overlay" onClick={() => setShowSplitModal(false)}>
                         <div className="add-payment-modal split-table-premium" onClick={(e) => e.stopPropagation()}>
                             {/* Modern Premium Header */}
                             <div className="premium-payment-header">
@@ -2742,18 +2676,12 @@ const GuestMealService = () => {
                                     <h3>Split Table - {tables.find(t => t.tableId === splitTableId)?.tableName}</h3>
                                     <span>TABLE CONFIGURATION</span>
                                 </div>
-                                <button className="premium-close-btn" onClick={() => { setShowSplitModal(false); setSplitFeedback({ type: '', message: '' }); }}>
+                                <button className="premium-close-btn" onClick={() => setShowSplitModal(false)}>
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                 </button>
                             </div>
 
                             <div className="add-payment-body">
-                                {splitFeedback.message && (
-                                    <div className={`split-feedback-card ${splitFeedback.type === 'error' ? 'error' : 'success'}`}>
-                                        {splitFeedback.message}
-                                    </div>
-                                )}
-
                                 {/* Capacity Summary Info */}
                                 <div className="split-info-card">
                                     <div className="info-item">
@@ -2815,8 +2743,8 @@ const GuestMealService = () => {
                             </div>
 
                             <div className="payment-modal-footer">
-                                <button className="btn-secondary" onClick={() => { setShowSplitModal(false); setSplitFeedback({ type: '', message: '' }); }}>CANCEL</button>
-                                <button className="btn-primary" onClick={handleSplitSubmit} disabled={isSplitSubmitting}>
+                                <button className="btn-secondary" onClick={() => setShowSplitModal(false)}>CANCEL</button>
+                                <button className="btn-primary" onClick={handleSplitSubmit}>
                                     <span>CONFIRM SPLIT</span>
                                 </button>
                             </div>
@@ -2824,41 +2752,6 @@ const GuestMealService = () => {
                     </div>
                 )
             }
-
-            {/* Close Split Confirmation Card */}
-            {closeSplitConfirmTable && (
-                <div className="add-payment-overlay" onClick={() => setCloseSplitConfirmTable(null)}>
-                    <div className="add-payment-modal" onClick={(e) => e.stopPropagation()} style={{ width: '460px' }}>
-                        <div className="premium-payment-header">
-                            <div className="header-icon-wrap">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M12 9v4"></path>
-                                    <path d="M12 17h.01"></path>
-                                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                                </svg>
-                            </div>
-                            <div className="header-text">
-                                <h3>Close Split Table</h3>
-                                <span>{closeSplitConfirmTable.parentTableName || closeSplitConfirmTable.tableName}</span>
-                            </div>
-                            <button className="premium-close-btn" onClick={() => setCloseSplitConfirmTable(null)}>
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
-                        </div>
-
-                        <div className="add-payment-body">
-                            <div className="split-feedback-card error" style={{ marginBottom: 0 }}>
-                                This will remove all split cards and restore the parent table.
-                            </div>
-                        </div>
-
-                        <div className="payment-modal-footer">
-                            <button className="btn-secondary" onClick={() => setCloseSplitConfirmTable(null)}>CANCEL</button>
-                            <button className="btn-primary" onClick={handleConfirmCloseSplit}>CONFIRM CLOSE SPLIT</button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
 
 
@@ -2894,15 +2787,15 @@ const GuestMealService = () => {
                                         </div>
                                     </div>
 
-                                    <div style={{ fontSize: '1.5rem', color: '#d41424', fontWeight: '700' }}>→</div>
+                                    <div style={{ fontSize: '1.5rem', color: '#e11d48', fontWeight: '700' }}>→</div>
 
                                     <div style={{ flex: 1, textAlign: 'center' }}>
                                         <div className="field-label-premium" style={{ marginBottom: '8px' }}>TO</div>
-                                        <div style={{ background: '#fff8f1', borderRadius: '16px', border: '2px dashed #d41424', minHeight: '72px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <div style={{ background: '#fff8f1', borderRadius: '16px', border: '2px dashed #e11d48', minHeight: '72px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <select
                                                 value={moveTargetTableId}
                                                 onChange={(e) => setMoveTargetTableId(e.target.value)}
-                                                style={{ width: '100%', border: 'none', background: 'transparent', padding: '16px', fontSize: '1.1rem', fontWeight: '800', textAlign: 'center', outline: 'none', color: '#d41424', cursor: 'pointer' }}
+                                                style={{ width: '100%', border: 'none', background: 'transparent', padding: '16px', fontSize: '1.1rem', fontWeight: '800', textAlign: 'center', outline: 'none', color: '#e11d48', cursor: 'pointer' }}
                                             >
                                                 <option value="">Table?</option>
                                                 {getValidMoveTargets().map(t => (
@@ -3187,8 +3080,8 @@ const GuestMealService = () => {
                             <div className="add-payment-body" style={{ overflow: 'hidden', flexDirection: 'column', display: 'flex', gap: '16px', padding: '24px', flex: 1, minHeight: 0 }}>
                                 {/* Merging Into badge */}
                                 <div style={{ padding: '14px 16px', background: 'linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%)', borderRadius: '14px', border: '1px solid #fee2e2' }}>
-                                    <div className="field-label-premium" style={{ color: '#b40f1d', marginBottom: '4px' }}>MERGING INTO</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#d41424' }}>{mergeSourceTable.tableName.replace('_MERGED_', '')}</div>
+                                    <div className="field-label-premium" style={{ color: '#991b1b', marginBottom: '4px' }}>MERGING INTO</div>
+                                    <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#e11d48' }}>{mergeSourceTable.tableName.replace('_MERGED_', '')}</div>
                                 </div>
 
                                 {/* Table list label */}
@@ -3221,9 +3114,9 @@ const GuestMealService = () => {
                                                 >
                                                     <div style={{
                                                         width: '22px', height: '22px', borderRadius: '6px',
-                                                        border: `2px solid ${isSelected ? '#d41424' : '#d1d5db'}`,
+                                                        border: `2px solid ${isSelected ? '#e11d48' : '#d1d5db'}`,
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        background: isSelected ? '#d41424' : '#fff',
+                                                        background: isSelected ? '#e11d48' : '#fff',
                                                         flexShrink: 0,
                                                         transition: 'all 0.2s ease'
                                                     }}>
@@ -3248,7 +3141,7 @@ const GuestMealService = () => {
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', alignItems: 'center', borderTop: '1px solid #e5e7eb', paddingTop: '10px' }}>
                                             <span style={{ color: '#6b7280', fontWeight: '600', fontSize: '0.85rem' }}>Total Capacity:</span>
-                                            <span style={{ fontWeight: '900', color: '#d41424', fontSize: '1.1rem' }}>
+                                            <span style={{ fontWeight: '900', color: '#e11d48', fontSize: '1.1rem' }}>
                                                 {mergeSourceTable.capacity + tables.filter(t => mergeSelectedTargetIds.includes(t.tableId)).reduce((sum, t) => sum + (t.capacity || 4), 0)} Persons
                                             </span>
                                         </div>
@@ -3387,7 +3280,7 @@ const GuestMealService = () => {
                                                 border: '1px solid #fecdd3',
                                                 shadow: '0 4px 12px rgba(190, 24, 93, 0.08)',
                                                 title: '#9f1239',
-                                                badgeBg: '#b40f1d',
+                                                badgeBg: '#be123c',
                                                 statusBg: '#ffe4e6',
                                                 statusBorder: '#fda4af',
                                                 statusText: '#9f1239',
@@ -3492,7 +3385,7 @@ const GuestMealService = () => {
 
                                     if (normalizePhoneDigits(verifyPhoneInput).length >= 10) {
                                         return (
-                                            <div style={{ marginTop: '16px', padding: '20px', background: '#fff', borderRadius: '16px', border: '2px dashed #fee2e2', color: '#b40f1d', fontSize: '0.95rem', textAlign: 'center' }}>
+                                            <div style={{ marginTop: '16px', padding: '20px', background: '#fff', borderRadius: '16px', border: '2px dashed #fee2e2', color: '#991b1b', fontSize: '0.95rem', textAlign: 'center' }}>
                                                 <div style={{ fontSize: '2rem', marginBottom: '8px' }}>❌</div>
                                                 <div style={{ fontWeight: '700' }}>No active reservation found</div>
                                                 <div style={{ fontSize: '0.85rem', opacity: 0.8, marginTop: '4px' }}>Please double check the phone number</div>
@@ -3520,7 +3413,7 @@ const GuestMealService = () => {
                                         className="btn-secondary"
                                         style={{
                                             borderColor: '#fca5a5',
-                                            color: '#b40f1d',
+                                            color: '#b91c1c',
                                             background: '#fff5f5',
                                             minHeight: '44px',
                                             borderRadius: '10px',
@@ -3851,7 +3744,7 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
             case 'Reserved': return { badge: '#f97316', bg: '#fff7ed', border: '#fdba74' };
             case 'Running': return { badge: '#10b981', bg: '#f0fdf4', border: '#bcfced' };
             case 'Occupied': return { badge: '#fbbf24', bg: '#fffbeb', border: '#fde68a' };
-            case 'Billed': return { badge: '#d41424', bg: '#fef2f2', border: '#fecaca' };
+            case 'Billed': return { badge: '#ef4444', bg: '#fef2f2', border: '#fecaca' };
             case 'Pending': return { badge: '#6366f1', bg: '#eef2ff', border: '#c7d2fe' };
             default: return { badge: '#6b7280', bg: '#fff', border: '#e5e7eb' };
         }
@@ -3863,10 +3756,6 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
     }
     const statusToUse = computedStatus;
     const styles = getStatusStyles(statusToUse);
-    const isPendingBlink = statusToUse !== 'Available' && statusToUse !== 'Reserved' && table.orderStatus === 'Pending';
-    const isRedBlink = statusToUse !== 'Available' && statusToUse !== 'Reserved' && (table.orderStatus === 'Preparing' || table.orderStatus === 'Ready');
-    const isGreenBlink = statusToUse !== 'Available' && statusToUse !== 'Reserved' && table.orderStatus === 'Served';
-    const canSendToCashier = statusToUse === 'Running' && isGreenBlink;
 
     const [elapsedTime, setElapsedTime] = useState(table.duration || 0);
 
@@ -3925,9 +3814,9 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                 transform: showMenu ? 'translateY(-2px)' : 'none'
             }}
         >
-            {isPendingBlink && <div className="blink-dot blink-yellow-real" title="Order Pending"></div>}
-            {isRedBlink && <div className="blink-dot blink-red-real" title="Preparing"></div>}
-            {isGreenBlink && <div className="blink-dot blink-green-real" title="Ready / Served"></div>}
+            {statusToUse !== 'Available' && statusToUse !== 'Reserved' && table.orderStatus === 'Pending' && <div className="blink-dot blink-yellow-real" title="Order Pending"></div>}
+            {statusToUse !== 'Available' && statusToUse !== 'Reserved' && (table.orderStatus === 'Preparing' || table.orderStatus === 'Ready') && <div className="blink-dot blink-red-real" title="Preparing"></div>}
+            {statusToUse !== 'Available' && statusToUse !== 'Reserved' && table.orderStatus === 'Served' && <div className="blink-dot blink-green-real" title="Ready / Served"></div>}
 
             <div className="table-topbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -3972,10 +3861,7 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                                     <>
                                         <MenuItem icon="🚶" label="Walk-in" color="#10b981" weight="600" onClick={(e) => handleAction('Walk-in', e)} />
                                         {settings.billingRules?.splitBill !== false && (
-                                            !table.isSplitChild && <MenuItem icon="✂" label="Split Table" onClick={(e) => handleAction('Split Table', e)} />
-                                        )}
-                                        {table.isSplitChild && (
-                                            <MenuItem icon="🧩" label="Close Split" color="#E31E24" onClick={(e) => handleAction('Close Split', e)} />
+                                            <MenuItem icon="✂" label="Split Table" onClick={(e) => handleAction('Split Table', e)} />
                                         )}
                                         <MenuItem icon="↔" label="Move Guests" onClick={(e) => handleAction('Move Guests', e)} />
                                         {settings.billingRules?.mergeTable !== false && (
@@ -4023,7 +3909,7 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                                             borderRadius: '10px',
                                             border: '1px solid #fecaca',
                                             background: '#fff1f2',
-                                            color: '#b40f1d',
+                                            color: '#991b1b',
                                             fontSize: '12px',
                                             fontWeight: 700,
                                             display: 'inline-flex',
@@ -4043,7 +3929,7 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                                                         border: 'none',
                                                         borderRadius: '6px',
                                                         padding: '4px 10px',
-                                                        background: '#d41424',
+                                                        background: '#dc2626',
                                                         color: '#fff',
                                                         cursor: 'pointer',
                                                         fontWeight: 700,
@@ -4115,7 +4001,7 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                                         animation: isNear ? 'pulse 2s infinite' : 'none'
                                     }}>
                                         {isNear ? '⚠️ Arriving Soon: ' : 'Next: '}
-                                        <span style={{ fontWeight: '800', color: isNear ? '#b40f1d' : '#4b5563' }}>
+                                        <span style={{ fontWeight: '800', color: isNear ? '#b91c1c' : '#4b5563' }}>
                                             {formatTime(nextRes.startTime)} ({diff}m)
                                         </span>
                                         <div style={{ fontSize: '0.75rem', fontWeight: '600', opacity: 0.8 }}>{nextRes.name} ({getSourceLabel(nextRes.source)})</div>
@@ -4162,20 +4048,14 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                 {(statusToUse === 'Running') && (
                     <button
                         onClick={(e) => onSendToCashier(e, table)}
-                        disabled={!canSendToCashier}
-                        title={canSendToCashier ? 'Send final bill to cashier' : 'Send unlocks only on green status'}
+                        title="Send final bill to cashier"
                         style={{
                             padding: '8px 16px', borderRadius: '8px',
-                            background: canSendToCashier ? '#E31E24' : '#d1d5db',
-                            color: canSendToCashier ? 'white' : '#6b7280',
-                            border: 'none',
-                            fontWeight: '700',
-                            cursor: canSendToCashier ? 'pointer' : 'not-allowed',
-                            fontSize: '0.85rem',
-                            boxShadow: canSendToCashier ? '0 2px 4px rgba(220, 38, 38, 0.3)' : 'none',
+                            background: '#E31E24', color: 'white', border: 'none',
+                            fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem',
+                            boxShadow: '0 2px 4px rgba(220, 38, 38, 0.3)',
                             transition: 'all 0.2s ease',
-                            whiteSpace: 'nowrap',
-                            opacity: canSendToCashier ? 1 : 0.85
+                            whiteSpace: 'nowrap'
                         }}
                     >
                         Send

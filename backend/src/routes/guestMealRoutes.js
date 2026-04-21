@@ -30,11 +30,11 @@ router.post('/tables/initialize', guestMealController.initializeTables);
 // Merge tables
 router.post('/tables/merge', guestMealController.mergeTables);
 
-// Split table into sub-tables
-router.post('/tables/:tableId/split', guestMealController.splitTable);
+// Split table
+router.post('/tables/split', guestMealController.splitTable);
 
-// Close split and restore parent table
-router.post('/tables/:tableId/close-split', guestMealController.closeSplitTable);
+// Merge all split parts back to parent
+router.post('/tables/split/merge', guestMealController.mergeSplitTables);
 
 // Release/Unmerge tables
 router.post('/tables/:tableId/release', guestMealController.releaseTable);
@@ -58,8 +58,14 @@ router.post('/orders/create', guestMealController.createOrder);
 // Get order by table ID
 router.get('/orders/table/:tableId', guestMealController.getOrderByTableId);
 
+// Get latest order for currently verified QR guest
+router.get('/orders/guest/latest', guestMealController.getLatestGuestOrder);
+
 // Get order by ID
 router.get('/orders/:orderId', guestMealController.getOrderById);
+
+// Guest cancel from QR flow
+router.post('/orders/:orderId/cancel-by-guest', guestMealController.cancelOrderByGuest);
 
 // Update order items
 router.put('/orders/:orderId/items', guestMealController.updateOrderItems);
