@@ -23,10 +23,10 @@ const Footer = () => {
     const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(supportAddress)}`;
 
     const socialLinks = [
-        { icon: <Facebook size={18} />, href: "#", label: "facebook" },
-        { icon: <Instagram size={18} />, href: "#", label: "instagram" },
-        { icon: <Linkedin size={18} />, href: "#", label: "linkedin" },
-        { icon: <Youtube size={18} />, href: "#", label: "youtube" }
+        { icon: <Facebook size={18} />, href: "https://www.facebook.com/people/Bireena-Bireena/61572904348705/", label: "facebook" },
+        { icon: <Instagram size={18} />, href: "https://www.instagram.com/bireenainfo/", label: "instagram" },
+        { icon: <Linkedin size={18} />, href: "https://www.linkedin.com/in/bireena-info-tech-a975533a1/", label: "linkedin" },
+        { icon: <Youtube size={18} />, href: "https://www.youtube.com/@bireenainfotech", label: "youtube" }
     ];
 
     const footerLinks = {
@@ -68,6 +68,8 @@ const Footer = () => {
                                 <a
                                     key={i}
                                     href={social.href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                     className={`s-icon hov-${social.label}`}
                                     aria-label={social.label}
                                 >
