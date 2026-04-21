@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import Reveal from "../components/Reveal";
 
-const PricingButton = ({ recommended }) => {
+const PricingButton = ({ recommended, ctaText, onClick }) => {
     const [hovered, setHovered] = useState(false);
 
     return (
         <button
+            type="button"
+            onClick={onClick}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             style={{
@@ -24,15 +26,30 @@ const PricingButton = ({ recommended }) => {
                 width: "100%"
             }}
         >
-            Get Started
+            {ctaText}
         </button>
     );
 };
 
 const Pricing = () => {
+    const whatsappNumber = "919304942225";
+
+    const openPlanWhatsApp = (planName, ctaText) => {
+        const whatsappMessage = [
+            "Hello Bireena Team,",
+            `I am interested in the ${planName} plan.`,
+            `Action requested: ${ctaText}`,
+            "Please share details and next steps."
+        ].join("\n");
+
+        const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
+        window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    };
+
     const plans = [
         {
             name: "Basic",
+            ctaText: "Start Free Demo",
             price: "₹19,999/mo",
             features: [
                 "Single Hotel Management",
@@ -45,6 +62,7 @@ const Pricing = () => {
         },
         {
             name: "Professional",
+            ctaText: "See Live Demo",
             price: "₹14,999/mo",
             features: [
                 "Up to 3 Hotels",
@@ -57,6 +75,7 @@ const Pricing = () => {
         },
         {
             name: "Enterprise",
+            ctaText: "Talk to Sales",
             price: "Custom",
             features: [
                 "Unlimited Hotels",
@@ -132,7 +151,11 @@ const Pricing = () => {
                                         </li>
                                     ))}
                                 </ul>
-                                <PricingButton recommended={plan.recommended} />
+                                <PricingButton
+                                    recommended={plan.recommended}
+                                    ctaText={plan.ctaText}
+                                    onClick={() => openPlanWhatsApp(plan.name, plan.ctaText)}
+                                />
                             </div>
                         </Reveal>
                     ))}

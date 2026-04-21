@@ -4,6 +4,10 @@ import logo from "../assets/logo_new.jpg";
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaGlobe } from 'react-icons/fa';
 
 const Footer = () => {
+  const supportEmail = "bireenainfo@gmail.com";
+  const supportAddress = "B36, Mitra Mandal Colony, Vashist Colony, Anisabad, Patna, Bihar 800002";
+  const gmailComposeLink = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(supportEmail)}&su=${encodeURIComponent("Inquiry from website")}`;
+
   return (
     <footer className="footer-section">
       <div className="footer-container">
@@ -45,8 +49,9 @@ const Footer = () => {
           <div className="footer-col contact-col">
             <h4>Contact Us</h4>
             <div className="contact-info">
-              <p>Email: <a href="mailto:support@bireena.com">support@bireena.com</a></p>
-              <p>Phone: <a href="tel:+919876543210">+91 98765 43210</a></p>
+              <p>Address: <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(supportAddress)}`} target="_blank" rel="noopener noreferrer">{supportAddress}</a></p>
+              <p>Phone: <a href="tel:9304942225">9304942225</a></p>
+              <p>Email: <a href={gmailComposeLink} target="_blank" rel="noopener noreferrer">{supportEmail}</a></p>
             </div>
             <div className="social-icons">
               <a href="https://www.facebook.com/profile.php?id=61572904348705" target="_blank" rel="noopener noreferrer"><FaFacebookF /></a>

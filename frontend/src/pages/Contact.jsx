@@ -1,8 +1,38 @@
-import React from "react";
+import React, { useState } from "react";
 import Reveal from "../components/Reveal";
 import "./contact.css";
 
 const Contact = () => {
+    const whatsappNumber = "919304942225";
+    const [formData, setFormData] = useState({
+        name: "",
+        email: "",
+        phone: "",
+        message: ""
+    });
+
+    const handleChange = (e) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value
+        });
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+
+        const whatsappMessage = [
+            "New Contact Request",
+            `Name: ${formData.name}`,
+            `Email: ${formData.email}`,
+            `Phone: ${formData.phone}`,
+            `Message: ${formData.message}`
+        ].join("\n");
+
+        const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
+        window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    };
+
     const socials = [
         {
             label: "Facebook",
@@ -80,8 +110,8 @@ const Contact = () => {
                                         <div className="c-info-icon">✉️</div>
                                         <div>
                                             <p className="c-info-label">Email Us</p>
-                                            <a href="mailto:support@bireenaatithi.com" className="c-info-value">
-                                                support@bireenaatithi.com
+                                            <a href="mailto:bireenainfo@gmail.com" className="c-info-value">
+                                                bireenainfo@gmail.com
                                             </a>
                                         </div>
                                     </div>
@@ -90,8 +120,8 @@ const Contact = () => {
                                         <div className="c-info-icon">📞</div>
                                         <div>
                                             <p className="c-info-label">Call Us</p>
-                                            <a href="tel:+919876543210" className="c-info-value">
-                                                +91 98765 43210
+                                            <a href="tel:9304942225" className="c-info-value">
+                                                9304942225
                                             </a>
                                         </div>
                                     </div>
@@ -136,22 +166,22 @@ const Contact = () => {
                             <h3 className="c-form-title">Send us a Message</h3>
                             <p className="c-form-sub">Fill out the form and we'll get back to you within 24 hours.</p>
 
-                            <form className="c-form" onSubmit={(e) => e.preventDefault()}>
+                            <form className="c-form" onSubmit={handleSubmit}>
                                 <div className="c-field">
                                     <label>Your Name</label>
-                                    <input type="text" placeholder="John Doe" />
+                                    <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="John Doe" required />
                                 </div>
                                 <div className="c-field">
                                     <label>Work Email</label>
-                                    <input type="email" placeholder="john@company.com" />
+                                    <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="john@company.com" required />
                                 </div>
                                 <div className="c-field">
                                     <label>Phone Number</label>
-                                    <input type="tel" placeholder="+91 98765-43210" />
+                                    <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="9304942225" required />
                                 </div>
                                 <div className="c-field">
                                     <label>Message</label>
-                                    <textarea placeholder="How can we help your hotel?" rows="4" />
+                                    <textarea name="message" value={formData.message} onChange={handleChange} placeholder="How can we help your hotel?" rows="4" required />
                                 </div>
                                 <button type="submit" className="c-send-btn">
                                     Send Message
