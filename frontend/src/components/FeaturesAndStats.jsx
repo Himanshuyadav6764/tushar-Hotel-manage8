@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     CalendarDays,
     ReceiptText,
@@ -26,6 +27,7 @@ const FeatureCard = ({ icon: Icon, title, description }) => {
 };
 
 const FeaturesAndStats = () => {
+    const navigate = useNavigate();
     const features = [
         {
             icon: CalendarDays,
@@ -99,7 +101,7 @@ const FeaturesAndStats = () => {
                         <p className="fas-cta-desc">
                             Experience the Bireena Atithi advantage for your Hotel today
                         </p>
-                        <button className="fas-cta-btn">
+                        <button className="fas-cta-btn" onClick={() => navigate('/features')}>
                             View All Features
                         </button>
                     </div>
