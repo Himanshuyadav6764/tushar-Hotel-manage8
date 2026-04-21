@@ -27,12 +27,23 @@ const Hero = () => {
                         </p>
 
                         <div className="hero-cta-group">
-                            <Link to="/contact" className="hero-btn hero-btn-primary btn-premium" onClick={() => window.scrollTo(0, 0)}>
+                            <Link to="/login" className="hero-btn hero-btn-primary btn-premium" onClick={() => window.scrollTo(0, 0)}>
                                 <Rocket size={18} />
                                 <span>Get Started</span>
                             </Link>
 
-                            <button type="button" className="hero-btn hero-btn-ghost btn-premium">
+                            <button 
+                                type="button" 
+                                className="hero-btn hero-btn-ghost btn-premium"
+                                onClick={() => {
+                                    const el = document.getElementById('schedule-demo');
+                                    if (el) {
+                                        const yOffset = -80; // account for fixed header offset if any
+                                        const y = el.getBoundingClientRect().top + window.scrollY + yOffset;
+                                        window.scrollTo({top: y, behavior: 'smooth'});
+                                    }
+                                }}
+                            >
                                 <span className="play-dot" aria-hidden="true">
                                     <Play size={12} fill="currentColor" />
                                 </span>

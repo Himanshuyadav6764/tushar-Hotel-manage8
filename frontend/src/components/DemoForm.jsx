@@ -38,7 +38,7 @@ const DemoForm = () => {
     };
 
     return (
-        <section className="demo-section">
+        <section id="schedule-demo" className="demo-section">
             <div className="demo-container">
                 {/* LEFT FORM */}
                 <div className="demo-form">
