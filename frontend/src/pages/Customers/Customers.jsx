@@ -560,6 +560,9 @@ const Customers = () => {
     };
 
     const handleDelete = async (id) => {
+        const confirmDelete = window.confirm('Are you sure you want to delete this customer? This action cannot be undone.');
+        if (!confirmDelete) return;
+
         try {
             const response = await apiCall(`/api/bookings/delete/${id}`, {
                 method: 'DELETE',
@@ -697,7 +700,7 @@ const Customers = () => {
                                 <th>ROOM</th>
                                 <th>STAY DURATION</th>
                                 <th>STATUS</th>
-                                <th>ACTIONS</th>
+                                <th style={{ minWidth: '180px', width: '180px' }}>ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -732,50 +735,32 @@ const Customers = () => {
                                                 {customer.status === 'IN_HOUSE' ? 'CHECKED IN' : 'CHECKED OUT'}
                                             </span>
                                         </td>
-                                        <td>
-                                            <div className="customer-actions">
+                                        <td style={{ minWidth: '180px', width: '180px', paddingRight: '15px' }}>
+                                            <div className="customer-actions" style={{ display: 'flex', flexDirection: 'row', gap: '8px', flexWrap: 'nowrap', alignItems: 'center', width: 'max-content' }}>
                                                 <button
                                                     className="action-btn view-btn"
-                                                    onClick={() => handleViewDetails(customer.id)}
+                                                    onClick={(e) => { e.stopPropagation(); handleViewDetails(customer.id); }}
                                                     title="Show Details"
+                                                    style={{ width: '48px', height: '36px', minWidth: '48px', maxWidth: '48px', padding: 0, flex: '0 0 48px', display: 'flex', justifyContent: 'center', alignItems: 'center', transform: 'none', position: 'relative', zIndex: 10, cursor: 'pointer' }}
                                                 >
                                                     👁️
                                                 </button>
                                                 <button
                                                     className="action-btn delete-btn"
-                                                    onClick={() => setPendingDeleteId(customer.id)}
+                                                    onClick={(e) => { e.stopPropagation(); handleDelete(customer.id); }}
                                                     title="Delete"
+                                                    style={{ width: '48px', height: '36px', minWidth: '48px', maxWidth: '48px', padding: 0, flex: '0 0 48px', display: 'flex', justifyContent: 'center', alignItems: 'center', transform: 'none', position: 'relative', zIndex: 10, cursor: 'pointer' }}
                                                 >
                                                     🗑️
                                                 </button>
                                                 <button
                                                     className="action-btn customer-print-btn"
-                                                    onClick={(event) => handlePrintMenuToggle(event, customer.id)}
+                                                    onClick={(e) => { e.stopPropagation(); handlePrintMenuToggle(e, customer.id); }}
                                                     title="Print"
+                                                    style={{ width: '48px', height: '36px', minWidth: '48px', maxWidth: '48px', padding: 0, flex: '0 0 48px', display: 'flex', justifyContent: 'center', alignItems: 'center', transform: 'none', position: 'relative', zIndex: 10, cursor: 'pointer' }}
                                                 >
                                                     🖨️
                                                 </button>
-                                                {pendingDeleteId === customer.id && (
-                                                    <div className="delete-inline-warning">
-                                                        <span>Are you sure want to delete?</span>
-                                                        <div className="delete-inline-actions">
-                                                            <button
-                                                                className="delete-inline-yes"
-                                                                onClick={() => handleDelete(customer.id)}
-                                                                title="Yes"
-                                                            >
-                                                                Yes
-                                                            </button>
-                                                            <button
-                                                                className="delete-inline-no"
-                                                                onClick={() => setPendingDeleteId(null)}
-                                                                title="No"
-                                                            >
-                                                                No
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -924,7 +909,7 @@ const Customers = () => {
                     onClose={closePrintDrawer}
                     actionType={activePrintAction}
                     booking={activePrintBooking}
-                    onSuccess={() => {}}
+                    onSuccess={() => { }}
                 />
             )}
         </div>

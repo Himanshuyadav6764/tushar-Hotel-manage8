@@ -444,7 +444,7 @@
     justify-content: flex-end;
 }
 
-.reservation-history-meta > span {
+.reservation-history-meta>span {
     color: #7f1d1d;
     font-size: 12px;
     font-weight: 700;
