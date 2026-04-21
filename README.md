@@ -1,4 +1,4 @@
-# Hotel Management System
+# Hotel Management System for HOtels
 
 A comprehensive MERN stack application for hotel management.
 
