@@ -1465,26 +1465,22 @@ const GuestMealService = () => {
                 }
             }
 
-            // Handle Split Tables: If it's a split table, we need to close the PARENT table in the DB
-            // and then refresh the UI to show the parent table again instead of its splits.
-            if (String(closeTableData.tableId).startsWith('SPLIT-') && closeTableData.parentTableId) {
-                const response = await apiCall(`/api/guest-meal/tables/${closeTableData.parentTableId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        status: 'Available',
-                        guests: 0,
-                        currentOrderId: null,
-                        runningOrderAmount: 0,
-                        orderStartTime: null
-                    })
-                });
-
-                if (response.ok) {
-                    fetchTables();
-                    setShowCloseModal(false);
-                    showToast('Success', 'Table closed successfully');
-                    return;
+            // Handle Split Tables: If it's a split table, we need to close the split group (merge back to parent)
+            if (closeTableData.isSplitChild || (Array.isArray(closeTableData.splitChildTableIds) && closeTableData.splitChildTableIds.length > 0)) {
+                try {
+                    const splitResponse = await apiCall(`/api/tables/${closeTableData.tableId || closeTableData._id}/close-split`, {
+                        method: 'POST'
+                    });
+                    const splitData = await splitResponse.json();
+                    if (splitData.success) {
+                        fetchTables();
+                        setShowCloseModal(false);
+                        showToast('Success', 'Split table closed and merged successfully');
+                        return;
+                    }
+                } catch (splitError) {
+                    console.error('Error closing split:', splitError);
+                    // Fallback to regular PUT if split-close fails
                 }
             }
 
@@ -3867,16 +3863,23 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                                     </>
                                 )}
 
-                                {table.status === 'Running' && (
+                                {(['Running', 'Occupied', 'Billed', 'Pending'].includes(table.status) || table.isSplitChild) && (
                                     <>
-                                        <MenuItem icon="↔" label="Move Guests" onClick={(e) => handleAction('Move Guests', e)} />
-                                        {settings.billingRules?.mergeTable !== false && (
+                                        {table.status !== 'Available' && (
+                                            <MenuItem icon="↔" label="Move Guests" onClick={(e) => handleAction('Move Guests', e)} />
+                                        )}
+                                        {settings.billingRules?.mergeTable !== false && table.status !== 'Available' && (
                                             <MenuItem icon="🔗" label="Merge Table" onClick={(e) => handleAction('Merge Table', e)} />
                                         )}
-                                        {(table.amount === 0 || !table.currentOrderId) && (
+                                        {(table.status === 'Running' || table.status === 'Occupied') && (table.amount === 0 || !table.currentOrderId) && (
                                             <MenuItem icon="↺" label="Release Table" color="#E31E24" onClick={(e) => handleAction('Release Table', e)} />
                                         )}
-                                        <MenuItem icon="✓" label="Close Table" color="#E31E24" onClick={(e) => handleAction('Close Table', e)} />
+                                        <MenuItem 
+                                            icon="✓" 
+                                            label={table.isSplitChild ? "Close Split" : "Close Table"} 
+                                            color="#E31E24" 
+                                            onClick={(e) => handleAction('Close Table', e)} 
+                                        />
                                     </>
                                 )}
 
@@ -3884,9 +3887,6 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                                     <MenuItem icon="🔍" label="Verify User" onClick={(e) => handleAction('Verify User', e)} />
                                 )}
 
-                                {table.status === 'Billed' && (
-                                    <MenuItem icon="✓" label="Close Table" color="#E31E24" onClick={(e) => handleAction('Close Table', e)} />
-                                )}
 
                                 {((table.mergedTableIds && table.mergedTableIds.length > 0) || (table.tableName && table.tableName.includes(','))) && (
                                     <MenuItem icon="🔓" label="Release Table" color="#E31E24" weight="700" onClick={(e) => handleAction('Release Table', e)} />
@@ -4042,12 +4042,37 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                     <span style={{ fontSize: '1.2rem', color: '#E31E24', fontWeight: '800' }}>→</span>
                 </div>
 
-                {(statusToUse === 'Running') && (
-                    <button
-                        onClick={(e) => onSendToCashier(e, table)}
-                        title="Send final bill to cashier"
-                        style={{
-                            padding: '8px 16px', borderRadius: '8px',
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {(table.status === 'Running' || table.status === 'Billed' || table.status === 'Occupied') && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleAction('Close Table', e);
+                            }}
+                            style={{
+                                padding: '6px 12px',
+                                borderRadius: '8px',
+                                background: '#fef2f2',
+                                color: '#ef4444',
+                                border: '1px solid #fecaca',
+                                fontSize: '0.75rem',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                transition: '0.2s'
+                            }}
+                            onMouseOver={e => { if(e.target.tagName==='BUTTON') e.target.style.background = '#fee2e2'; }}
+                            onMouseOut={e => { if(e.target.tagName==='BUTTON') e.target.style.background = '#fef2f2'; }}
+                        >
+                            Close
+                        </button>
+                    )}
+
+                    {(statusToUse === 'Running') && (
+                        <button
+                            onClick={(e) => onSendToCashier(e, table)}
+                            title="Send final bill to cashier"
+                            style={{
+                                padding: '8px 16px', borderRadius: '8px',
                             background: '#E31E24', color: 'white', border: 'none',
                             fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem',
                             boxShadow: '0 2px 4px rgba(220, 38, 38, 0.3)',
@@ -4060,7 +4085,8 @@ const TableCard = ({ table, formatDuration, onMenuAction, onDeleteTable, onCardC
                 )}
             </div>
         </div>
-    );
+    </div>
+);
 };
 
 export default GuestMealService;

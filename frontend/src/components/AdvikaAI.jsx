@@ -140,7 +140,6 @@ We help hotels simplify room reservations, automate food ordering with KOT, mana
 • Himanshu Yadav – Full Stack Developer
 • Ankit Kumar Gupta – Project Manager
 • Tushar Kumar – Backend Developer
-• Md Arshad Raza – Frontend Developer
 • Shekhar Kumar – Backend Developer
 
 📞 REACH US:
