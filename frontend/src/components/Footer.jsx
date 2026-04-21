@@ -5,6 +5,7 @@ import {
     Instagram,
     Linkedin,
     Youtube,
+    MapPin,
     Phone,
     Mail,
     ArrowRight,
@@ -16,6 +17,10 @@ import FooterLogo from "../assets/footer-logo.png";
 
 const Footer = () => {
     const currentYear = new Date().getFullYear();
+    const supportEmail = "bireenainfo@gmail.com";
+    const supportAddress = "B36, Mitra Mandal Colony, Vashist Colony, Anisabad, Patna, Bihar 800002";
+    const gmailComposeLink = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(supportEmail)}&su=${encodeURIComponent("Inquiry from Bireena Atithi website")}`;
+    const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(supportAddress)}`;
 
     const socialLinks = [
         { icon: <Facebook size={18} />, href: "#", label: "facebook" },
@@ -110,14 +115,30 @@ const Footer = () => {
                         <h4 className="f-header">Contact</h4>
                         <div className="f-header-line contact-line"></div>
                         <div className="f-contact-info">
-                            <div className="c-item">
+                            <a
+                                className="c-item address-item"
+                                href={mapsLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label="Open address in map"
+                            >
+                                <MapPin size={16} />
+                                <span>{supportAddress}</span>
+                            </a>
+                            <a className="c-item" href="tel:9304942225" aria-label="Call 9304942225">
                                 <Phone size={16} />
-                                <span>+91 91351-5593</span>
-                            </div>
-                            <div className="c-item">
+                                <span>9304942225</span>
+                            </a>
+                            <a
+                                className="c-item"
+                                href={gmailComposeLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Email ${supportEmail}`}
+                            >
                                 <Mail size={16} />
-                                <span className="truncate">support@bireenaatithi.com</span>
-                            </div>
+                                <span className="truncate">{supportEmail}</span>
+                            </a>
                         </div>
                     </div>
                 </div>

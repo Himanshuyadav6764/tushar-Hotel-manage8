@@ -1,74 +1,65 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom"; // Import Link for routing
+import React from "react";
 import Reveal from "../components/Reveal";
 
-const PricingButton = ({ recommended }) => {
-    const [hovered, setHovered] = useState(false);
-
-    return (
-        <Link to="/contact" style={{ textDecoration: "none", width: "100%" }}>
-            <button
-                onMouseEnter={() => setHovered(true)}
-                onMouseLeave={() => setHovered(false)}
-                onClick={() => window.scrollTo(0, 0)}
-                style={{
-                    background: recommended
-                        ? "#d41424"
-                        : hovered ? "#d41424" : "#fef2f2",
-                    color: recommended
-                        ? "#fff"
-                        : hovered ? "#fff" : "#d41424",
-                    border: "none",
-                    padding: "15px",
-                    borderRadius: "10px",
-                    fontWeight: "700",
-                    cursor: "pointer",
-                    transition: "all 0.3s ease",
-                    width: "100%",
-                    fontSize: "15px"
-                }}
-            >
-                Get Started
-            </button>
-        </Link>
-    );
-};
-
 const Pricing = () => {
+    const whatsappNumber = "919304942225";
+
+    const openPlanWhatsApp = (planName, ctaText) => {
+        const whatsappMessage = [
+            "Hello Bireena Team,",
+            `I am interested in the ${planName} plan.`,
+            `Action requested: ${ctaText}`,
+            "Please share details and next steps."
+        ].join("\n");
+
+        const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
+        window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    };
+
     const plans = [
         {
-            name: "Basic",
-            price: "₹14,999/mo", // Swapped to lower price
+            name: "Starter",
+            subtitle: "Perfect for small hotels & guest houses",
+            ctaText: "Start Free Demo",
+            price: "",
             features: [
-                "Single Hotel Management",
-                "Basic Reservation System",
-                "KOT Automation (Limited)",
-                "Standard Billing",
-                "Email Support"
+                "Room Booking & Reservation Management",
+                "Guest Check-In / Check-Out System",
+                "Basic Billing & Invoice Generation",
+                "Room Availability Dashboard",
+                "Daily Reports (Occupancy & Revenue)",
+                "Mobile-Friendly Admin Panel"
             ],
             recommended: false
         },
         {
-            name: "Professional",
-            price: "₹19,999/mo", // Swapped to higher price
+            name: "Growth",
+            subtitle: "Best for growing hotels & restaurants",
+            ctaText: "See Live Demo",
+            price: "",
             features: [
-                "Up to 3 Hotels",
-                "Advanced Reservation Intelligence",
-                "Full KOT Automation",
-                "Inventory Management",
-                "Priority 24/7 Support"
+                "Everything in Starter",
+                "Restaurant + KOT (Kitchen Order Ticket)",
+                "Smart Billing with GST Support",
+                "Staff & Housekeeping Management",
+                "Inventory Tracking (Basic Stock Alerts)",
+                "Advanced Reports & Analytics"
             ],
             recommended: true
         },
         {
             name: "Enterprise",
-            price: "Custom",
+            subtitle: "For large hotels & multi-property businesses",
+            ctaText: "Talk to Sales",
+            price: "",
             features: [
-                "Unlimited Hotels",
-                "Full Customization",
-                "Advanced Analytics & Reports",
-                "Dedicated Account Manager",
-                "Custom API Integration"
+                "Everything in Growth",
+                "Multi-Property Management Dashboard",
+                "AI-Based Revenue Insights & Pricing",
+                "Full Inventory + Vendor Management",
+                "Custom Integrations (POS, OTA, APIs)",
+                "Role-Based Access Control (Admin/Staff)",
+                "Dedicated Support & Onboarding"
             ],
             recommended: false
         }
@@ -130,9 +121,16 @@ const Pricing = () => {
                                     </div>
                                 )}
                                 <h3 style={{ fontSize: "24px", fontWeight: "950", marginBottom: "12px", color: "#111827" }}>{plan.name}</h3>
-                                <div style={{ fontSize: "42px", fontWeight: "950", color: "#d41424", marginBottom: "32px" }}>
-                                    {plan.price}
-                                </div>
+                                {plan.subtitle && (
+                                    <p style={{ fontSize: "16px", color: "#6b7280", marginBottom: "16px", fontWeight: "600" }}>
+                                        {plan.subtitle}
+                                    </p>
+                                )}
+                                {!!plan.price && (
+                                    <div style={{ fontSize: "42px", fontWeight: "950", color: "#d41424", marginBottom: "32px" }}>
+                                        {plan.price}
+                                    </div>
+                                )}
                                 <ul style={{ listStyle: "none", padding: 0, margin: "0 0 50px 0", textAlign: "left", flex: 1 }}>
                                     {plan.features.map((feature, fIndex) => (
                                         <li key={fIndex} style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "12px", color: "#4b5563", fontSize: "15px", fontWeight: "600" }}>
@@ -140,7 +138,24 @@ const Pricing = () => {
                                         </li>
                                     ))}
                                 </ul>
-                                <PricingButton recommended={plan.recommended} />
+                                <button
+                                    type="button"
+                                    onClick={() => openPlanWhatsApp(plan.name, plan.ctaText || "Get Started")}
+                                    style={{
+                                        background: plan.recommended ? "#d41424" : "#fef2f2",
+                                        color: plan.recommended ? "#fff" : "#d41424",
+                                        border: "none",
+                                        padding: "15px",
+                                        borderRadius: "10px",
+                                        fontWeight: "700",
+                                        cursor: "pointer",
+                                        transition: "all 0.3s ease",
+                                        width: "100%",
+                                        fontSize: "15px"
+                                    }}
+                                >
+                                    {plan.ctaText || "Get Started"}
+                                </button>
                             </div>
                         </Reveal>
                     ))}

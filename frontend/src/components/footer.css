@@ -160,10 +160,26 @@
     gap: 12px;
     color: #94a3b8;
     font-size: 14px;
+    text-decoration: none;
+    transition: color 0.2s ease;
 }
 
 .c-item svg {
     color: #fa8231;
+}
+
+.c-item:hover {
+    color: white;
+}
+
+.address-item {
+    align-items: flex-start;
+    line-height: 1.45;
+}
+
+.address-item svg {
+    margin-top: 3px;
+    flex-shrink: 0;
 }
 
 /* THE PREMIUM BOTTOM BANNER */
