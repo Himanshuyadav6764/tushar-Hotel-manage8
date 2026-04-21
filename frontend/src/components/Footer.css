@@ -62,13 +62,29 @@
 }
 
 .brand-col .logo-wrapper {
-  margin-bottom: 16px;
+  margin-bottom: 25px;
+  background: white;
+  display: inline-flex;
+  padding: 14px 28px;
+  border-radius: 16px;
+  border: 2px solid #e11d48;
+  /* 🔥 Static 3D - Always Lifted */
+  box-shadow: 0 10px 0 #e63946;
+  transform: translateY(-5px);
+  transition: all 0.3s ease-out;
+}
+
+.brand-col .logo-wrapper:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 14px 0 #e63946;
 }
 
 .footer-logo-img {
-  height: 48px;
+  height: 56px;
   width: auto;
   object-fit: contain;
+  mix-blend-mode: multiply;
+  filter: brightness(1.1) saturate(1.4);
 }
 
 .brand-desc {
