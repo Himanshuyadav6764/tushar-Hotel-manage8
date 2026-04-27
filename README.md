@@ -1,4 +1,4 @@
-# Hotel Management System for Hotels
+# Hotel Management System
 
 in india for hotels
 
