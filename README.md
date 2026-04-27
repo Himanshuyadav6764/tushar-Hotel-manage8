@@ -2,7 +2,7 @@
 
 Production-ready hotel management platform with a React + Vite frontend and a Node.js + Express API. Built for multi-tenant hotel operations with strong security defaults, reporting, and real-time updates.
 
-Live: https://www.bireenaaathithi.com
+Live: https://www.bireenaaathithi.in
 
 ## Project Structure
 
